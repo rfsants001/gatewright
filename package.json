@@ -1,0 +1,26 @@
+{
+  "name": "gatewright",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Open-source, headless guardrails/governance layer for AI code agents.",
+  "bin": {
+    "gate": "./dist/cli/gate.js"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx src/cli/gate.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}
