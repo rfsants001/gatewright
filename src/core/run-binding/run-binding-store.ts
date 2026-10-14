@@ -68,4 +68,27 @@ export class RunBindingStore {
   bindingsFor(registry: RunBindingRegistry, workspace: string): WorkspaceBindings | undefined {
     return registry.workspaces[workspaceHash(workspace)];
   }
+
+  /**
+   * Apply `mutate` to this workspace's bindings and persist the whole registry atomically.
+   * Other workspaces are preserved untouched. Throws on an unsafe slug or an unavailable
+   * registry (refuses to overwrite a corrupt/unreadable file rather than lose data).
+   */
+  update(workspace: string, mutate: (bindings: WorkspaceBindings) => void): void {
+    const observed = this.observe();
+    if (observed.status !== "observed") {
+      throw new RunBindingError("UNAVAILABLE", `run-binding registry unavailable (${observed.code}); refusing to overwrite`);
+    }
+    const registry = observed.value;
+    const key = workspaceHash(workspace);
+    const bindings: WorkspaceBindings = { ...(registry.workspaces[key] ?? {}) };
+    mutate(bindings);
+    for (const [sessionKey, slug] of Object.entries(bindings)) {
+      if (!isSafeSlug(slug)) {
+        throw new RunBindingError("UNSAFE_SLUG", `unsafe run slug '${slug}' for session '${sessionKey}'`);
+      }
+    }
+    registry.workspaces[key] = bindings;
+    this.#store.write(this.#path, JSON.stringify(registry));
+  }
 }
