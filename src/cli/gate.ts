@@ -51,4 +51,15 @@ function main(argv: string[]): number {
   }
 }
 
-process.exit(main(process.argv.slice(2)));
+const argv = process.argv.slice(2);
+if (argv[0] === "serve") {
+  const { serveStdio } = await import("../mcp/server.js");
+  const server = await serveStdio();
+  const shutdown = (): void => {
+    void server.close().finally(() => process.exit(0));
+  };
+  process.on("SIGINT", shutdown);
+  process.on("SIGTERM", shutdown);
+} else {
+  process.exit(main(argv));
+}
