@@ -58,4 +58,12 @@ export class Journal {
     }
     return { ok: true };
   }
+
+  /**
+   * Fold all events into a derived projection — the read-model the gates consult.
+   * Pure and deterministic: same events → same result. Reads only (no writes).
+   */
+  project<S>(reducer: (state: S, event: JournalEvent) => S, initial: S): S {
+    return this.read().reduce(reducer, initial);
+  }
 }
