@@ -1,12 +1,25 @@
 #!/usr/bin/env node
-// gate — Gatewright CLI entrypoint (scaffold).
-// Real subcommands (init, run, serve, doctor, skill, jev) land from F2 onward.
+// gate — Gatewright CLI entrypoint.
+
+import { readFileSync } from "node:fs";
+import { runHook } from "../host/run-hook.js";
 
 const VERSION = "0.0.0";
 
 function main(argv: string[]): number {
   const [cmd] = argv;
   switch (cmd) {
+    case "hook": {
+      let raw = "";
+      try {
+        raw = readFileSync(0, "utf8");
+      } catch {
+        raw = "";
+      }
+      const out = runHook(raw);
+      if (out.stdout) process.stdout.write(`${out.stdout}\n`);
+      return out.exitCode;
+    }
     case "--version":
     case "-v":
       process.stdout.write(`gate ${VERSION}\n`);
