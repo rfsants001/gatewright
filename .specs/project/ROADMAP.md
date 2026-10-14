@@ -9,8 +9,8 @@
 ### Deliverables
 - [ ] [F0-001] Journal append-only com hash chain (evento → head hash encadeado)
 - [ ] [F0-002] Integridade: verificação da cadeia + detecção de adulteração
-- [ ] [F0-003] Portable artifact store com write atômico (tmp+rename)
-- [ ] [F0-004] Recuperação de crash: replay de write pendente deixa estado consistente
+- [x] [F0-003] Portable artifact store com write atômico (tmp+rename)
+- [x] [F0-004] Recuperação de crash: replay de write pendente deixa estado consistente
 - [ ] [F0-005] Run-binding store ([cwd][sessionKey] → runSlug) com leitura/observação
 - [ ] [F0-006] Projeções derivadas do journal (estado reconstruído a partir dos eventos)
 

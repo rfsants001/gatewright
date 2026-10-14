@@ -1,7 +1,7 @@
 # Tasks: Portable Artifact Store
 > Spec: features/portable-artifact-store/spec.md
 
-## Status: PENDING
+## Status: DONE (2026-10-14) — 8 tests green, typecheck clean
 
 ## Tasks
 
