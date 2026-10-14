@@ -1,6 +1,8 @@
 // Claude Code host adapter — maps its hook payload to GateContext and decisions back to hook output.
 
 import type { GateContext, GateEvent } from "../core/gate/types.js";
+import type { EngineResult } from "../core/gate/engine.js";
+import type { HostAdapter, HostOutput } from "./types.js";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object";
@@ -44,3 +46,22 @@ export function parseClaudeCodeEvent(raw: string): GateContext | null {
     ...(typeof input["last_assistant_message"] === "string" ? { lastMessage: input["last_assistant_message"] } : {}),
   };
 }
+
+export function renderClaudeCodeDecision(result: EngineResult, ctx: GateContext): HostOutput {
+  const d = result.decision;
+  if (d.kind === "allow") return { stdout: "", exitCode: 0 };
+  if (d.kind === "advise") return { stdout: JSON.stringify({ systemMessage: d.message }), exitCode: 0 };
+  // deny: Stop uses the block-decision form; PreToolUse uses permissionDecision.
+  if (ctx.event === "stop") return { stdout: JSON.stringify({ decision: "block", reason: d.reason }), exitCode: 0 };
+  return {
+    stdout: JSON.stringify({
+      hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: d.reason },
+    }),
+    exitCode: 0,
+  };
+}
+
+export const claudeCodeAdapter: HostAdapter = {
+  parse: parseClaudeCodeEvent,
+  render: renderClaudeCodeDecision,
+};
