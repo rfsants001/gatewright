@@ -4,7 +4,7 @@
 
 import type { Journal } from "../journal/journal.js";
 import type { ControlState } from "./control-state.js";
-import { INITIAL_CONTROL_STATE } from "./control-state.js";
+import { canTransition, ControlStateError, INITIAL_CONTROL_STATE } from "./control-state.js";
 
 export const CONTROL_EVENT_TYPE = "CONTROL_STATE_CHANGED";
 
@@ -27,5 +27,19 @@ export class ControlStateMachine {
       if (event.type !== CONTROL_EVENT_TYPE) return state;
       return (event.payload as ControlTransitionPayload).to;
     }, INITIAL_CONTROL_STATE);
+  }
+
+  /**
+   * Transition to `to` if legal from the current state, appending one control event.
+   * Illegal transitions throw `ControlStateError` and write nothing.
+   */
+  transition(to: ControlState, meta?: unknown): ControlState {
+    const from = this.current();
+    if (!canTransition(from, to)) {
+      throw new ControlStateError("ILLEGAL_TRANSITION", `illegal control transition ${from} → ${to}`);
+    }
+    const payload: ControlTransitionPayload = meta === undefined ? { from, to } : { from, to, meta };
+    this.#journal.append({ type: CONTROL_EVENT_TYPE, payload, at: new Date().toISOString() });
+    return to;
   }
 }
