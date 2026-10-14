@@ -42,4 +42,20 @@ export class Journal {
     this.#store.write(this.#path, canonicalize(events));
     return event;
   }
+
+  /**
+   * Revalidate the whole chain: each event's hash is recomputed from its content and
+   * its `prevHash` must link to the previous event's hash (first → genesis sentinel).
+   * Detects tampered content and reordering. Returns the first broken index when invalid.
+   */
+  verify(): VerifyResult {
+    let expectedPrev = GENESIS_PREV_HASH;
+    for (const [index, e] of this.read().entries()) {
+      if (e.prevHash !== expectedPrev) return { ok: false, brokenAt: index };
+      const recomputed = computeHash({ type: e.type, payload: e.payload, at: e.at, prevHash: e.prevHash });
+      if (recomputed !== e.hash) return { ok: false, brokenAt: index };
+      expectedPrev = e.hash;
+    }
+    return { ok: true };
+  }
 }
