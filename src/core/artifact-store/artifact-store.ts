@@ -1,6 +1,16 @@
 // FileArtifactStore — filesystem implementation of the portable artifact store.
 
-import { closeSync, fsyncSync, mkdirSync, openSync, renameSync, rmSync, writeSync } from "node:fs";
+import {
+  closeSync,
+  existsSync,
+  fsyncSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeSync,
+} from "node:fs";
 import { dirname } from "node:path";
 import { randomBytes } from "node:crypto";
 import { ArtifactStoreError } from "./types.js";
@@ -27,5 +37,20 @@ export class FileArtifactStore {
       }
       throw new ArtifactStoreError("WRITE_FAILED", `failed to write artifact at ${path}`, { cause });
     }
+  }
+
+  /** Read `path` as UTF-8 text. Returns null when absent; throws on a real I/O error. */
+  read(path: string): string | null {
+    try {
+      return readFileSync(path, "utf8");
+    } catch (cause) {
+      if ((cause as NodeJS.ErrnoException)?.code === "ENOENT") return null;
+      throw new ArtifactStoreError("READ_FAILED", `failed to read artifact at ${path}`, { cause });
+    }
+  }
+
+  /** Whether `path` exists. */
+  exists(path: string): boolean {
+    return existsSync(path);
   }
 }
