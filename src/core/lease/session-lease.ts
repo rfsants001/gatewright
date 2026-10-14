@@ -1,7 +1,7 @@
 // SessionLease — single-controller ownership lock backed by the artifact store.
 
 import type { ArtifactStore } from "../artifact-store/types.js";
-import type { AcquireResult, Lease } from "./types.js";
+import type { AcquireResult, HeartbeatResult, Lease, ReleaseResult } from "./types.js";
 import { isLive } from "./types.js";
 
 export const DEFAULT_LEASE_TTL_MS = 30_000;
@@ -61,5 +61,26 @@ export class SessionLease {
     };
     this.#store.write(this.#path, JSON.stringify(lease));
     return { acquired: true, lease };
+  }
+
+  /** Renew the lease (heartbeatAt/expiresAt) only when owner AND fencing token match and it is still live. */
+  heartbeat({ owner, fencingToken, now = Date.now(), ttlMs = DEFAULT_LEASE_TTL_MS }: { owner: string; fencingToken: number; now?: number; ttlMs?: number }): HeartbeatResult {
+    const lease = this.read();
+    if (!lease) return { ok: false, reason: "NO_LEASE" };
+    if (lease.owner !== owner) return { ok: false, reason: "NOT_OWNER" };
+    if (lease.fencingToken !== fencingToken) return { ok: false, reason: "STALE_TOKEN" };
+    if (!isLive(lease, now)) return { ok: false, reason: "EXPIRED" };
+    const updated: Lease = { ...lease, heartbeatAt: now, expiresAt: now + ttlMs };
+    this.#store.write(this.#path, JSON.stringify(updated));
+    return { ok: true, lease: updated };
+  }
+
+  /** Mark the lease released when owner AND token match. Idempotent (absent/already-released → ok). */
+  release({ owner, fencingToken }: { owner: string; fencingToken: number }): ReleaseResult {
+    const lease = this.read();
+    if (!lease || lease.released) return { ok: true };
+    if (lease.owner !== owner || lease.fencingToken !== fencingToken) return { ok: false };
+    this.#store.write(this.#path, JSON.stringify({ ...lease, released: true }));
+    return { ok: true };
   }
 }
