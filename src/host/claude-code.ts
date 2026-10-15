@@ -22,6 +22,7 @@ function mapEvent(hookEvent: unknown, toolName: unknown): GateEvent | null {
     return null;
   }
   if (hookEvent === "Stop") return "stop";
+  if (hookEvent === "SubagentStop") return "subagent-stop";
   return null;
 }
 
@@ -51,8 +52,10 @@ export function renderClaudeCodeDecision(result: EngineResult, ctx: GateContext)
   const d = result.decision;
   if (d.kind === "allow") return { stdout: "", exitCode: 0 };
   if (d.kind === "advise") return { stdout: JSON.stringify({ systemMessage: d.message }), exitCode: 0 };
-  // deny: Stop uses the block-decision form; PreToolUse uses permissionDecision.
-  if (ctx.event === "stop") return { stdout: JSON.stringify({ decision: "block", reason: d.reason }), exitCode: 0 };
+  // deny: Stop/SubagentStop use the block-decision form; PreToolUse uses permissionDecision.
+  if (ctx.event === "stop" || ctx.event === "subagent-stop") {
+    return { stdout: JSON.stringify({ decision: "block", reason: d.reason }), exitCode: 0 };
+  }
   return {
     stdout: JSON.stringify({
       hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: d.reason },
