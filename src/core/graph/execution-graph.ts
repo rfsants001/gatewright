@@ -80,4 +80,55 @@ export class ExecutionGraph {
     if (order.length !== this.#nodes.size) throw new GraphError("CYCLE", "execution graph has a cycle");
     return order;
   }
+
+  /** Nodes still open whose dependencies have all PASSED — what may run now. Deterministic. */
+  readyQueue(): string[] {
+    const ids: string[] = [];
+    for (const n of this.#nodes.values()) {
+      if (n.state !== "PENDING" && n.state !== "READY") continue;
+      if ([...n.deps].every((d) => this.#nodes.get(d)?.state === "PASSED")) ids.push(n.id);
+    }
+    return ids.sort();
+  }
+
+  markRunning(id: string): this {
+    this.#set(id, "RUNNING");
+    return this;
+  }
+
+  markPassed(id: string): this {
+    this.#set(id, "PASSED");
+    return this;
+  }
+
+  /** Fail a node and transitively BLOCK everything that (directly or indirectly) depends on it. */
+  markFailed(id: string): this {
+    this.#set(id, "FAILED");
+    const stack = this.#dependentsOf(id);
+    while (stack.length > 0) {
+      const dependent = stack.pop() as string;
+      const node = this.#nodes.get(dependent);
+      if (!node || node.state === "BLOCKED") continue;
+      node.state = "BLOCKED";
+      stack.push(...this.#dependentsOf(dependent));
+    }
+    return this;
+  }
+
+  isComplete(): boolean {
+    for (const n of this.#nodes.values()) {
+      if (n.state !== "PASSED" && n.state !== "FAILED" && n.state !== "BLOCKED") return false;
+    }
+    return true;
+  }
+
+  #set(id: string, state: NodeState): void {
+    const node = this.#nodes.get(id);
+    if (!node) throw new GraphError("UNKNOWN_NODE", `unknown node '${id}'`);
+    node.state = state;
+  }
+
+  #dependentsOf(id: string): string[] {
+    return [...this.#nodes.values()].filter((n) => n.deps.has(id)).map((n) => n.id);
+  }
 }
