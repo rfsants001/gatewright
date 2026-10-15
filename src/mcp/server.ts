@@ -6,6 +6,8 @@ import { z } from "zod";
 import type { GateContext, GateDecision } from "../core/gate/types.js";
 import type { GateRegistry } from "../core/gate/registry.js";
 import { defaultRegistry } from "../host/run-hook.js";
+import { FileArtifactStore } from "../core/artifact-store/artifact-store.js";
+import { JevConfigStore } from "../core/jev/config-store.js";
 
 const contextShape = {
   event: z.string(),
@@ -21,7 +23,10 @@ function text(payload: unknown) {
   return { content: [{ type: "text" as const, text: JSON.stringify(payload) }] };
 }
 
-export function createMcpServer(registry: GateRegistry = defaultRegistry()): McpServer {
+export function createMcpServer(
+  registry: GateRegistry = defaultRegistry(),
+  jevConfig: JevConfigStore = new JevConfigStore(new FileArtifactStore()),
+): McpServer {
   const server = new McpServer({ name: "gatewright", version: "0.0.0" });
 
   server.registerTool(
@@ -42,11 +47,31 @@ export function createMcpServer(registry: GateRegistry = defaultRegistry()): Mcp
     },
   );
 
+  server.registerTool(
+    "configure_jev",
+    {
+      description: "Configure the local Jev decision engine (endpoint, model, budget, enabled). The server owns config; nothing is installed.",
+      inputSchema: {
+        enabled: z.boolean().optional(),
+        endpoint: z.string().optional(),
+        model: z.string().optional(),
+        budget: z.record(z.string(), z.number()).optional(),
+      },
+    },
+    (patch) => text(jevConfig.write(patch)),
+  );
+
+  server.registerTool(
+    "get_jev_config",
+    { description: "Read the current Jev configuration (merged over defaults).", inputSchema: {} },
+    () => text(jevConfig.read()),
+  );
+
   return server;
 }
 
-export async function serveStdio(registry?: GateRegistry): Promise<McpServer> {
-  const server = createMcpServer(registry);
+export async function serveStdio(registry?: GateRegistry, jevConfig?: JevConfigStore): Promise<McpServer> {
+  const server = createMcpServer(registry, jevConfig);
   await server.connect(new StdioServerTransport());
   return server;
 }

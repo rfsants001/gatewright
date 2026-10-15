@@ -6,6 +6,7 @@ import { execSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import type { Gate, GateContext, GateDecision } from "../core/gate/types.js";
+import { withAdvisory, type Advisor } from "../core/jev/advisory.js";
 
 const DEFAULT_MAX_FILES = 25;
 const DEFAULT_MAX_LINES = 800;
@@ -39,6 +40,8 @@ export interface ProportionOptions {
   maxFiles?: number;
   maxLines?: number;
   enforce?: boolean;
+  /** Optional Jev advisory attached to the over-reach message (never changes the decision). */
+  advisor?: Advisor;
 }
 
 export function proportionGate(options: ProportionOptions = {}): Gate {
@@ -63,7 +66,8 @@ export function proportionGate(options: ProportionOptions = {}): Gate {
       if (overFiles) parts.push(`${files} files changed (limit ${maxFiles})`);
       if (overLines) parts.push(`${lines} lines changed (limit ${maxLines})`);
       const msg = `[proportion-gate] Broad scope in this turn — ${parts.join(" · ")}. Confirm this matches the ask; split into smaller deliveries or revert the excess if it drifted.`;
-      return enforce ? { kind: "deny", reason: msg } : { kind: "advise", message: msg };
+      const decision: GateDecision = enforce ? { kind: "deny", reason: msg } : { kind: "advise", message: msg };
+      return withAdvisory(decision, options.advisor, ctx);
     },
   };
 }
