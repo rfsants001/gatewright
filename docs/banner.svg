@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 240" role="img" aria-label="Gatewright — headless guardrails for AI code agents">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b0f14"/>
+      <stop offset="1" stop-color="#11161d"/>
+    </linearGradient>
+    <linearGradient id="amber" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ffb86b"/>
+      <stop offset="1" stop-color="#ff7a45"/>
+    </linearGradient>
+    <linearGradient id="gate" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffcf8b"/>
+      <stop offset="1" stop-color="#ff7a45"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="0" y="0" width="880" height="240" rx="18" fill="url(#bg)"/>
+  <rect x="0.5" y="0.5" width="879" height="239" rx="18" fill="none" stroke="#1e2630" stroke-width="1"/>
+
+  <!-- faint scanlines -->
+  <g stroke="#131a22" stroke-width="1" opacity="0.6">
+    <line x1="24" y1="60" x2="856" y2="60"/>
+    <line x1="24" y1="120" x2="856" y2="120"/>
+    <line x1="24" y1="180" x2="856" y2="180"/>
+  </g>
+
+  <!-- gate glyph: two pillars + lintel + a passing check -->
+  <g transform="translate(60,72)" fill="none" stroke="url(#gate)" stroke-width="7" stroke-linecap="round">
+    <path d="M6 96 L6 20 Q6 8 18 8 L74 8 Q86 8 86 20 L86 96"/>
+    <line x1="6" y1="40" x2="86" y2="40"/>
+  </g>
+  <path d="M86 150 l16 16 l30 -40" transform="translate(60,72)" fill="none" stroke="#7ee787" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- wordmark -->
+  <text x="196" y="112" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="60" font-weight="700" fill="url(#amber)">gatewright</text>
+  <rect x="636" y="76" width="18" height="44" fill="#7ee787" opacity="0.9"/>
+
+  <text x="198" y="150" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="20" fill="#9fb0c0">headless guardrails for AI code agents</text>
+
+  <!-- chips -->
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="15" fill="#cdd9e5">
+    <g>
+      <rect x="198" y="176" width="86" height="30" rx="15" fill="#161d26" stroke="#2a3542"/>
+      <text x="241" y="196" text-anchor="middle">CLI</text>
+    </g>
+    <g>
+      <rect x="294" y="176" width="110" height="30" rx="15" fill="#161d26" stroke="#2a3542"/>
+      <text x="349" y="196" text-anchor="middle">MCP server</text>
+    </g>
+    <g>
+      <rect x="414" y="176" width="150" height="30" rx="15" fill="#161d26" stroke="#2a3542"/>
+      <text x="489" y="196" text-anchor="middle">event-sourced</text>
+    </g>
+    <g>
+      <rect x="574" y="176" width="130" height="30" rx="15" fill="#161d26" stroke="#2a3542"/>
+      <text x="639" y="196" text-anchor="middle">local-AI · Jev</text>
+    </g>
+  </g>
+</svg>
