@@ -3,6 +3,7 @@
 import type { Gate, GateContext, GateDecision } from "../gate/types.js";
 import type { Plan } from "./plan.js";
 import { evaluatePlanScope } from "./plan.js";
+import { withAdvisory, type Advisor } from "../jev/advisory.js";
 
 function dropQuotes(s: string): string {
   return s.replace(/^['"]|['"]$/g, "");
@@ -48,6 +49,8 @@ export interface PlanGateOptions {
   getActiveNodeId: (ctx: GateContext) => string | null;
   /** When true, a missing approved plan blocks (fail-closed). Default false (advisory absence). */
   enforce?: boolean;
+  /** Optional Jev advisory attached to a scope-deny message (never changes the decision). */
+  advisor?: Advisor;
 }
 
 export function planGate(options: PlanGateOptions): Gate {
@@ -65,7 +68,10 @@ export function planGate(options: PlanGateOptions): Gate {
       }
       for (const filePath of mutationPaths(ctx)) {
         const result = evaluatePlanScope({ cwd: ctx.cwd, filePath, plan, activeNodeId: nodeId });
-        if (result.decision === "deny") return { kind: "deny", reason: `plan-gate: ${result.reason ?? "out of scope"}` };
+        if (result.decision === "deny") {
+          const deny: GateDecision = { kind: "deny", reason: `plan-gate: ${result.reason ?? "out of scope"}` };
+          return withAdvisory(deny, options.advisor, ctx);
+        }
       }
       return { kind: "allow" };
     },

@@ -8,6 +8,7 @@ import type { Gate, GateContext, GateDecision } from "../core/gate/types.js";
 import { NODE_NATIVE_CONTROLLER_INACTIVE } from "../core/reconcile/types.js";
 import type { BindingStatus } from "../core/reconcile/types.js";
 import type { ReconcileResult } from "../core/reconcile/native-node-reconciler.js";
+import { withAdvisory, type Advisor } from "../core/jev/advisory.js";
 
 export interface CompletionResolution {
   binding: BindingStatus;
@@ -16,7 +17,7 @@ export interface CompletionResolution {
 
 export type CompletionResolver = (ctx: GateContext) => CompletionResolution | null;
 
-export function completionGate(deps: { resolve?: CompletionResolver } = {}): Gate {
+export function completionGate(deps: { resolve?: CompletionResolver; advisor?: Advisor } = {}): Gate {
   return {
     name: "completion-gate",
     description: "On Stop, enforces run completion via native reconciliation; fails open off the native flow.",
@@ -27,7 +28,8 @@ export function completionGate(deps: { resolve?: CompletionResolver } = {}): Gat
       if (!resolution || resolution.binding !== "bound") return { kind: "allow" }; // fail-open
       const r = resolution.reconcile();
       if (r.status === "controller_inactive") {
-        return { kind: "deny", reason: `[completion-gate] ${NODE_NATIVE_CONTROLLER_INACTIVE}: run has no active native controller.` };
+        const deny: GateDecision = { kind: "deny", reason: `[completion-gate] ${NODE_NATIVE_CONTROLLER_INACTIVE}: run has no active native controller.` };
+        return withAdvisory(deny, deps.advisor, ctx);
       }
       return { kind: "allow" }; // reconciled | pending → accept
     },
