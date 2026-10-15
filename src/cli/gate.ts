@@ -2,9 +2,48 @@
 // gate — Gatewright CLI entrypoint.
 
 import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { runHook } from "../host/run-hook.js";
+import { SkillCatalog } from "../core/skills/catalog.js";
+import { scaffoldSkill } from "../core/skills/scaffold.js";
+import { SkillError } from "../core/skills/types.js";
 
 const VERSION = "0.0.0";
+
+function skillsRoot(): string {
+  return process.env.GATEWRIGHT_SKILLS_DIR ?? join(process.cwd(), "skills");
+}
+
+function skillCommand(args: string[]): number {
+  const [sub, name] = args;
+  if (sub === "list") {
+    const catalog = new SkillCatalog(skillsRoot());
+    for (const skill of catalog.list()) {
+      process.stdout.write(`${skill.frontmatter.name}  [${skill.frontmatter.skillKind}]  ${skill.frontmatter.description}\n`);
+    }
+    for (const p of catalog.problems()) process.stderr.write(`skipped ${p.dir}: ${p.message}\n`);
+    return 0;
+  }
+  if (sub === "new") {
+    if (!name) {
+      process.stderr.write("gate skill new: missing <name>. Usage: gate skill new <name>\n");
+      return 1;
+    }
+    try {
+      const { skillFile } = scaffoldSkill(skillsRoot(), name);
+      process.stdout.write(`created ${skillFile}\n`);
+      return 0;
+    } catch (e) {
+      if (e instanceof SkillError) {
+        process.stderr.write(`gate skill new: ${e.message}\n`);
+        return 1;
+      }
+      throw e;
+    }
+  }
+  process.stderr.write("gate skill: expected 'list' or 'new <name>'.\n");
+  return 1;
+}
 
 function main(argv: string[]): number {
   const [cmd] = argv;
@@ -20,6 +59,8 @@ function main(argv: string[]): number {
       if (out.stdout) process.stdout.write(`${out.stdout}\n`);
       return out.exitCode;
     }
+    case "skill":
+      return skillCommand(argv.slice(1));
     case "--version":
     case "-v":
       process.stdout.write(`gate ${VERSION}\n`);
