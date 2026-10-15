@@ -1,6 +1,6 @@
 // Gate contract — a gate is a pure context → decision function.
 
-export type GateEvent = "pre-read" | "pre-edit" | "pre-bash" | "post-bash" | "post-edit" | "stop";
+export type GateEvent = "pre-read" | "pre-edit" | "pre-bash" | "post-bash" | "post-edit" | "stop" | "subagent-stop";
 
 export interface GateContext {
   event: GateEvent;
