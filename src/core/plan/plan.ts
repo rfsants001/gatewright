@@ -1,0 +1,70 @@
+// Plan - declares, per node, the paths a mutation may touch. The plan-gate's scope source.
+
+import { isAbsolute, relative, resolve, sep } from "node:path";
+
+export interface PlanNodeScope {
+  /** Globs (workspace-relative) this node is allowed to mutate. */
+  allowedPaths: string[];
+}
+
+export interface Plan {
+  revision: string;
+  nodes: Record<string, PlanNodeScope>;
+}
+
+const REGEX_SPECIAL = /[.+^${}()|[\]\\]/;
+
+/** Translate a glob (`*` = within a segment, `**` = across segments) to an anchored RegExp. */
+function globToRegExp(glob: string): RegExp {
+  let out = "";
+  for (let i = 0; i < glob.length; i++) {
+    const c = glob[i] as string;
+    if (c === "*") {
+      if (glob[i + 1] === "*") {
+        out += ".*";
+        i++;
+      } else {
+        out += "[^/]*";
+      }
+    } else if (REGEX_SPECIAL.test(c)) {
+      out += `\\${c}`;
+    } else {
+      out += c;
+    }
+  }
+  return new RegExp(`^${out}$`);
+}
+
+/** Match a workspace-relative path against one glob. A wildcard-free glob also matches as a dir prefix. */
+export function matchGlob(glob: string, relPath: string): boolean {
+  if (!glob.includes("*")) {
+    const dir = glob.replace(/\/+$/, "");
+    if (relPath === dir || relPath.startsWith(`${dir}/`)) return true;
+  }
+  return globToRegExp(glob).test(relPath);
+}
+
+/** Whether `relPath` is within the active node's allowed scope. Unknown node -> not in scope. */
+export function isPathInScope(plan: Plan, nodeId: string, relPath: string): boolean {
+  const node = plan.nodes[nodeId];
+  if (!node) return false;
+  return node.allowedPaths.some((glob) => matchGlob(glob, relPath));
+}
+
+export interface PlanScopeResult {
+  decision: "allow" | "deny";
+  reason?: string;
+}
+
+/**
+ * The plan-gate's core rule. A path OUTSIDE the workspace is not a plan mutation -> allow.
+ * In-workspace and outside the active node's scope -> deny. Within scope -> allow.
+ */
+export function evaluatePlanScope(args: { cwd: string; filePath: string; plan: Plan; activeNodeId: string }): PlanScopeResult {
+  const { cwd, filePath, plan, activeNodeId } = args;
+  const abs = isAbsolute(filePath) ? filePath : resolve(cwd, filePath);
+  const rel = relative(resolve(cwd), abs).split(sep).join("/");
+  if (rel === "" || rel.startsWith("../") || rel === ".." || isAbsolute(rel)) return { decision: "allow" };
+  if (isPathInScope(plan, activeNodeId, rel)) return { decision: "allow" };
+  return { decision: "deny", reason: `SCOPE_OUTSIDE_ALLOW: '${rel}' is outside node '${activeNodeId}' allowed paths` };
+}
