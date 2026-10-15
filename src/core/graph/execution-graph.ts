@@ -52,4 +52,32 @@ export class ExecutionGraph {
   nodeIds(): string[] {
     return [...this.#nodes.keys()];
   }
+
+  /** Dependency-respecting order via Kahn's algorithm; throws on a cycle. Deterministic (id-sorted). */
+  topologicalOrder(): string[] {
+    const inDegree = new Map<string, number>();
+    const dependents = new Map<string, string[]>();
+    for (const n of this.#nodes.values()) {
+      inDegree.set(n.id, n.deps.size);
+      dependents.set(n.id, []);
+    }
+    for (const n of this.#nodes.values()) for (const dep of n.deps) dependents.get(dep)?.push(n.id);
+
+    const ready = [...inDegree.entries()].filter(([, d]) => d === 0).map(([id]) => id).sort();
+    const order: string[] = [];
+    while (ready.length > 0) {
+      const id = ready.shift() as string;
+      order.push(id);
+      for (const dependent of dependents.get(id) ?? []) {
+        const next = (inDegree.get(dependent) ?? 0) - 1;
+        inDegree.set(dependent, next);
+        if (next === 0) {
+          ready.push(dependent);
+          ready.sort();
+        }
+      }
+    }
+    if (order.length !== this.#nodes.size) throw new GraphError("CYCLE", "execution graph has a cycle");
+    return order;
+  }
 }
