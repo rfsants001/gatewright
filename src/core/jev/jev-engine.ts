@@ -5,9 +5,15 @@
 import type { Journal } from "../journal/journal.js";
 import type { BudgetLedger } from "./budget.js";
 import { ABSTAIN, type ActionCard, type JevAdapter, type JevContext, type JevJudgment } from "./types.js";
+import type { Calibration } from "./feedback/types.js";
+
+/** Returns the learned calibration for a feature (confidence scaling from corrections). */
+export type Calibrator = (feature: string) => Calibration;
 
 export interface JevEngineOptions {
   enabled?: boolean;
+  /** Optional feedback-driven calibration; scales confidence, never the verdict. */
+  calibrator?: Calibrator;
 }
 
 function toCard(ctx: JevContext, j: JevJudgment, evidence: string[]): ActionCard {
@@ -25,12 +31,14 @@ export class JevDecisionEngine {
   readonly #budget: BudgetLedger;
   readonly #journal: Journal;
   readonly #enabled: boolean;
+  readonly #calibrator: Calibrator | undefined;
 
   constructor(adapter: JevAdapter, budget: BudgetLedger, journal: Journal, opts: JevEngineOptions = {}) {
     this.#adapter = adapter;
     this.#budget = budget;
     this.#journal = journal;
     this.#enabled = opts.enabled ?? false;
+    this.#calibrator = opts.calibrator;
   }
 
   /** Produce an advisory Action Card. Abstains (no model call) when disabled or over budget. */
@@ -45,9 +53,21 @@ export class JevDecisionEngine {
     }
 
     const judgment = await this.#adapter.judge(prompt, ctx);
-    const card = toCard(ctx, judgment, []);
+    const card = this.#calibrate(feature, toCard(ctx, judgment, []));
     this.#log(card, ctx);
     return card;
+  }
+
+  /** Scale the card's confidence by the feature's learned calibration. Verdict untouched. */
+  #calibrate(feature: string, card: ActionCard): ActionCard {
+    if (!this.#calibrator) return card;
+    const { confidenceScale, agreementRate, samples } = this.#calibrator(feature);
+    if (confidenceScale >= 1 || samples === 0) return card;
+    return {
+      ...card,
+      confidence: Math.min(1, Math.max(0, card.confidence * confidenceScale)),
+      evidence: [...card.evidence, `calibrated ×${confidenceScale.toFixed(2)} (agreement ${(agreementRate * 100).toFixed(0)}% over ${samples})`],
+    };
   }
 
   #log(card: ActionCard, ctx: JevContext): void {
