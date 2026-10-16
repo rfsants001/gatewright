@@ -1,15 +1,24 @@
 #!/usr/bin/env node
 // gate — Gatewright CLI entrypoint.
 
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { runHook } from "../host/run-hook.js";
 import { SkillCatalog } from "../core/skills/catalog.js";
 import { scaffoldSkill } from "../core/skills/scaffold.js";
 import { SkillError } from "../core/skills/types.js";
 import { runReplay } from "../core/replay/cli.js";
+import { VERSION } from "../core/version.js";
 
-const VERSION = "0.0.0";
+function printChangelog(): number {
+  const path = new URL("../../CHANGELOG.md", import.meta.url);
+  if (!existsSync(path)) {
+    process.stdout.write(`gate ${VERSION} — no CHANGELOG.md found\n`);
+    return 0;
+  }
+  process.stdout.write(`${readFileSync(path, "utf8")}\n`);
+  return 0;
+}
 
 function skillsRoot(): string {
   return process.env.GATEWRIGHT_SKILLS_DIR ?? join(process.cwd(), "skills");
@@ -67,6 +76,8 @@ function main(argv: string[]): number {
       process.stdout.write(out.stdout);
       return out.exitCode;
     }
+    case "changelog":
+      return printChangelog();
     case "--version":
     case "-v":
       process.stdout.write(`gate ${VERSION}\n`);
@@ -80,14 +91,16 @@ function main(argv: string[]): number {
           "",
           "Usage: gate <command> [options]",
           "",
-          "Commands (planned):",
-          "  init          scaffold gate config in the current repo",
-          "  serve         start the local MCP server",
-          "  run <gate>    run a single gate against the working tree",
+          "Commands:",
           "  doctor        diagnose the setup (status board)",
+          "  init          self-configure this project (wizard)",
+          "  fix           configure only selected pending items",
+          "  history       list configuration changes",
+          "  rollback [id] revert a configuration change",
+          "  serve         start the local MCP server",
           "  skill         list | new — manage skills",
           "  replay        reconstruct a run's state from its journal",
-          "  jev           configure the local-AI decision engine",
+          "  changelog     print the changelog",
           "",
           `version: ${VERSION}`,
         ].join("\n") + "\n",
@@ -114,6 +127,15 @@ if (argv[0] === "serve") {
 } else if (argv[0] === "init") {
   const { runInit } = await import("../ui/init.js");
   process.exit(await runInit());
+} else if (argv[0] === "fix") {
+  const { runFix } = await import("../ui/history.js");
+  process.exit(await runFix());
+} else if (argv[0] === "history") {
+  const { runHistory } = await import("../ui/history.js");
+  process.exit(await runHistory());
+} else if (argv[0] === "rollback") {
+  const { runRollback } = await import("../ui/history.js");
+  process.exit(await runRollback(argv[1]));
 } else {
   process.exit(main(argv));
 }

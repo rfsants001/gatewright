@@ -7,10 +7,11 @@ import * as p from "@clack/prompts";
 import pc from "picocolors";
 import { homedir } from "node:os";
 import { basename, join } from "node:path";
-import { planHooks, planJev, planMcp, applyPlan, type WritePlan } from "../core/init/config-writers.js";
+import { planHooks, planJev, planMcp, type WritePlan } from "../core/init/config-writers.js";
 import { scaffoldProject } from "../core/init/scaffold.js";
 import { ProjectRegistry } from "../core/project/registry.js";
 import { jevConfigPath } from "../core/jev/config-store.js";
+import { ConfigHistory, applyWithHistory } from "../core/history/config-history.js";
 
 const OLLAMA_ENDPOINT = "http://localhost:11434";
 
@@ -86,8 +87,8 @@ export async function runInit(): Promise<number> {
   const go = await p.confirm({ message: "Apply these changes? Existing files are backed up (.bak).", initialValue: true });
   if (p.isCancel(go) || !go) return aborted();
 
-  // Apply.
-  const results = plans.map((pl) => ({ plan: pl, result: applyPlan(pl, { backup: true }) }));
+  // Apply, recording one revision so the change can be rolled back later.
+  const revision = applyWithHistory(plans, { history: new ConfigHistory(), project: cwd, kind: "configure", backup: true });
   const scaffold = scaffoldProject(cwd);
   new ProjectRegistry().register({
     path: cwd,
@@ -97,13 +98,14 @@ export async function runInit(): Promise<number> {
   });
 
   const summary: string[] = [];
-  for (const { plan, result } of results) {
-    summary.push(result.written ? `${pc.green("✓")} ${plan.summary}${result.backupPath ? pc.dim(` (backup ${result.backupPath.replace(home, "~")})`) : ""}` : `${pc.dim("·")} ${plan.summary}`);
+  for (const plan of plans) {
+    summary.push(plan.action === "noop" ? `${pc.dim("·")} ${plan.summary}` : `${pc.green("✓")} ${plan.summary}`);
   }
   summary.push(`${pc.green("✓")} scaffold: ${scaffold.created.length > 0 ? scaffold.created.join(", ") : pc.dim("all present")}`);
   summary.push(`${pc.green("✓")} registered project ${pc.bold(basename(cwd))}`);
+  if (revision) summary.push(`${pc.green("✓")} recorded revision ${pc.bold(revision.id)} ${pc.dim("(gate rollback to undo)")}`);
   p.note(summary.join("\n"), "Done");
 
-  p.outro(`${pc.cyan("gate doctor")} to review · ${pc.cyan("gate projects")} to list configured projects`);
+  p.outro(`${pc.cyan("gate doctor")} to review · ${pc.cyan("gate history")} to see changes`);
   return 0;
 }

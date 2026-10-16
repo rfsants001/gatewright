@@ -8,6 +8,7 @@ import type { GateRegistry } from "../core/gate/registry.js";
 import { defaultRegistry } from "../host/run-hook.js";
 import { FileArtifactStore } from "../core/artifact-store/artifact-store.js";
 import { JevConfigStore } from "../core/jev/config-store.js";
+import { VERSION } from "../core/version.js";
 
 const contextShape = {
   event: z.string(),
@@ -27,7 +28,7 @@ export function createMcpServer(
   registry: GateRegistry = defaultRegistry(),
   jevConfig: JevConfigStore = new JevConfigStore(new FileArtifactStore()),
 ): McpServer {
-  const server = new McpServer({ name: "gatewright", version: "0.0.0" });
+  const server = new McpServer({ name: "gatewright", version: VERSION });
 
   server.registerTool(
     "list_gates",
