@@ -111,6 +111,9 @@ if (argv[0] === "serve") {
 } else if (argv[0] === "doctor") {
   const { runDoctor } = await import("../ui/doctor.js");
   process.exit(await runDoctor());
+} else if (argv[0] === "init") {
+  const { runInit } = await import("../ui/init.js");
+  process.exit(await runInit());
 } else {
   process.exit(main(argv));
 }
