@@ -127,6 +127,15 @@ if (argv[0] === "serve") {
 } else if (argv[0] === "init") {
   const { runInit } = await import("../ui/init.js");
   process.exit(await runInit());
+} else if (argv[0] === "fix") {
+  const { runFix } = await import("../ui/history.js");
+  process.exit(await runFix());
+} else if (argv[0] === "history") {
+  const { runHistory } = await import("../ui/history.js");
+  process.exit(await runHistory());
+} else if (argv[0] === "rollback") {
+  const { runRollback } = await import("../ui/history.js");
+  process.exit(await runRollback(argv[1]));
 } else {
   process.exit(main(argv));
 }
