@@ -7,6 +7,7 @@ import { runHook } from "../host/run-hook.js";
 import { SkillCatalog } from "../core/skills/catalog.js";
 import { scaffoldSkill } from "../core/skills/scaffold.js";
 import { SkillError } from "../core/skills/types.js";
+import { runReplay } from "../core/replay/cli.js";
 
 const VERSION = "0.0.0";
 
@@ -61,6 +62,11 @@ function main(argv: string[]): number {
     }
     case "skill":
       return skillCommand(argv.slice(1));
+    case "replay": {
+      const out = runReplay(argv.slice(1));
+      process.stdout.write(out.stdout);
+      return out.exitCode;
+    }
     case "--version":
     case "-v":
       process.stdout.write(`gate ${VERSION}\n`);
@@ -79,6 +85,7 @@ function main(argv: string[]): number {
           "  serve         start the local MCP server",
           "  run <gate>    run a single gate against the working tree",
           "  skill         list | new — manage skills",
+          "  replay        reconstruct a run's state from its journal",
           "  jev           configure the local-AI decision engine",
           "  doctor        diagnose the setup",
           "",
