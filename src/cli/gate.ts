@@ -84,10 +84,10 @@ function main(argv: string[]): number {
           "  init          scaffold gate config in the current repo",
           "  serve         start the local MCP server",
           "  run <gate>    run a single gate against the working tree",
+          "  doctor        diagnose the setup (status board)",
           "  skill         list | new — manage skills",
           "  replay        reconstruct a run's state from its journal",
           "  jev           configure the local-AI decision engine",
-          "  doctor        diagnose the setup",
           "",
           `version: ${VERSION}`,
         ].join("\n") + "\n",
@@ -108,6 +108,9 @@ if (argv[0] === "serve") {
   };
   process.on("SIGINT", shutdown);
   process.on("SIGTERM", shutdown);
+} else if (argv[0] === "doctor") {
+  const { runDoctor } = await import("../ui/doctor.js");
+  process.exit(await runDoctor());
 } else {
   process.exit(main(argv));
 }
