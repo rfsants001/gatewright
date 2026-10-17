@@ -17,7 +17,8 @@ import { detect } from "../core/env/detect.js";
 import type { CheckStatus, EnvironmentReport } from "../core/env/types.js";
 import { claudeCodeOverview, type ClaudeCodeOverview } from "../core/env/claude-code.js";
 import { planHooks, planJev, planMcp, type WritePlan } from "../core/init/config-writers.js";
-import { jevConfigPath } from "../core/jev/config-store.js";
+import { jevConfigPath, JevConfigStore } from "../core/jev/config-store.js";
+import { FileArtifactStore } from "../core/artifact-store/artifact-store.js";
 import { ConfigHistory } from "../core/history/config-history.js";
 import { scaffoldProject } from "../core/init/scaffold.js";
 import { ProjectRegistry } from "../core/project/registry.js";
@@ -72,7 +73,12 @@ function RunPanel({ title, steps, finished, onDone }: { title: string; steps: St
 
 function ConfigPage({ onDone, onQuit }: { onDone: () => void; onQuit: () => void }) {
   const cwd = process.cwd();
-  const [selected, setSelected] = useState<string[]>(["claude", "mcp"]);
+  // Reflect what's already persisted so toggles aren't silently reset — Jev in
+  // particular lives in a saved config and must come back checked when enabled.
+  const [selected, setSelected] = useState<string[]>(() => {
+    const base = ["claude", "mcp"];
+    return new JevConfigStore(new FileArtifactStore()).read().enabled ? [...base, "jev"] : base;
+  });
   const [phase, setPhase] = useState<"form" | "ollama" | "run">("form");
   const [steps, setSteps] = useState<Step[]>([]);
   const [finished, setFinished] = useState(false);
@@ -203,9 +209,11 @@ function DogfoodPage({ onDone, onQuit }: { onDone: () => void; onQuit: () => voi
     else if (finished && (key.return || input === "b")) onDone();
   });
 
-  const run = (): void => {
+  const run = (force = false): void => {
+    // force re-applies even when already correct — "redo the configuration".
+    const p = force ? [planHooks(join(cwd, ".claude", "settings.json"), true), planMcp(join(cwd, ".mcp.json"), true)] : plans;
     const extra: Step[] = [{ label: "Ensuring project folders", run: () => { const s = scaffoldProject(cwd); return s.created.length ? `created ${s.created.join(", ")}` : "all present"; } }];
-    setSteps(buildApplySteps(plans, { project: cwd, kind: "configure", extra }).steps);
+    setSteps(buildApplySteps(p, { project: cwd, kind: "configure", extra }).steps);
     setPhase("run");
   };
 
@@ -217,9 +225,16 @@ function DogfoodPage({ onDone, onQuit }: { onDone: () => void; onQuit: () => voi
     <Box flexDirection="column" paddingX={1}>
       <Logo />
       {toApply.length === 0 ? (
-        <Panel title="Dogfood" color="green">
-          <Text>✓ already set up — open your agent here; the gates are live.</Text>
-          <Text dimColor>  b back</Text>
+        <Panel title="Dogfood  ·  already set up" color="green">
+          <Text>✓ hooks + MCP are wired — open your agent here; the gates are live.</Text>
+          <Text dimColor>You can redo the setup to reset the config to the correct state.</Text>
+          <SelectList
+            options={[{ value: "redo", label: "Reconfigure (reset to correct)" }, { value: "back", label: "Back" }]}
+            index={index}
+            onMove={setIndex}
+            onSelect={(v) => (v === "redo" ? run(true) : onDone())}
+          />
+          <Text dimColor>  ↑↓ move · enter select · b back · q quit</Text>
         </Panel>
       ) : (
         <Panel title="Set up dogfood  ·  wires hooks + MCP" color="cyan">
