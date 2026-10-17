@@ -124,34 +124,35 @@ function main(argv: string[]): number {
 // Interactive/async commands → each resolves to an exit code. Returns null when the
 // command was not handled here (so `main` handles the synchronous ones).
 async function runAsyncCommand(argv: string[]): Promise<number | null> {
+  const app = async (route?: Parameters<typeof import("../ui/app.js").runApp>[0]) => (await import("../ui/app.js")).runApp(route);
+  const plain = () => import("../ui/plain.js");
   switch (argv[0]) {
-    case "doctor":
-      return (await import("../ui/doctor.js")).runDoctor();
+    // Interactive, mutating flows → the Ink app, opened at the right screen.
+    case "dashboard":
+      return app();
     case "init":
-      return (await import("../ui/init.js")).runInit();
+      return app("config");
     case "fix":
-      return (await import("../ui/history.js")).runFix();
-    case "history":
-      return (await import("../ui/history.js")).runHistory();
-    case "rollback":
-      return (await import("../ui/history.js")).runRollback(argv[1]);
+      return app("fix");
     case "dogfood":
-      return (await import("../ui/dogfood.js")).runDogfood();
-    case "projects":
-      return (await import("../ui/projects.js")).runProjects();
-    case "mcp":
-      return (await import("../ui/mcp.js")).runMcp();
-    case "skills":
-      return (await import("../ui/skills.js")).runSkills();
+      return app("dogfood");
+    case "rollback":
+      return argv[1] ? (await plain()).textRollback(argv[1]) : app("rollback");
     case "ui":
       return (await import("../ui/components/gallery.js")).runGallery();
-    case "dashboard":
-      return (await import("../ui/app.js")).runApp();
+    // Read-only / scriptable → plain text (headless-friendly).
+    case "doctor":
+      return (await plain()).textDoctor();
+    case "history":
+      return (await plain()).textHistory();
+    case "projects":
+      return (await plain()).textProjects();
+    case "mcp":
+      return (await plain()).textMcp();
+    case "skills":
+      return (await plain()).textSkills();
     case undefined:
-      if (process.stdin.isTTY && process.stdout.isTTY) {
-        return (await import("../ui/app.js")).runApp();
-      }
-      return null;
+      return process.stdin.isTTY && process.stdout.isTTY ? app() : null;
     default:
       return null;
   }

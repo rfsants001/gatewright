@@ -248,13 +248,13 @@ function BasicDetail({ name, onBack, onQuit }: { name: string; onBack: () => voi
 
 // ── App shell ─────────────────────────────────────────────────────────────────
 
-function App({ onExit }: { onExit: (reason: "launch" | "quit") => void }) {
+function App({ onExit, initialRoute = "home" }: { onExit: (reason: "launch" | "quit") => void; initialRoute?: Route }) {
   const { exit } = useApp();
   const exitWith = (reason: "launch" | "quit"): void => {
     onExit(reason);
     exit();
   };
-  const [route, setRoute] = useState<Route>("home");
+  const [route, setRoute] = useState<Route>(initialRoute);
   const [agentIndex, setAgentIndex] = useState(0);
   const [data, setData] = useState<DashboardData | null>(null);
 
@@ -323,14 +323,14 @@ function launchClaude(): void {
   }
 }
 
-export async function runApp(): Promise<number> {
+export async function runApp(initialRoute: Route = "home"): Promise<number> {
   if (!process.stdin.isTTY || !process.stdout.isTTY) {
     process.stdout.write("gate: the dashboard needs an interactive terminal (TTY). Try `gate doctor` for a plain report.\n");
     return 1;
   }
   for (;;) {
     const box: { reason: "launch" | "quit" } = { reason: "quit" };
-    const { waitUntilExit } = render(<App onExit={(r) => (box.reason = r)} />);
+    const { waitUntilExit } = render(<App onExit={(r) => (box.reason = r)} initialRoute={initialRoute} />);
     await waitUntilExit();
     if (box.reason === "launch") {
       launchClaude();

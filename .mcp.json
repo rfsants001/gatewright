@@ -1,8 +1,9 @@
 {
   "mcpServers": {
     "gatewright": {
-      "command": "gate",
+      "command": "/home/rafaels/.local/share/fnm/node-versions/v24.16.0/installation/bin/node",
       "args": [
+        "/home/rafaels/dev/gatewright/dist/cli/gate.js",
         "serve"
       ]
     }
