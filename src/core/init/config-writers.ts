@@ -4,6 +4,7 @@
 
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
+import { gateHookCommand, gateServeInvocation, isGateHookCommand } from "./gate-bin.js";
 
 export type WriteAction = "create" | "merge" | "noop";
 
@@ -44,34 +45,42 @@ interface HookGroup {
   hooks?: { type?: string; command?: string }[];
 }
 
-function hasGateHook(groups: unknown): boolean {
-  return Array.isArray(groups)
-    && groups.some((g: HookGroup) => Array.isArray(g.hooks) && g.hooks.some((h) => typeof h.command === "string" && h.command.includes("gate hook")));
+function groupHasGateHook(group: HookGroup): boolean {
+  return Array.isArray(group.hooks) && group.hooks.some((h) => isGateHookCommand(h.command));
 }
 
-/** Ensure `gate hook` is wired for all four lifecycle events in Claude Code settings. */
+/**
+ * Ensure every lifecycle event runs our hook, using an absolute invocation that works
+ * without `gate` on PATH. Normalizes: any existing gate-hook entry (bare or absolute)
+ * is replaced with the current correct command, so a stale `gate hook` gets upgraded.
+ */
 export function planHooks(settingsPath: string): WritePlan {
   const read = readJson(settingsPath);
   if ("ok" in read && !read.ok) return unparseableNoop(settingsPath, "hooks");
 
   const base: Json = "value" in read ? read.value : {};
   const hooks = { ...((base["hooks"] as Record<string, unknown>) ?? {}) };
-  const missing = HOOK_EVENTS.filter((e) => !hasGateHook(hooks[e]));
-  if (missing.length === 0) {
-    return { path: settingsPath, action: "noop", summary: "hooks already wired", preview: ["✓ all 4 events already call gate hook"], nextContent: "" };
+  const command = gateHookCommand();
+  const changed: string[] = [];
+
+  for (const event of HOOK_EVENTS) {
+    const groups = Array.isArray(hooks[event]) ? (hooks[event] as HookGroup[]) : [];
+    const kept = groups.filter((g) => !groupHasGateHook(g));
+    const next = [...kept, { hooks: [{ type: "command", command }] }];
+    if (JSON.stringify(groups) !== JSON.stringify(next)) changed.push(event);
+    hooks[event] = next;
   }
-  for (const event of missing) {
-    const groups = Array.isArray(hooks[event]) ? [...(hooks[event] as HookGroup[])] : [];
-    groups.push({ hooks: [{ type: "command", command: "gate hook" }] });
-    hooks[event] = groups;
+
+  if (changed.length === 0 && "value" in read) {
+    return { path: settingsPath, action: "noop", summary: "hooks already wired", preview: ["✓ all 4 events already call gate hook"], nextContent: "" };
   }
   const next = { ...base, hooks };
   const action: WriteAction = "absent" in read ? "create" : "merge";
   return {
     path: settingsPath,
     action,
-    summary: `${action === "create" ? "create settings and wire" : "wire"} ${missing.length} hook event(s)`,
-    preview: missing.map((e) => `+ hooks.${e} → gate hook`),
+    summary: `${action === "create" ? "create settings and wire" : "wire"} ${changed.length} hook event(s)`,
+    preview: changed.map((e) => `+ hooks.${e} → ${command}`),
     nextContent: serialize(next),
   };
 }
@@ -83,17 +92,19 @@ export function planMcp(mcpPath: string): WritePlan {
 
   const base: Json = "value" in read ? read.value : {};
   const servers = { ...((base["mcpServers"] as Record<string, unknown>) ?? {}) };
-  if (servers["gatewright"]) {
+  const invocation = gateServeInvocation();
+  const existing = servers["gatewright"] as { command?: unknown } | undefined;
+  if (existing && existing.command === invocation.command) {
     return { path: mcpPath, action: "noop", summary: "MCP server already registered", preview: ["✓ mcpServers.gatewright present"], nextContent: "" };
   }
-  servers["gatewright"] = { command: "gate", args: ["serve"] };
+  servers["gatewright"] = invocation;
   const next = { ...base, mcpServers: servers };
   const action: WriteAction = "absent" in read ? "create" : "merge";
   return {
     path: mcpPath,
     action,
     summary: `${action === "create" ? "create .mcp.json and register" : "register"} gatewright MCP server`,
-    preview: ["+ mcpServers.gatewright → gate serve"],
+    preview: [`+ mcpServers.gatewright → ${invocation.command} … serve`],
     nextContent: serialize(next),
   };
 }

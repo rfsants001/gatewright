@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "gatewright": {
+      "command": "gate",
+      "args": [
+        "serve"
+      ]
+    }
+  }
+}

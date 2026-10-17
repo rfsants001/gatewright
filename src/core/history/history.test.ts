@@ -28,7 +28,7 @@ describe("ConfigHistory + applyWithHistory", () => {
   it("skips noop plans and records nothing when there is no change", () => {
     const h = history();
     const mcpPath = join(dir, ".mcp.json");
-    writeFileSync(mcpPath, JSON.stringify({ mcpServers: { gatewright: { command: "gate", args: ["serve"] } } }));
+    writeFileSync(mcpPath, planMcp(mcpPath).nextContent); // already registered with the current invocation
     const rev = applyWithHistory([planMcp(mcpPath)], { history: h, project: dir });
     expect(rev).toBeNull();
     expect(h.list()).toHaveLength(0);
