@@ -27,7 +27,8 @@ export interface GatewrightConfig {
   packages?: PackageRecord[];
 }
 
-export type ConfigPatch = Partial<GatewrightConfig>;
+/** A patch; a key set to `undefined` clears it from the scope. */
+export type ConfigPatch = { [K in keyof GatewrightConfig]?: GatewrightConfig[K] | undefined };
 
 /** Resolve the config file path for a scope. GATEWRIGHT_HOME overrides the gate dir (test isolation). */
 export function configPath(scope: ConfigScope, cwd: string = process.cwd()): string {
@@ -43,9 +44,14 @@ function mergePackages(base: PackageRecord[] | undefined, over: PackageRecord[] 
   return [...byId.values()];
 }
 
-/** Deep-merge two configs (over wins). Packages merge by id; jev merges key-wise. */
-export function mergeConfig(base: GatewrightConfig, over: GatewrightConfig): GatewrightConfig {
-  const merged: GatewrightConfig = { ...base, ...over };
+/** Deep-merge a patch over a config (over wins). An explicit `undefined` clears the key;
+ *  packages merge by id; jev merges key-wise. */
+export function mergeConfig(base: GatewrightConfig, over: ConfigPatch): GatewrightConfig {
+  const merged: GatewrightConfig = { ...base };
+  if ("defaultEngine" in over) {
+    if (over.defaultEngine === undefined) delete merged.defaultEngine;
+    else merged.defaultEngine = over.defaultEngine;
+  }
   if (base.jev || over.jev) merged.jev = { ...base.jev, ...over.jev };
   const pkgs = mergePackages(base.packages, over.packages);
   if (pkgs) merged.packages = pkgs;
