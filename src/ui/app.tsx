@@ -90,6 +90,7 @@ function ConfigPage({ onDone, onQuit }: { onDone: () => void; onQuit: () => void
         <Result title="Configured" lines={result} />
       ) : (
         <Panel title="Configure this project" color="cyan">
+          <Text dimColor>Wire Gatewright into this project. Nothing is written until you apply.</Text>
           <CheckboxGroup
             options={options}
             selected={selected}
@@ -145,6 +146,7 @@ function FixPage({ data, onDone, onQuit }: { data: DashboardData; onDone: () => 
         </Panel>
       ) : (
         <Panel title="Fix pending items" color="cyan">
+          <Text dimColor>Configure only what's missing or incomplete. Existing files are backed up.</Text>
           <CheckboxGroup
             options={fixable}
             selected={selected}
@@ -202,6 +204,7 @@ function DogfoodPage({ onDone, onQuit }: { onDone: () => void; onQuit: () => voi
         </Panel>
       ) : (
         <Panel title="Set up dogfood  ·  wires hooks + MCP" color="cyan">
+          <Text dimColor>Set this project up to govern a real agent session.</Text>
           {toApply.map((p) => (
             <Text key={p.path}>{`• ${p.summary}`}</Text>
           ))}

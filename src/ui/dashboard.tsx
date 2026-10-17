@@ -2,8 +2,8 @@
 // Stateful orchestration (routing, data, launch) lives in app.tsx.
 
 import { useState } from "react";
-import { Box, Text, useApp, useInput } from "ink";
-import { Logo, Panel, Icon, Card, SelectList, type Choice } from "./components/index.js";
+import { Box, Text, useInput } from "ink";
+import { Logo, Panel, Icon, Card } from "./components/index.js";
 import type { Check, CheckStatus, EnvironmentReport } from "./../core/env/types.js";
 import { summarize } from "./../core/env/types.js";
 import type { ClaudeCodeOverview } from "../core/env/claude-code.js";
@@ -45,6 +45,16 @@ function CheckRow({ check }: { check: Check }) {
 
 // ── Home ──────────────────────────────────────────────────────────────────────
 
+function NavRow({ active, label, hint }: { active: boolean; label: string; hint?: string }) {
+  return (
+    <Box>
+      {active ? <Icon name="pointer" color="cyan" /> : <Text> </Text>}
+      <Text {...(active ? { color: "cyan" } : {})} bold={active}>{` ${label}`}</Text>
+      {hint ? <Text dimColor>{`  ${hint}`}</Text> : null}
+    </Box>
+  );
+}
+
 export function HomeView({
   data,
   agentIndex,
@@ -64,24 +74,10 @@ export function HomeView({
   onRefresh: () => void;
   onQuit: () => void;
 }) {
-  const [focus, setFocus] = useState<"agents" | "actions">("agents");
-  const [actionIndex, setActionIndex] = useState(0);
-
-  useInput((input, key) => {
-    if (key.tab) setFocus((f) => (f === "agents" ? "actions" : "agents"));
-    else if (input === "q") onQuit();
-  });
-
-  const tally = summarize(data.report);
+  // One continuous cursor over [agents…, actions…]: a single ">" that starts on the
+  // first agent and jumps into the Actions panel as it moves down.
   const ccInstalled = data.agents.some((a) => a.id === "claude-code" && a.installed);
-
-  const agentOptions: Choice<string>[] = data.agents.map((a) => ({
-    value: a.id,
-    label: `${a.installed ? "●" : "○"} ${a.name}`,
-    hint: a.summary,
-  }));
-
-  const actionOptions: Choice<string>[] = [
+  const actions: { value: string; label: string; hint?: string }[] = [
     ...(ccInstalled ? [{ value: "launch", label: "Launch Claude Code here", hint: "handoff" }] : []),
     { value: "config", label: "Configure this project" },
     { value: "fix", label: "Fix pending items" },
@@ -89,17 +85,35 @@ export function HomeView({
     { value: "refresh", label: "Refresh" },
     { value: "quit", label: "Quit" },
   ];
+  const total = data.agents.length + actions.length;
+  const [cursor, setCursor] = useState(0);
 
-  const onAction = (value: string): void => {
+  const activate = (i: number): void => {
+    if (i < data.agents.length) {
+      onAgentMove(i);
+      onOpenAgent();
+      return;
+    }
+    const value = actions[i - data.agents.length]?.value;
     if (value === "launch") onLaunch();
     else if (value === "refresh") onRefresh();
     else if (value === "quit") onQuit();
-    else onNavigate(value as Route);
+    else if (value) onNavigate(value as Route);
   };
+
+  useInput((input, key) => {
+    if (key.upArrow) setCursor((c) => (c - 1 + total) % total);
+    else if (key.downArrow) setCursor((c) => (c + 1) % total);
+    else if (key.return) activate(cursor);
+    else if (input === "q") onQuit();
+  });
+
+  const tally = summarize(data.report);
 
   return (
     <Box flexDirection="column" paddingX={1}>
       <Logo />
+      <Text dimColor>  Your machine at a glance — agents, models and what's configured.</Text>
       <Box gap={3}>
         <Text>
           <Icon name="ok" color="green" /> {`${tally.ok} ready`}
@@ -114,11 +128,15 @@ export function HomeView({
 
       <Box gap={1}>
         <Box flexDirection="column" width="52%">
-          <Panel title={focus === "agents" ? "AI agents  ·  enter to detail" : "AI agents"} color={focus === "agents" ? "cyan" : "gray"}>
-            <SelectList options={agentOptions} index={agentIndex} onMove={onAgentMove} onSelect={onOpenAgent} isFocused={focus === "agents"} />
+          <Panel title="AI agents  ·  enter to see details">
+            {data.agents.map((a, i) => (
+              <NavRow key={a.id} active={cursor === i} label={`${a.installed ? "●" : "○"} ${a.name}`} hint={a.summary} />
+            ))}
           </Panel>
-          <Panel title="Actions" color={focus === "actions" ? "cyan" : "gray"}>
-            <SelectList options={actionOptions} index={actionIndex} onMove={setActionIndex} onSelect={onAction} isFocused={focus === "actions"} />
+          <Panel title="Actions">
+            {actions.map((a, i) => (
+              <NavRow key={a.value} active={cursor === data.agents.length + i} label={a.label} {...(a.hint ? { hint: a.hint } : {})} />
+            ))}
           </Panel>
         </Box>
 
@@ -148,7 +166,7 @@ export function HomeView({
         </Box>
       </Box>
 
-      <Text dimColor>{`  tab switch panel · ↑↓ move · enter select · q quit`}</Text>
+      <Text dimColor>{`  ↑↓ move (across panels) · enter select · q quit`}</Text>
     </Box>
   );
 }
@@ -185,6 +203,7 @@ export function AgentDetail({ cc, onBack, onQuit }: { cc: ClaudeCodeOverview; on
   return (
     <Box flexDirection="column" paddingX={1}>
       <Text bold color="cyan">{` Claude Code · detail ${cc.installed ? "" : "(not installed) "}`}</Text>
+      <Text dimColor>  Everything this agent carries — commands, skills and MCP servers.</Text>
       <Text dimColor>{`${cc.mcps.length} MCP · ${cc.plugins.length} plugins · ${cc.commands.length} commands · ${cc.skills.length} skills`}</Text>
       <Box flexWrap="wrap">
         {slice.map((it) => (
