@@ -7,3 +7,5 @@ export { TextInputField } from "./text-input-field.js";
 export { RadioGroup, type Choice } from "./radio-group.js";
 export { SelectList } from "./select-list.js";
 export { Button } from "./button.js";
+export { Spinner } from "./spinner.js";
+export { Logo } from "./logo.js";
