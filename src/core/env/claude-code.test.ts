@@ -27,7 +27,22 @@ describe("claudeCodeOverview", () => {
     expect(o.installed).toBe(false);
     expect(o.mcps).toEqual([]);
     expect(o.skills).toEqual([]);
+    expect(o.commands).toEqual([]);
     expect(o.plugins).toEqual([]);
+  });
+
+  it("detects custom slash commands (flat .md) separately from installed skills", () => {
+    const cmds = join(home, ".claude", "commands");
+    mkdirSync(cmds, { recursive: true });
+    writeFileSync(join(cmds, "sdd.md"), "# sdd");
+    writeFileSync(join(cmds, "idea.md"), "# idea");
+    mkdirSync(join(cwd, ".claude", "commands"), { recursive: true });
+    writeFileSync(join(cwd, ".claude", "commands", "ship.md"), "# ship");
+
+    const o = claudeCodeOverview({ home, cwd });
+    expect(o.commands).toContainEqual({ name: "sdd", source: "user" });
+    expect(o.commands).toContainEqual({ name: "idea", source: "user" });
+    expect(o.commands).toContainEqual({ name: "ship", source: "project" });
   });
 
   it("detects installed + MCPs + user/project/plugin skills + plugins", () => {

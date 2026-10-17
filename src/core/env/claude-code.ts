@@ -17,11 +17,19 @@ export interface PluginRef {
   name: string;
 }
 
+export interface CommandRef {
+  name: string;
+  source: "user" | "project";
+}
+
 export interface ClaudeCodeOverview {
   installed: boolean;
   configDir: string | null;
   mcps: McpServerEntry[];
+  /** Installed skill directories (incl. plugin-provided). */
   skills: SkillRef[];
+  /** Custom slash commands authored by the user (~/.claude/commands/*.md). */
+  commands: CommandRef[];
   plugins: PluginRef[];
   /** Sections detected on a best-effort basis (layout may vary by version). */
   bestEffort: string[];
@@ -47,6 +55,17 @@ function scanSkills(dir: string, source: SkillRef["source"]): SkillRef[] {
     .map((name) => ({ name, source }));
 }
 
+function scanCommands(dir: string, source: CommandRef["source"]): CommandRef[] {
+  try {
+    return readdirSync(dir)
+      .filter((f) => f.endsWith(".md"))
+      .map((f) => ({ name: f.replace(/\.md$/, ""), source }))
+      .sort((a, b) => (a.name < b.name ? -1 : 1));
+  } catch {
+    return [];
+  }
+}
+
 export function claudeCodeOverview(opts: ClaudeOverviewOptions = {}): ClaudeCodeOverview {
   const home = opts.home ?? homedir();
   const cwd = opts.cwd ?? process.cwd();
@@ -67,11 +86,17 @@ export function claudeCodeOverview(opts: ClaudeOverviewOptions = {}): ClaudeCode
     skills.push(...scanSkills(join(pluginsDir, plugin.name, "skills"), "plugin"));
   }
 
+  const commands: CommandRef[] = [
+    ...scanCommands(join(configDirPath, "commands"), "user"),
+    ...scanCommands(join(cwd, ".claude", "commands"), "project"),
+  ];
+
   return {
     installed,
     configDir: hasConfig ? configDirPath : null,
     mcps: listMcpServers({ cwd, home }),
     skills,
+    commands,
     plugins,
     bestEffort: ["plugins", "plugin skills"],
   };

@@ -5,12 +5,22 @@
 // existing flows.
 
 import { spawnSync } from "node:child_process";
+import type { ReactElement } from "react";
 import { useEffect, useState } from "react";
 import { Box, Text, render, useApp, useInput } from "ink";
 import { Logo, Spinner, Panel, Icon, SelectList, type Choice } from "./components/index.js";
 import { detect } from "../core/env/detect.js";
 import { summarize, type Check, type CheckStatus, type EnvironmentReport } from "../core/env/types.js";
 import { claudeCodeOverview, type ClaudeCodeOverview } from "../core/env/claude-code.js";
+
+function Line({ icon, color, text, dim }: { icon: "bullet"; color: string; text: string; dim?: string }) {
+  return (
+    <Text>
+      <Icon name={icon} color={color} /> {text}
+      {dim ? <Text dimColor>{`  ${dim}`}</Text> : null}
+    </Text>
+  );
+}
 
 type Action = "launch" | "init" | "fix" | "dogfood" | "refresh" | "exit";
 
@@ -46,6 +56,15 @@ function groupChecks(report: EnvironmentReport, title: string): Check[] {
   return report.groups.find((g) => g.title === title)?.checks ?? [];
 }
 
+function Section<T>({ title, items, render, color, empty = "none" }: { title: string; items: T[]; render: (item: T) => ReactElement; color: string; empty?: string }) {
+  return (
+    <Box flexDirection="column">
+      <Text bold color={color}>{`${title} (${items.length})`}</Text>
+      {items.length === 0 ? <Text dimColor>{`  ${empty}`}</Text> : items.map(render)}
+    </Box>
+  );
+}
+
 function ClaudeCodePanel({ cc }: { cc: ClaudeCodeOverview }) {
   return (
     <Panel title="Claude Code" color={cc.installed ? "green" : "red"}>
@@ -54,32 +73,10 @@ function ClaudeCodePanel({ cc }: { cc: ClaudeCodeOverview }) {
         {cc.installed ? "installed" : "not installed"}
         {cc.configDir ? <Text dimColor>{`  ${cc.configDir}`}</Text> : null}
       </Text>
-
-      <Text bold>{`MCP servers (${cc.mcps.length})`}</Text>
-      {cc.mcps.length === 0 ? <Text dimColor>  none</Text> : null}
-      {cc.mcps.map((m) => (
-        <Text key={m.name}>
-          <Icon name="bullet" color="cyan" /> {m.name}
-          <Text dimColor>{`  ${[m.command, ...m.args].join(" ")}`}</Text>
-        </Text>
-      ))}
-
-      <Text bold>{`Skills (${cc.skills.length})`}</Text>
-      {cc.skills.length === 0 ? <Text dimColor>  none detected</Text> : null}
-      {cc.skills.slice(0, 10).map((s) => (
-        <Text key={`${s.source}:${s.name}`}>
-          <Icon name="bullet" color="magenta" /> {s.name}
-          <Text dimColor>{`  [${s.source}]`}</Text>
-        </Text>
-      ))}
-
-      <Text bold>{`Plugins (${cc.plugins.length})`}</Text>
-      {cc.plugins.length === 0 ? <Text dimColor>  none detected</Text> : null}
-      {cc.plugins.map((p) => (
-        <Text key={p.name}>
-          <Icon name="bullet" color="blue" /> {p.name}
-        </Text>
-      ))}
+      <Section title="MCP servers" color="cyan" items={cc.mcps} render={(m) => <Line key={m.name} icon="bullet" color="cyan" text={m.name} dim={[m.command, ...m.args].join(" ")} />} />
+      <Section title="Commands" color="green" items={cc.commands} empty="none created" render={(c) => <Line key={`${c.source}:${c.name}`} icon="bullet" color="green" text={`/${c.name}`} dim={`[${c.source}]`} />} />
+      <Section title="Skills" color="magenta" items={cc.skills.slice(0, 12)} empty="none installed" render={(s) => <Line key={`${s.source}:${s.name}`} icon="bullet" color="magenta" text={s.name} dim={`[${s.source}]`} />} />
+      <Section title="Plugins" color="blue" items={cc.plugins} empty="none" render={(p) => <Line key={p.name} icon="bullet" color="blue" text={p.name} />} />
     </Panel>
   );
 }
@@ -136,9 +133,8 @@ export function Dashboard({ onAction }: { onAction: (a: Action) => void }) {
   };
 
   return (
-    <Box flexDirection="column" paddingX={1} gap={1}>
+    <Box flexDirection="column" paddingX={1}>
       <Logo />
-
       <Box gap={3}>
         <Text>
           <Icon name="ok" color="green" /> {`${tally.ok} ready`}
@@ -155,7 +151,7 @@ export function Dashboard({ onAction }: { onAction: (a: Action) => void }) {
         <Box width="56%">
           <ClaudeCodePanel cc={data.cc} />
         </Box>
-        <Box flexDirection="column" width="44%" gap={1}>
+        <Box flexDirection="column" width="44%">
           <Panel title="Local AI">
             {groupChecks(data.report, "Local AI").map((c) => (
               <CheckRow key={c.label} check={c} />
@@ -170,12 +166,7 @@ export function Dashboard({ onAction }: { onAction: (a: Action) => void }) {
             {data.proxies.length === 0 ? (
               <Text dimColor>  none active</Text>
             ) : (
-              data.proxies.map((p) => (
-                <Text key={p.name}>
-                  <Icon name="bullet" color="cyan" /> {p.name}
-                  <Text dimColor>{`  ${p.value}`}</Text>
-                </Text>
-              ))
+              data.proxies.map((p) => <Line key={p.name} icon="bullet" color="cyan" text={p.name} dim={p.value} />)
             )}
           </Panel>
         </Box>

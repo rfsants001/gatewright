@@ -121,52 +121,58 @@ function main(argv: string[]): number {
   }
 }
 
-const argv = process.argv.slice(2);
-if (argv[0] === "serve") {
-  const { serveStdio } = await import("../mcp/server.js");
-  const server = await serveStdio();
-  const shutdown = (): void => {
-    void server.close().finally(() => process.exit(0));
-  };
-  process.on("SIGINT", shutdown);
-  process.on("SIGTERM", shutdown);
-} else if (argv[0] === "doctor") {
-  const { runDoctor } = await import("../ui/doctor.js");
-  process.exit(await runDoctor());
-} else if (argv[0] === "init") {
-  const { runInit } = await import("../ui/init.js");
-  process.exit(await runInit());
-} else if (argv[0] === "fix") {
-  const { runFix } = await import("../ui/history.js");
-  process.exit(await runFix());
-} else if (argv[0] === "history") {
-  const { runHistory } = await import("../ui/history.js");
-  process.exit(await runHistory());
-} else if (argv[0] === "rollback") {
-  const { runRollback } = await import("../ui/history.js");
-  process.exit(await runRollback(argv[1]));
-} else if (argv[0] === "dogfood") {
-  const { runDogfood } = await import("../ui/dogfood.js");
-  process.exit(await runDogfood());
-} else if (argv[0] === "projects") {
-  const { runProjects } = await import("../ui/projects.js");
-  process.exit(await runProjects());
-} else if (argv[0] === "mcp") {
-  const { runMcp } = await import("../ui/mcp.js");
-  process.exit(await runMcp());
-} else if (argv[0] === "skills") {
-  const { runSkills } = await import("../ui/skills.js");
-  process.exit(await runSkills());
-} else if (argv[0] === "ui") {
-  const { runGallery } = await import("../ui/components/gallery.js");
-  process.exit(await runGallery());
-} else if (argv[0] === "dashboard") {
-  const { runDashboard } = await import("../ui/dashboard.js");
-  process.exit(await runDashboard());
-} else if (argv.length === 0 && process.stdin.isTTY && process.stdout.isTTY) {
-  // No command in an interactive terminal → launch the dashboard.
-  const { runDashboard } = await import("../ui/dashboard.js");
-  process.exit(await runDashboard());
-} else {
-  process.exit(main(argv));
+// Interactive/async commands → each resolves to an exit code. Returns null when the
+// command was not handled here (so `main` handles the synchronous ones).
+async function runAsyncCommand(argv: string[]): Promise<number | null> {
+  switch (argv[0]) {
+    case "doctor":
+      return (await import("../ui/doctor.js")).runDoctor();
+    case "init":
+      return (await import("../ui/init.js")).runInit();
+    case "fix":
+      return (await import("../ui/history.js")).runFix();
+    case "history":
+      return (await import("../ui/history.js")).runHistory();
+    case "rollback":
+      return (await import("../ui/history.js")).runRollback(argv[1]);
+    case "dogfood":
+      return (await import("../ui/dogfood.js")).runDogfood();
+    case "projects":
+      return (await import("../ui/projects.js")).runProjects();
+    case "mcp":
+      return (await import("../ui/mcp.js")).runMcp();
+    case "skills":
+      return (await import("../ui/skills.js")).runSkills();
+    case "ui":
+      return (await import("../ui/components/gallery.js")).runGallery();
+    case "dashboard":
+      return (await import("../ui/dashboard.js")).runDashboard();
+    case undefined:
+      if (process.stdin.isTTY && process.stdout.isTTY) {
+        return (await import("../ui/dashboard.js")).runDashboard();
+      }
+      return null;
+    default:
+      return null;
+  }
 }
+
+// Entry point. Wrapped in an async function (not top-level await) to avoid Node's
+// "unsettled top-level await" warning while the dashboard loop or MCP server runs.
+async function cli(argv: string[]): Promise<void> {
+  if (argv[0] === "serve") {
+    const { serveStdio } = await import("../mcp/server.js");
+    const server = await serveStdio();
+    const shutdown = (): void => {
+      void server.close().finally(() => process.exit(0));
+    };
+    process.on("SIGINT", shutdown);
+    process.on("SIGTERM", shutdown);
+    return; // server keeps the process alive
+  }
+
+  const code = await runAsyncCommand(argv);
+  process.exit(code ?? main(argv));
+}
+
+void cli(process.argv.slice(2));
