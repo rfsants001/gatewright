@@ -51,6 +51,25 @@ describe("config writers — plan", () => {
     expect(planMcp(path).action).toBe("noop");
   });
 
+  it("force re-applies hooks even when already correct (redo config)", () => {
+    const path = join(dir, "settings.json");
+    const hook = { hooks: [{ type: "command", command: gateHookCommand() }] };
+    writeFileSync(path, JSON.stringify({ hooks: { PreToolUse: [hook], PostToolUse: [hook], Stop: [hook], SubagentStop: [hook] } }));
+    expect(planHooks(path).action).toBe("noop");
+    const forced = planHooks(path, true);
+    expect(forced.action).toBe("merge");
+    expect(forced.nextContent).toContain("gate.js");
+  });
+
+  it("force re-applies MCP even when already registered", () => {
+    const path = join(dir, ".mcp.json");
+    writeFileSync(path, planMcp(path).nextContent);
+    expect(planMcp(path).action).toBe("noop");
+    const forced = planMcp(path, true);
+    expect(forced.action).toBe("merge");
+    expect(JSON.parse(forced.nextContent).mcpServers.gatewright).toBeDefined();
+  });
+
   it("planJev merges settings and budget", () => {
     const path = join(dir, "jev.config.json");
     writeFileSync(path, JSON.stringify({ budget: { "completion-gate": 5 } }));
