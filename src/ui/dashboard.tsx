@@ -8,7 +8,7 @@ import type { Check, CheckStatus, EnvironmentReport } from "./../core/env/types.
 import { summarize } from "./../core/env/types.js";
 import type { ClaudeCodeOverview } from "../core/env/claude-code.js";
 
-export type Route = "home" | "detail" | "config" | "fix" | "dogfood" | "history" | "rollback";
+export type Route = "home" | "detail" | "config" | "fix" | "dogfood" | "history" | "rollback" | "run";
 
 export interface AgentRow {
   id: "claude-code" | "codex";
@@ -79,12 +79,13 @@ export function HomeView({
   // first agent and jumps into the Actions panel as it moves down.
   const ccInstalled = data.agents.some((a) => a.id === "claude-code" && a.installed);
   const actions: { value: string; label: string; hint?: string; disabled?: boolean }[] = [
-    ...(ccInstalled ? [{ value: "launch", label: "Launch Claude Code here", hint: "handoff" }] : []),
+    { value: "run", label: "Run an agent", hint: "through the gate" },
     { value: "config", label: "Configure this project" },
     { value: "fix", label: "Fix pending items" },
     { value: "dogfood", label: "Set up dogfood" },
     { value: "history", label: "History" },
     { value: "rollback", label: "Rollback a change", ...(data.hasHistory ? {} : { disabled: true, hint: "no history yet" }) },
+    ...(ccInstalled ? [{ value: "launch", label: "Launch raw (no gate)", hint: "ungoverned" }] : []),
     { value: "refresh", label: "Refresh" },
     { value: "quit", label: "Quit" },
   ];

@@ -48,6 +48,20 @@ describe("RunComposer", () => {
     expect(onRun).toHaveBeenCalledWith("claude-code", expect.objectContaining({ prompt: "fix the bug", mcpConfigPath: "/p/m.json" }));
   });
 
+  it("warns when the selected engine has no login (F9-007)", () => {
+    const out = render(
+      <RunComposer
+        engines={[{ id: "claude-code", name: "Claude Code", installed: true, supported: true, loggedOut: true }]}
+        cwd="/p"
+        mcpConfigPath="/m"
+        onRun={noop}
+        onBack={noop}
+        onQuit={noop}
+      />,
+    ).lastFrame() ?? "";
+    expect(out).toContain("no login");
+  });
+
   it("does not run with an empty prompt", async () => {
     const onRun = vi.fn();
     const { stdin } = render(<RunComposer engines={engines} cwd="/p" mcpConfigPath="/m" onRun={onRun} onBack={noop} onQuit={noop} />);

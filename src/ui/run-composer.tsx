@@ -14,6 +14,8 @@ export interface ComposerEngine {
   name: string;
   installed: boolean;
   supported: boolean;
+  /** inherited-cli engine with no login detected — run won't authenticate. */
+  loggedOut?: boolean;
   detail?: string;
 }
 
@@ -60,6 +62,7 @@ export function RunComposer({
   const [context, setContext] = useState("");
   const [engineId, setEngineId] = useState(selectable[0]?.id ?? "");
 
+  const selected = engines.find((e) => e.id === engineId);
   const canRun = prompt.trim().length > 0 && engineId.length > 0;
   const submit = (): void => {
     if (!canRun) return;
@@ -114,6 +117,13 @@ export function RunComposer({
             );
           })}
         </Box>
+
+        {selected?.loggedOut ? (
+          <Box marginTop={1}>
+            <Icon name="warn" color="yellow" />
+            <Text color="yellow">{` ${selected.name} has no login — run \`claude\` once to authenticate, then try again`}</Text>
+          </Box>
+        ) : null}
 
         <Box marginTop={1}>
           <TextInputField
