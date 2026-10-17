@@ -54,7 +54,7 @@ function groupHasGateHook(group: HookGroup): boolean {
  * without `gate` on PATH. Normalizes: any existing gate-hook entry (bare or absolute)
  * is replaced with the current correct command, so a stale `gate hook` gets upgraded.
  */
-export function planHooks(settingsPath: string): WritePlan {
+export function planHooks(settingsPath: string, force = false): WritePlan {
   const read = readJson(settingsPath);
   if ("ok" in read && !read.ok) return unparseableNoop(settingsPath, "hooks");
 
@@ -71,10 +71,11 @@ export function planHooks(settingsPath: string): WritePlan {
     hooks[event] = next;
   }
 
-  if (changed.length === 0 && "value" in read) {
-    return { path: settingsPath, action: "noop", summary: "hooks already wired", preview: ["✓ all 4 events already call gate hook"], nextContent: "" };
-  }
   const next = { ...base, hooks };
+  if (changed.length === 0 && "value" in read) {
+    if (!force) return { path: settingsPath, action: "noop", summary: "hooks already wired", preview: ["✓ all 4 events already call gate hook"], nextContent: "" };
+    return { path: settingsPath, action: "merge", summary: "re-apply hooks (reset to correct)", preview: ["↻ re-wrote all 4 gate hook events"], nextContent: serialize(next) };
+  }
   const action: WriteAction = "absent" in read ? "create" : "merge";
   return {
     path: settingsPath,
@@ -86,7 +87,7 @@ export function planHooks(settingsPath: string): WritePlan {
 }
 
 /** Ensure a `gatewright` MCP server (`gate serve`) exists in .mcp.json. */
-export function planMcp(mcpPath: string): WritePlan {
+export function planMcp(mcpPath: string, force = false): WritePlan {
   const read = readJson(mcpPath);
   if ("ok" in read && !read.ok) return unparseableNoop(mcpPath, "mcp");
 
@@ -94,11 +95,14 @@ export function planMcp(mcpPath: string): WritePlan {
   const servers = { ...((base["mcpServers"] as Record<string, unknown>) ?? {}) };
   const invocation = gateServeInvocation();
   const existing = servers["gatewright"] as { command?: unknown } | undefined;
-  if (existing && existing.command === invocation.command) {
+  if (existing && existing.command === invocation.command && !force) {
     return { path: mcpPath, action: "noop", summary: "MCP server already registered", preview: ["✓ mcpServers.gatewright present"], nextContent: "" };
   }
   servers["gatewright"] = invocation;
   const next = { ...base, mcpServers: servers };
+  if (existing && existing.command === invocation.command && force) {
+    return { path: mcpPath, action: "merge", summary: "re-apply MCP (reset to correct)", preview: ["↻ re-registered gatewright MCP server"], nextContent: serialize(next) };
+  }
   const action: WriteAction = "absent" in read ? "create" : "merge";
   return {
     path: mcpPath,
