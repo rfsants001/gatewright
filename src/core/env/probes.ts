@@ -5,6 +5,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import type { Check } from "./types.js";
+import { isGateHookCommand } from "../init/gate-bin.js";
 
 export type CommandProbe = (bin: string, args?: string[]) => string | null;
 
@@ -92,7 +93,7 @@ export function hooksCheck(ctx: ProbeContext): Check {
     const groups = hooks[event];
     if (!Array.isArray(groups)) return false;
     return groups.some((g) => Array.isArray((g as { hooks?: unknown }).hooks)
-      && (g as { hooks: { command?: unknown }[] }).hooks.some((h) => typeof h.command === "string" && h.command.includes("gate hook")));
+      && (g as { hooks: { command?: unknown }[] }).hooks.some((h) => isGateHookCommand(h.command)));
   });
   if (wired.length === HOOK_EVENTS.length) return { label: "hooks wired", status: "ok", detail: "Pre/Post/Stop/SubagentStop" };
   if (wired.length > 0) return { label: "hooks wired", status: "warn", detail: `only ${wired.join(", ")}`, fix: "gate init" };

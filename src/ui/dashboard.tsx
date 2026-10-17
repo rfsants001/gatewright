@@ -1,29 +1,28 @@
-// `gate` home — the machine dashboard. On launch it auto-runs detection (with a
-// loading spinner), then shows a web-like overview: an ASCII logo, a status line,
-// a Claude Code panel (MCPs / skills / plugins, auto-detected) beside Local-AI / Jev
-// / Proxies panels, and a short action menu. Actions hand off to the agent or to the
-// existing flows.
+// Dashboard views (presentational) — the home overview and the per-agent detail.
+// Stateful orchestration (routing, data, launch) lives in app.tsx.
 
-import { spawnSync } from "node:child_process";
-import { useEffect, useState } from "react";
-import { Box, Text, render, useApp, useInput } from "ink";
-import { Logo, Spinner, Panel, Icon, SelectList, type Choice } from "./components/index.js";
-import { detect } from "../core/env/detect.js";
-import { summarize, type Check, type CheckStatus, type EnvironmentReport } from "../core/env/types.js";
-import { claudeCodeOverview, type ClaudeCodeOverview } from "../core/env/claude-code.js";
+import { useState } from "react";
+import { Box, Text, useInput } from "ink";
+import { Logo, Panel, Icon, Card } from "./components/index.js";
+import type { Check, CheckStatus, EnvironmentReport } from "./../core/env/types.js";
+import { summarize } from "./../core/env/types.js";
+import type { ClaudeCodeOverview } from "../core/env/claude-code.js";
 
-type Action = "launch" | "init" | "fix" | "dogfood" | "refresh" | "exit";
+export type Route = "home" | "detail" | "config" | "fix" | "dogfood" | "history" | "rollback";
 
-interface DashboardData {
-  report: EnvironmentReport;
-  cc: ClaudeCodeOverview;
-  proxies: { name: string; value: string }[];
+export interface AgentRow {
+  id: "claude-code" | "codex";
+  name: string;
+  installed: boolean;
+  summary: string;
 }
 
-const PROXY_KEYS = ["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY"];
-
-function readProxies(): { name: string; value: string }[] {
-  return PROXY_KEYS.map((k) => ({ name: k, value: process.env[k] ?? process.env[k.toLowerCase()] ?? "" })).filter((p) => p.value);
+export interface DashboardData {
+  report: EnvironmentReport;
+  cc: ClaudeCodeOverview;
+  agents: AgentRow[];
+  proxies: { name: string; value: string }[];
+  hasHistory: boolean;
 }
 
 function statusColor(status: CheckStatus): string {
@@ -31,6 +30,9 @@ function statusColor(status: CheckStatus): string {
 }
 function statusIcon(status: CheckStatus): "ok" | "warn" | "bad" {
   return status === "ok" ? "ok" : status === "warn" ? "warn" : "bad";
+}
+function groupChecks(report: EnvironmentReport, title: string): Check[] {
+  return report.groups.find((g) => g.title === title)?.checks ?? [];
 }
 
 function CheckRow({ check }: { check: Check }) {
@@ -42,103 +44,81 @@ function CheckRow({ check }: { check: Check }) {
   );
 }
 
-function groupChecks(report: EnvironmentReport, title: string): Check[] {
-  return report.groups.find((g) => g.title === title)?.checks ?? [];
-}
+// ── Home ──────────────────────────────────────────────────────────────────────
 
-function ClaudeCodePanel({ cc }: { cc: ClaudeCodeOverview }) {
+function NavRow({ active, label, hint, disabled }: { active: boolean; label: string; hint?: string; disabled?: boolean }) {
   return (
-    <Panel title="Claude Code" color={cc.installed ? "green" : "red"}>
-      <Text>
-        <Icon name={cc.installed ? "ok" : "bad"} color={cc.installed ? "green" : "red"} />{" "}
-        {cc.installed ? "installed" : "not installed"}
-        {cc.configDir ? <Text dimColor>{`  ${cc.configDir}`}</Text> : null}
-      </Text>
-
-      <Text bold>{`MCP servers (${cc.mcps.length})`}</Text>
-      {cc.mcps.length === 0 ? <Text dimColor>  none</Text> : null}
-      {cc.mcps.map((m) => (
-        <Text key={m.name}>
-          <Icon name="bullet" color="cyan" /> {m.name}
-          <Text dimColor>{`  ${[m.command, ...m.args].join(" ")}`}</Text>
-        </Text>
-      ))}
-
-      <Text bold>{`Skills (${cc.skills.length})`}</Text>
-      {cc.skills.length === 0 ? <Text dimColor>  none detected</Text> : null}
-      {cc.skills.slice(0, 10).map((s) => (
-        <Text key={`${s.source}:${s.name}`}>
-          <Icon name="bullet" color="magenta" /> {s.name}
-          <Text dimColor>{`  [${s.source}]`}</Text>
-        </Text>
-      ))}
-
-      <Text bold>{`Plugins (${cc.plugins.length})`}</Text>
-      {cc.plugins.length === 0 ? <Text dimColor>  none detected</Text> : null}
-      {cc.plugins.map((p) => (
-        <Text key={p.name}>
-          <Icon name="bullet" color="blue" /> {p.name}
-        </Text>
-      ))}
-    </Panel>
+    <Box>
+      {active ? <Icon name="pointer" color={disabled ? "gray" : "cyan"} /> : <Text> </Text>}
+      <Text {...(active && !disabled ? { color: "cyan" } : {})} dimColor={disabled === true} bold={active && !disabled}>{` ${label}`}</Text>
+      {hint ? <Text dimColor>{`  ${hint}`}</Text> : null}
+    </Box>
   );
 }
 
-export function Dashboard({ onAction }: { onAction: (a: Action) => void }) {
-  const { exit } = useApp();
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [index, setIndex] = useState(0);
-
-  useEffect(() => {
-    let alive = true;
-    void (async () => {
-      const report = await detect();
-      const cc = claudeCodeOverview();
-      if (alive) setData({ report, cc, proxies: readProxies() });
-    })();
-    return () => {
-      alive = false;
-    };
-  }, []);
-
-  useInput((input) => {
-    if (input === "q") {
-      onAction("exit");
-      exit();
-    } else if (input === "r") {
-      onAction("refresh");
-      exit();
-    }
-  });
-
-  if (!data) {
-    return (
-      <Box flexDirection="column" paddingX={1} gap={1}>
-        <Logo />
-        <Spinner label="scanning your machine…" />
-      </Box>
-    );
-  }
-
-  const tally = summarize(data.report);
-  const actions: Choice<Action>[] = [
-    ...(data.cc.installed ? [{ value: "launch" as const, label: "Launch Claude Code here", hint: "handoff" }] : []),
-    { value: "init", label: "Configure this project", hint: "wizard" },
+export function HomeView({
+  data,
+  agentIndex,
+  onAgentMove,
+  onOpenAgent,
+  onNavigate,
+  onLaunch,
+  onRefresh,
+  onQuit,
+}: {
+  data: DashboardData;
+  agentIndex: number;
+  onAgentMove: (i: number) => void;
+  onOpenAgent: () => void;
+  onNavigate: (route: Route) => void;
+  onLaunch: () => void;
+  onRefresh: () => void;
+  onQuit: () => void;
+}) {
+  // One continuous cursor over [agents…, actions…]: a single ">" that starts on the
+  // first agent and jumps into the Actions panel as it moves down.
+  const ccInstalled = data.agents.some((a) => a.id === "claude-code" && a.installed);
+  const actions: { value: string; label: string; hint?: string; disabled?: boolean }[] = [
+    ...(ccInstalled ? [{ value: "launch", label: "Launch Claude Code here", hint: "handoff" }] : []),
+    { value: "config", label: "Configure this project" },
     { value: "fix", label: "Fix pending items" },
     { value: "dogfood", label: "Set up dogfood" },
+    { value: "history", label: "History" },
+    { value: "rollback", label: "Rollback a change", ...(data.hasHistory ? {} : { disabled: true, hint: "no history yet" }) },
     { value: "refresh", label: "Refresh" },
-    { value: "exit", label: "Exit" },
+    { value: "quit", label: "Quit" },
   ];
+  const total = data.agents.length + actions.length;
+  const [cursor, setCursor] = useState(0);
 
-  const select = (a: Action): void => {
-    onAction(a);
-    exit();
+  const activate = (i: number): void => {
+    if (i < data.agents.length) {
+      onAgentMove(i);
+      onOpenAgent();
+      return;
+    }
+    const action = actions[i - data.agents.length];
+    if (!action || action.disabled) return;
+    const value = action.value;
+    if (value === "launch") onLaunch();
+    else if (value === "refresh") onRefresh();
+    else if (value === "quit") onQuit();
+    else onNavigate(value as Route);
   };
 
-  return (
-    <Box flexDirection="column" paddingX={1} gap={1}>
-      <Logo />
+  useInput((input, key) => {
+    if (key.upArrow) setCursor((c) => (c - 1 + total) % total);
+    else if (key.downArrow) setCursor((c) => (c + 1) % total);
+    else if (key.return) activate(cursor);
+    else if (input === "q") onQuit();
+  });
 
+  const tally = summarize(data.report);
+
+  return (
+    <Box flexDirection="column" paddingX={1}>
+      <Logo />
+      <Text dimColor>  Your machine at a glance — agents, models and what's configured.</Text>
       <Box gap={3}>
         <Text>
           <Icon name="ok" color="green" /> {`${tally.ok} ready`}
@@ -152,10 +132,20 @@ export function Dashboard({ onAction }: { onAction: (a: Action) => void }) {
       </Box>
 
       <Box gap={1}>
-        <Box width="56%">
-          <ClaudeCodePanel cc={data.cc} />
+        <Box flexDirection="column" width="52%">
+          <Panel title="AI agents  ·  enter to see details">
+            {data.agents.map((a, i) => (
+              <NavRow key={a.id} active={cursor === i} label={`${a.installed ? "●" : "○"} ${a.name}`} hint={a.summary} />
+            ))}
+          </Panel>
+          <Panel title="Actions">
+            {actions.map((a, i) => (
+              <NavRow key={a.value} active={cursor === data.agents.length + i} label={a.label} {...(a.hint ? { hint: a.hint } : {})} {...(a.disabled ? { disabled: true } : {})} />
+            ))}
+          </Panel>
         </Box>
-        <Box flexDirection="column" width="44%" gap={1}>
+
+        <Box flexDirection="column" width="48%">
           <Panel title="Local AI">
             {groupChecks(data.report, "Local AI").map((c) => (
               <CheckRow key={c.label} check={c} />
@@ -181,47 +171,53 @@ export function Dashboard({ onAction }: { onAction: (a: Action) => void }) {
         </Box>
       </Box>
 
-      <Panel title="Actions  ·  ↑↓ move · enter select · r refresh · q quit">
-        <SelectList options={actions} index={index} onMove={setIndex} onSelect={select} />
-      </Panel>
+      <Text dimColor>{`  ↑↓ move (across panels) · enter select · q quit`}</Text>
     </Box>
   );
 }
 
-function launchClaude(): number {
-  const result = spawnSync("claude", [], { stdio: "inherit", cwd: process.cwd() });
-  if (result.error) {
-    process.stdout.write("gate: 'claude' was not found on PATH. Install Claude Code, then try again.\n");
-    return 1;
-  }
-  return result.status ?? 0;
+// ── Agent detail ────────────────────────────────────────────────────────────
+
+interface DetailItem {
+  key: string;
+  title: string;
+  description?: string;
+  color: string;
 }
 
-export async function runDashboard(): Promise<number> {
-  if (!process.stdin.isTTY || !process.stdout.isTTY) {
-    process.stdout.write("gate: the dashboard needs an interactive terminal (TTY). Try `gate doctor` for a plain report.\n");
-    return 1;
-  }
+const PER_PAGE = 6;
 
-  for (;;) {
-    let action: Action = "exit";
-    const { waitUntilExit } = render(<Dashboard onAction={(a) => (action = a)} />);
-    await waitUntilExit();
+export function AgentDetail({ cc, onBack, onQuit }: { cc: ClaudeCodeOverview; onBack: () => void; onQuit: () => void }) {
+  const [page, setPage] = useState(0);
 
-    if (action === "exit") return 0;
-    if (action === "refresh") continue;
-    if (action === "launch") return launchClaude();
+  const items: DetailItem[] = [
+    ...cc.commands.map((c) => ({ key: `cmd:${c.name}`, title: `/${c.name}`, color: "green", ...(c.description ? { description: c.description } : {}) })),
+    ...cc.skills.map((s) => ({ key: `skill:${s.source}:${s.name}`, title: s.name, color: "magenta", ...(s.description ? { description: s.description } : {}) })),
+  ];
+  const pages = Math.max(1, Math.ceil(items.length / PER_PAGE));
+  const current = Math.min(page, pages - 1);
+  const slice = items.slice(current * PER_PAGE, current * PER_PAGE + PER_PAGE);
 
-    if (action === "init") {
-      const { runInit } = await import("./init.js");
-      await runInit();
-    } else if (action === "fix") {
-      const { runFix } = await import("./history.js");
-      await runFix();
-    } else if (action === "dogfood") {
-      const { runDogfood } = await import("./dogfood.js");
-      await runDogfood();
-    }
-    // loop back to the dashboard
-  }
+  useInput((input, key) => {
+    if (input === "b" || key.escape || key.leftArrow) onBack();
+    else if (input === "q") onQuit();
+    else if (input === "n" || key.rightArrow) setPage((p) => Math.min(pages - 1, p + 1));
+    else if (input === "p") setPage((p) => Math.max(0, p - 1));
+  });
+
+  return (
+    <Box flexDirection="column" paddingX={1}>
+      <Text bold color="cyan">{` Claude Code · detail ${cc.installed ? "" : "(not installed) "}`}</Text>
+      <Text dimColor>  Everything this agent carries — commands, skills and MCP servers.</Text>
+      <Text dimColor>{`${cc.mcps.length} MCP · ${cc.plugins.length} plugins · ${cc.commands.length} commands · ${cc.skills.length} skills`}</Text>
+      <Box flexWrap="wrap">
+        {slice.map((it) => (
+          <Box key={it.key} width="50%" paddingRight={1}>
+            <Card title={it.title} color={it.color} {...(it.description ? { description: it.description } : {})} />
+          </Box>
+        ))}
+      </Box>
+      <Text dimColor>{`page ${current + 1}/${pages}  ·  n/p page · b back · q quit`}</Text>
+    </Box>
+  );
 }

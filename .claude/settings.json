@@ -1,0 +1,44 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/home/rafaels/.local/share/fnm/node-versions/v24.16.0/installation/bin/node\" \"/home/rafaels/dev/gatewright/dist/cli/gate.js\" hook"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/home/rafaels/.local/share/fnm/node-versions/v24.16.0/installation/bin/node\" \"/home/rafaels/dev/gatewright/dist/cli/gate.js\" hook"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/home/rafaels/.local/share/fnm/node-versions/v24.16.0/installation/bin/node\" \"/home/rafaels/dev/gatewright/dist/cli/gate.js\" hook"
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/home/rafaels/.local/share/fnm/node-versions/v24.16.0/installation/bin/node\" \"/home/rafaels/dev/gatewright/dist/cli/gate.js\" hook"
+          }
+        ]
+      }
+    ]
+  }
+}

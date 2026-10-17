@@ -3,7 +3,6 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { runHook } from "../host/run-hook.js";
 import { SkillCatalog } from "../core/skills/catalog.js";
 import { scaffoldSkill } from "../core/skills/scaffold.js";
 import { SkillError } from "../core/skills/types.js";
@@ -58,17 +57,6 @@ function skillCommand(args: string[]): number {
 function main(argv: string[]): number {
   const [cmd] = argv;
   switch (cmd) {
-    case "hook": {
-      let raw = "";
-      try {
-        raw = readFileSync(0, "utf8");
-      } catch {
-        raw = "";
-      }
-      const out = runHook(raw);
-      if (out.stdout) process.stdout.write(`${out.stdout}\n`);
-      return out.exitCode;
-    }
     case "skill":
       return skillCommand(argv.slice(1));
     case "replay": {
@@ -121,52 +109,72 @@ function main(argv: string[]): number {
   }
 }
 
-const argv = process.argv.slice(2);
-if (argv[0] === "serve") {
-  const { serveStdio } = await import("../mcp/server.js");
-  const server = await serveStdio();
-  const shutdown = (): void => {
-    void server.close().finally(() => process.exit(0));
-  };
-  process.on("SIGINT", shutdown);
-  process.on("SIGTERM", shutdown);
-} else if (argv[0] === "doctor") {
-  const { runDoctor } = await import("../ui/doctor.js");
-  process.exit(await runDoctor());
-} else if (argv[0] === "init") {
-  const { runInit } = await import("../ui/init.js");
-  process.exit(await runInit());
-} else if (argv[0] === "fix") {
-  const { runFix } = await import("../ui/history.js");
-  process.exit(await runFix());
-} else if (argv[0] === "history") {
-  const { runHistory } = await import("../ui/history.js");
-  process.exit(await runHistory());
-} else if (argv[0] === "rollback") {
-  const { runRollback } = await import("../ui/history.js");
-  process.exit(await runRollback(argv[1]));
-} else if (argv[0] === "dogfood") {
-  const { runDogfood } = await import("../ui/dogfood.js");
-  process.exit(await runDogfood());
-} else if (argv[0] === "projects") {
-  const { runProjects } = await import("../ui/projects.js");
-  process.exit(await runProjects());
-} else if (argv[0] === "mcp") {
-  const { runMcp } = await import("../ui/mcp.js");
-  process.exit(await runMcp());
-} else if (argv[0] === "skills") {
-  const { runSkills } = await import("../ui/skills.js");
-  process.exit(await runSkills());
-} else if (argv[0] === "ui") {
-  const { runGallery } = await import("../ui/components/gallery.js");
-  process.exit(await runGallery());
-} else if (argv[0] === "dashboard") {
-  const { runDashboard } = await import("../ui/dashboard.js");
-  process.exit(await runDashboard());
-} else if (argv.length === 0 && process.stdin.isTTY && process.stdout.isTTY) {
-  // No command in an interactive terminal → launch the dashboard.
-  const { runDashboard } = await import("../ui/dashboard.js");
-  process.exit(await runDashboard());
-} else {
-  process.exit(main(argv));
+// Interactive/async commands → each resolves to an exit code. Returns null when the
+// command was not handled here (so `main` handles the synchronous ones).
+async function runAsyncCommand(argv: string[]): Promise<number | null> {
+  const app = async (route?: Parameters<typeof import("../ui/app.js").runApp>[0]) => (await import("../ui/app.js")).runApp(route);
+  const plain = () => import("../ui/plain.js");
+  switch (argv[0]) {
+    // Headless hook entrypoint the host calls on every lifecycle event.
+    case "hook": {
+      let raw = "";
+      try {
+        raw = readFileSync(0, "utf8");
+      } catch {
+        raw = "";
+      }
+      const { runHookWithJev } = await import("../host/run-hook-jev.js");
+      const out = await runHookWithJev(raw);
+      if (out.stdout) process.stdout.write(`${out.stdout}\n`);
+      return out.exitCode;
+    }
+    // Interactive, mutating flows → the Ink app, opened at the right screen.
+    case "dashboard":
+      return app();
+    case "init":
+      return app("config");
+    case "fix":
+      return app("fix");
+    case "dogfood":
+      return app("dogfood");
+    case "rollback":
+      return argv[1] ? (await plain()).textRollback(argv[1]) : app("rollback");
+    case "ui":
+      return (await import("../ui/components/gallery.js")).runGallery();
+    // Read-only / scriptable → plain text (headless-friendly).
+    case "doctor":
+      return (await plain()).textDoctor();
+    case "history":
+      return (await plain()).textHistory();
+    case "projects":
+      return (await plain()).textProjects();
+    case "mcp":
+      return (await plain()).textMcp();
+    case "skills":
+      return (await plain()).textSkills();
+    case undefined:
+      return process.stdin.isTTY && process.stdout.isTTY ? app() : null;
+    default:
+      return null;
+  }
 }
+
+// Entry point. Wrapped in an async function (not top-level await) to avoid Node's
+// "unsettled top-level await" warning while the dashboard loop or MCP server runs.
+async function cli(argv: string[]): Promise<void> {
+  if (argv[0] === "serve") {
+    const { serveStdio } = await import("../mcp/server.js");
+    const server = await serveStdio();
+    const shutdown = (): void => {
+      void server.close().finally(() => process.exit(0));
+    };
+    process.on("SIGINT", shutdown);
+    process.on("SIGTERM", shutdown);
+    return; // server keeps the process alive
+  }
+
+  const code = await runAsyncCommand(argv);
+  process.exit(code ?? main(argv));
+}
+
+void cli(process.argv.slice(2));

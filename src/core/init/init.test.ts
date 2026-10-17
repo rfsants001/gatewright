@@ -3,6 +3,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "no
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { applyPlan, planHooks, planJev, planMcp } from "./config-writers.js";
+import { gateHookCommand } from "./gate-bin.js";
 import { scaffoldProject } from "./scaffold.js";
 
 describe("config writers — plan", () => {
@@ -17,17 +18,23 @@ describe("config writers — plan", () => {
     expect(Object.keys(next.hooks).sort()).toEqual(["PostToolUse", "PreToolUse", "Stop", "SubagentStop"]);
   });
 
-  it("planHooks merges without clobbering unrelated keys and is noop when wired", () => {
+  it("is noop when all events already use the current absolute command", () => {
     const path = join(dir, "settings.json");
-    const hook = { hooks: [{ type: "command", command: "gate hook" }] };
+    const hook = { hooks: [{ type: "command", command: gateHookCommand() }] };
     writeFileSync(path, JSON.stringify({ theme: "dark", hooks: { PreToolUse: [hook], PostToolUse: [hook], Stop: [hook], SubagentStop: [hook] } }));
     expect(planHooks(path).action).toBe("noop");
+  });
 
-    // partial → merge, keeps 'theme'
+  it("upgrades a stale bare `gate hook` to the absolute command, keeping other keys", () => {
+    const path = join(dir, "settings.json");
+    const hook = { hooks: [{ type: "command", command: "gate hook" }] };
     writeFileSync(path, JSON.stringify({ theme: "dark", hooks: { PreToolUse: [hook] } }));
     const plan = planHooks(path);
     expect(plan.action).toBe("merge");
     expect((JSON.parse(plan.nextContent) as { theme: string }).theme).toBe("dark");
+    // the written command is absolute (node + gate.js), not the bare `gate hook`
+    expect(plan.nextContent).not.toContain('"gate hook"');
+    expect(plan.nextContent).toContain("gate.js");
   });
 
   it("refuses to clobber an unparseable file (noop)", () => {

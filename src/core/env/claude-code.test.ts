@@ -27,7 +27,22 @@ describe("claudeCodeOverview", () => {
     expect(o.installed).toBe(false);
     expect(o.mcps).toEqual([]);
     expect(o.skills).toEqual([]);
+    expect(o.commands).toEqual([]);
     expect(o.plugins).toEqual([]);
+  });
+
+  it("detects custom slash commands (flat .md) separately from installed skills", () => {
+    const cmds = join(home, ".claude", "commands");
+    mkdirSync(cmds, { recursive: true });
+    writeFileSync(join(cmds, "sdd.md"), "# sdd");
+    writeFileSync(join(cmds, "idea.md"), "# idea");
+    mkdirSync(join(cwd, ".claude", "commands"), { recursive: true });
+    writeFileSync(join(cwd, ".claude", "commands", "ship.md"), "# ship");
+
+    const o = claudeCodeOverview({ home, cwd });
+    expect(o.commands.find((c) => c.name === "sdd")).toMatchObject({ source: "user" });
+    expect(o.commands.find((c) => c.name === "idea")).toMatchObject({ source: "user" });
+    expect(o.commands.find((c) => c.name === "ship")).toMatchObject({ source: "project" });
   });
 
   it("detects installed + MCPs + user/project/plugin skills + plugins", () => {
@@ -41,9 +56,9 @@ describe("claudeCodeOverview", () => {
     expect(o.installed).toBe(true);
     expect(o.configDir).toBe(join(home, ".claude"));
     expect(o.mcps.map((m) => m.name)).toEqual(["gatewright"]);
-    expect(o.skills).toContainEqual({ name: "summarize", source: "user" });
-    expect(o.skills).toContainEqual({ name: "deploy", source: "project" });
-    expect(o.skills).toContainEqual({ name: "fromplugin", source: "plugin" });
+    expect(o.skills.find((s) => s.name === "summarize")).toMatchObject({ source: "user" });
+    expect(o.skills.find((s) => s.name === "deploy")).toMatchObject({ source: "project" });
+    expect(o.skills.find((s) => s.name === "fromplugin")).toMatchObject({ source: "plugin" });
     expect(o.plugins.map((p) => p.name)).toContain("pack");
   });
 
