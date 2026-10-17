@@ -89,16 +89,25 @@ function main(argv: string[]): number {
         [
           "gate — Gatewright (headless guardrails for AI code agents)",
           "",
-          "Usage: gate <command> [options]",
+          "Run `gate` with no arguments for the interactive home screen.",
           "",
-          "Commands:",
+          "Usage: gate [command] [options]",
+          "",
+          "Interactive screens:",
+          "  (none)        home screen — navigate everything",
           "  doctor        diagnose the setup (status board)",
           "  init          self-configure this project (wizard)",
           "  fix           configure only selected pending items",
-          "  history       list configuration changes",
+          "  dogfood       set up governance for a real session",
+          "  projects      projects configured elsewhere",
+          "  mcp           list / register MCP servers",
+          "  skills        list / scaffold skills",
+          "  history       configuration change history",
           "  rollback [id] revert a configuration change",
+          "",
+          "Headless / scripting:",
+          "  hook          run the gate hook (stdin → decision)",
           "  serve         start the local MCP server",
-          "  skill         list | new — manage skills",
           "  replay        reconstruct a run's state from its journal",
           "  changelog     print the changelog",
           "",
@@ -136,6 +145,22 @@ if (argv[0] === "serve") {
 } else if (argv[0] === "rollback") {
   const { runRollback } = await import("../ui/history.js");
   process.exit(await runRollback(argv[1]));
+} else if (argv[0] === "dogfood") {
+  const { runDogfood } = await import("../ui/dogfood.js");
+  process.exit(await runDogfood());
+} else if (argv[0] === "projects") {
+  const { runProjects } = await import("../ui/projects.js");
+  process.exit(await runProjects());
+} else if (argv[0] === "mcp") {
+  const { runMcp } = await import("../ui/mcp.js");
+  process.exit(await runMcp());
+} else if (argv[0] === "skills") {
+  const { runSkills } = await import("../ui/skills.js");
+  process.exit(await runSkills());
+} else if (argv.length === 0 && process.stdin.isTTY && process.stdout.isTTY) {
+  // No command in an interactive terminal → launch the home screen.
+  const { runHome } = await import("../ui/home.js");
+  process.exit(await runHome());
 } else {
   process.exit(main(argv));
 }
