@@ -13,6 +13,7 @@ import { HistoryScreen, RollbackScreen } from "./history-screen.js";
 import { RunComposer, type ComposerEngine } from "./run-composer.js";
 import { RunLive } from "./run-live.js";
 import { SettingsScreen } from "./settings-screen.js";
+import { ProvisionScreen } from "./provision-screen.js";
 import { ConfigStore } from "../core/config/config-store.js";
 import { buildApplySteps } from "./apply-steps.js";
 import { detect } from "../core/env/detect.js";
@@ -384,6 +385,8 @@ function App({ onExit, initialRoute = "home" }: { onExit: (reason: "launch" | "q
       return <RunPage onDone={backAndReload} onQuit={() => exitWith("quit")} />;
     case "settings":
       return <SettingsScreen cwd={process.cwd()} engineIds={data.agents.map((a) => a.id)} onBack={back} onQuit={() => exitWith("quit")} />;
+    case "provision":
+      return <ProvisionScreen cwd={process.cwd()} onBack={backAndReload} onQuit={() => exitWith("quit")} />;
     case "history":
       return <HistoryScreen onBack={back} onQuit={() => exitWith("quit")} />;
     case "rollback":
