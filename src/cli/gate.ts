@@ -94,7 +94,7 @@ function main(argv: string[]): number {
           "Usage: gate [command] [options]",
           "",
           "Interactive screens:",
-          "  (none)        home screen — navigate everything",
+          "  (none)        dashboard — machine overview + actions",
           "  doctor        diagnose the setup (status board)",
           "  init          self-configure this project (wizard)",
           "  fix           configure only selected pending items",
@@ -160,10 +160,13 @@ if (argv[0] === "serve") {
 } else if (argv[0] === "ui") {
   const { runGallery } = await import("../ui/components/gallery.js");
   process.exit(await runGallery());
+} else if (argv[0] === "dashboard") {
+  const { runDashboard } = await import("../ui/dashboard.js");
+  process.exit(await runDashboard());
 } else if (argv.length === 0 && process.stdin.isTTY && process.stdout.isTTY) {
-  // No command in an interactive terminal → launch the home screen.
-  const { runHome } = await import("../ui/home.js");
-  process.exit(await runHome());
+  // No command in an interactive terminal → launch the dashboard.
+  const { runDashboard } = await import("../ui/dashboard.js");
+  process.exit(await runDashboard());
 } else {
   process.exit(main(argv));
 }
