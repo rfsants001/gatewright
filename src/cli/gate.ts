@@ -157,6 +157,9 @@ if (argv[0] === "serve") {
 } else if (argv[0] === "skills") {
   const { runSkills } = await import("../ui/skills.js");
   process.exit(await runSkills());
+} else if (argv[0] === "ui") {
+  const { runGallery } = await import("../ui/components/gallery.js");
+  process.exit(await runGallery());
 } else if (argv.length === 0 && process.stdin.isTTY && process.stdout.isTTY) {
   // No command in an interactive terminal → launch the home screen.
   const { runHome } = await import("../ui/home.js");
