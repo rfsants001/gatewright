@@ -50,10 +50,14 @@ export interface RunDeps {
   /** When both are present, the run is bound to the workspace for crash recovery. */
   runBindingStore?: RunBindingStore;
   sessionKey?: string;
+  /** How long to wait after SIGTERM before SIGKILL (default 2000ms). */
+  killTimeoutMs?: number;
 }
 
 export interface RunHandle {
   done: Promise<RunResult>;
+  /** Request cancellation: SIGTERM now, SIGKILL after the grace period; ends CANCELLED. */
+  cancel: () => void;
 }
 
 /** Split a byte/char stream into lines, feeding each to `onLine`; flush the tail at close. */
@@ -113,14 +117,18 @@ export function startRun(adapter: EngineAdapter, opts: EngineRunOptions, handler
   child.stdout?.on("data", (c) => outSplitter.feed(c));
   child.stderr?.on("data", (c) => errSplitter.feed(c));
 
+  let cancelled = false;
+  let killTimer: ReturnType<typeof setTimeout> | undefined;
+  let settled = false;
+
   const done = new Promise<RunResult>((resolve) => {
-    let settled = false;
     const finish = (exitCode: number | null): void => {
       if (settled) return;
       settled = true;
+      if (killTimer) clearTimeout(killTimer);
       outSplitter.flush();
       errSplitter.flush();
-      setState(exitCode === 0 ? "PASSED" : "FAILED");
+      setState(cancelled ? "CANCELLED" : exitCode === 0 ? "PASSED" : "FAILED");
       const result: RunResult = { exitCode, state: control.current() };
       handlers.onClose?.(result);
       resolve(result);
@@ -132,5 +140,14 @@ export function startRun(adapter: EngineAdapter, opts: EngineRunOptions, handler
     child.on("close", (code) => finish(code));
   });
 
-  return { done };
+  const cancel = (): void => {
+    if (settled || cancelled) return;
+    cancelled = true;
+    emit({ kind: "system", text: "cancelling run…" });
+    child.kill("SIGTERM");
+    killTimer = setTimeout(() => child.kill("SIGKILL"), deps.killTimeoutMs ?? 2000);
+    killTimer.unref?.();
+  };
+
+  return { done, cancel };
 }

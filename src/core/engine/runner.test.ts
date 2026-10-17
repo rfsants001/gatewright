@@ -25,11 +25,12 @@ function memRunJournal(): RunJournal {
 }
 
 /** A controllable fake child + spawn: push stdout/stderr, then close/error. */
-function fakeSpawn(): { spawn: SpawnFn; pushOut: (s: string) => void; pushErr: (s: string) => void; close: (code: number | null) => void; error: (e: Error) => void } {
+function fakeSpawn(): { spawn: SpawnFn; pushOut: (s: string) => void; pushErr: (s: string) => void; close: (code: number | null) => void; error: (e: Error) => void; kills: string[] } {
   const outCbs: ((c: string) => void)[] = [];
   const errCbs: ((c: string) => void)[] = [];
   const closeCbs: ((code: number | null) => void)[] = [];
   const errorCbs: ((e: Error) => void)[] = [];
+  const kills: string[] = [];
   const child: ChildLike = {
     stdout: { on: (_e, cb) => outCbs.push(cb) },
     stderr: { on: (_e, cb) => errCbs.push(cb) },
@@ -38,7 +39,10 @@ function fakeSpawn(): { spawn: SpawnFn; pushOut: (s: string) => void; pushErr: (
       else errorCbs.push(cb as (e: Error) => void);
       return this;
     },
-    kill: () => true,
+    kill: (signal) => {
+      kills.push(String(signal ?? "SIGTERM"));
+      return true;
+    },
   };
   return {
     spawn: () => child,
@@ -46,6 +50,7 @@ function fakeSpawn(): { spawn: SpawnFn; pushOut: (s: string) => void; pushErr: (
     pushErr: (s) => errCbs.forEach((cb) => cb(s)),
     close: (code) => closeCbs.forEach((cb) => cb(code)),
     error: (e) => errorCbs.forEach((cb) => cb(e)),
+    kills,
   };
 }
 
@@ -130,5 +135,28 @@ describe("startRun — lifecycle", () => {
     await handle.done;
     fake.close(1); // late/duplicate — must not transition again
     expect(states).toEqual(["RUNNING", "PASSED"]);
+  });
+});
+
+describe("startRun — cancel", () => {
+  it("sends SIGTERM and ends CANCELLED when the process dies", async () => {
+    const fake = fakeSpawn();
+    const states: string[] = [];
+    const handle = startRun(adapter, opts, { onState: (s) => states.push(s) }, { spawn: fake.spawn, runJournal: memRunJournal() });
+    handle.cancel();
+    expect(fake.kills).toContain("SIGTERM");
+    fake.close(null); // the killed process finally closes
+    const result = await handle.done;
+    expect(result.state).toBe("CANCELLED");
+    expect(states).toEqual(["RUNNING", "CANCELLED"]);
+  });
+
+  it("is a no-op once the run has already settled", async () => {
+    const fake = fakeSpawn();
+    const handle = startRun(adapter, opts, {}, { spawn: fake.spawn, runJournal: memRunJournal() });
+    fake.close(0);
+    await handle.done;
+    handle.cancel();
+    expect(fake.kills).toEqual([]);
   });
 });
