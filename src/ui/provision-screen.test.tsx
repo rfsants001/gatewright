@@ -9,10 +9,10 @@ const ENTER = "\r";
 const noop = () => {};
 const probe = () => null; // nothing installed
 
-function fakeRun(): { fn: typeof ProvisionFn; calls: { id: string; params: Record<string, string> }[] } {
-  const calls: { id: string; params: Record<string, string> }[] = [];
+function fakeRun(): { fn: typeof ProvisionFn; calls: { id: string; params: Record<string, string>; scope: string }[] } {
+  const calls: { id: string; params: Record<string, string>; scope: string }[] = [];
   const fn: typeof ProvisionFn = async (tool, params, deps) => {
-    calls.push({ id: tool.id, params });
+    calls.push({ id: tool.id, params, scope: tool.scope });
     deps?.onStep?.({ step: { label: "step", command: "", args: [] }, ok: true, output: "done" });
     return { ok: true, outcomes: [] };
   };
@@ -36,7 +36,7 @@ describe("ProvisionScreen", () => {
     expect(lastFrame() ?? "").toContain("Model for Ollama");
     stdin.write(ENTER); // accept default
     await delay(20);
-    expect(calls[0]).toEqual({ id: "ollama", params: { model: "llama3.2" } });
+    expect(calls[0]).toMatchObject({ id: "ollama", params: { model: "llama3.2" } });
     expect(lastFrame() ?? "").toContain("Installing Ollama");
   });
 
@@ -57,5 +57,26 @@ describe("ProvisionScreen", () => {
     stdin.write(ENTER);
     await delay(20);
     expect(calls[0]?.id).toBe("cargo");
+    expect(calls[0]?.scope).toBe("project"); // default scope
+  });
+
+  it("lets a custom install record at the gate scope via tab", async () => {
+    const { fn, calls } = fakeRun();
+    const { stdin, lastFrame } = render(<ProvisionScreen cwd="/p" onBack={noop} onQuit={noop} probe={probe} run={fn} />);
+    for (let i = 0; i < 3; i++) {
+      stdin.write(DOWN);
+      await delay(10);
+    }
+    stdin.write(ENTER); // custom
+    await delay(20);
+    expect(lastFrame() ?? "").toContain("record in: project");
+    stdin.write("\t"); // toggle scope → gate
+    await delay(20);
+    expect(lastFrame() ?? "").toContain("record in: gate");
+    stdin.write("npm i -g graphify");
+    await delay(20);
+    stdin.write(ENTER);
+    await delay(20);
+    expect(calls[0]?.scope).toBe("gate");
   });
 });

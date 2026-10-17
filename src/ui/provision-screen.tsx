@@ -10,6 +10,7 @@ import { defaultCommandProbe, type CommandProbe } from "../core/env/probes.js";
 import { CATALOG, customTool } from "../core/provision/catalog.js";
 import { provision as defaultProvision } from "../core/provision/provisioner.js";
 import type { ProvisionTool, StepOutcome } from "../core/provision/types.js";
+import type { ConfigScope } from "../core/config/config-store.js";
 
 const CUSTOM = "__custom__";
 
@@ -32,6 +33,7 @@ export function ProvisionScreen({
   const [tool, setTool] = useState<ProvisionTool | null>(null);
   const [asks, setAsks] = useState<"model" | "command" | "customcmd">("model");
   const [value, setValue] = useState("");
+  const [scope, setScope] = useState<ConfigScope>("project");
   const [outcomes, setOutcomes] = useState<StepOutcome[]>([]);
   const [done, setDone] = useState<boolean | null>(null);
 
@@ -71,13 +73,14 @@ export function ProvisionScreen({
     else if (asks === "command" && tool && value.trim()) start(customTool(tool.id, value.trim(), tool.scope), {});
     else if (asks === "customcmd" && value.trim()) {
       const id = value.trim().split(/\s+/)[0]!.replace(/[^A-Za-z0-9._-]/g, "") || "package";
-      start(customTool(id, value.trim(), "project"), {});
+      start(customTool(id, value.trim(), scope), {});
     }
   };
 
   useInput((input, key) => {
     if (input === "q") return onQuit();
     if (phase === "list" && (input === "b" || key.escape)) return onBack();
+    if (phase === "input" && key.tab && asks === "customcmd") return setScope((s) => (s === "gate" ? "project" : "gate"));
     if (phase === "input" && key.escape) return setPhase("list");
     if (phase === "run" && done !== null && (input === "b" || key.return)) return setPhase("list");
   });
@@ -89,7 +92,15 @@ export function ProvisionScreen({
         <Logo />
         <Panel title="Install a package" color="cyan">
           <TextInputField label={label} value={value} placeholder={asks === "model" ? "llama3.2" : "e.g. npm i -g graphify"} onChange={setValue} onSubmit={submitInput} />
-          <Text dimColor>  enter run · esc back</Text>
+          {asks === "customcmd" ? (
+            <Text>
+              <Icon name="bullet" color="cyan" />
+              <Text>{` record in: `}</Text>
+              <Text color="cyan" bold>{scope}</Text>
+              <Text dimColor>{scope === "gate" ? "  (global — all projects)" : "  (this folder only)"}</Text>
+            </Text>
+          ) : null}
+          <Text dimColor>{asks === "customcmd" ? "  enter run · tab toggle scope · esc back" : "  enter run · esc back"}</Text>
         </Panel>
       </Box>
     );
