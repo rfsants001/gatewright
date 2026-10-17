@@ -149,21 +149,26 @@ git clone https://github.com/rfsants001/gatewright.git
 cd gatewright
 npm install
 npm run build
+npm start        # launches the interactive home screen
 ```
 
-Expose the `gate` binary on your PATH (optional, for local dev):
+`npm start` (or `gate` with no arguments, once linked) opens the **home screen** — a
+navigable menu where you select what to do (configure, fix, dogfood, history, …). No need to
+memorize subcommands.
+
+Expose the `gate` binary on your PATH (optional):
 
 ```sh
-npm link        # now `gate` is available globally
+npm link         # now `gate` is available globally; run `gate`
 ```
 
-Without linking, run it directly: `node dist/cli/gate.js <command>`, or in watch mode with
-`npm run dev -- <command>`.
+You can also run it directly without linking: `node dist/cli/gate.js [command]`, or in watch
+mode with `npm run dev`. Every screen is also a subcommand (e.g. `gate doctor`) for scripting.
 
 Verify:
 
 ```sh
-gate --version        # gate 0.0.0
+gate --version        # gate 0.1.0
 gate --help
 ```
 

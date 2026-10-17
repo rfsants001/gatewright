@@ -13,6 +13,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsx src/cli/gate.ts",
+    "start": "node dist/cli/gate.js",
+    "gate": "node dist/cli/gate.js",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest"
