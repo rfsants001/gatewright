@@ -8,7 +8,7 @@ import type { Check, CheckStatus, EnvironmentReport } from "./../core/env/types.
 import { summarize } from "./../core/env/types.js";
 import type { ClaudeCodeOverview } from "../core/env/claude-code.js";
 
-export type Route = "home" | "detail" | "config" | "fix" | "dogfood" | "history" | "rollback" | "run" | "settings";
+export type Route = "home" | "detail" | "config" | "fix" | "dogfood" | "history" | "rollback" | "run" | "settings" | "provision";
 
 export interface AgentRow {
   id: "claude-code" | "codex";
@@ -82,6 +82,7 @@ export function HomeView({
     { value: "run", label: "Run an agent", hint: "through the gate" },
     { value: "config", label: "Configure this project" },
     { value: "settings", label: "Settings", hint: "gate vs project" },
+    { value: "provision", label: "Install / provision", hint: "Ollama · LiteLLM · custom" },
     { value: "fix", label: "Fix pending items" },
     { value: "dogfood", label: "Set up dogfood" },
     { value: "history", label: "History" },
