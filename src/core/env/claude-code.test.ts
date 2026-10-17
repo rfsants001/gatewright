@@ -40,9 +40,9 @@ describe("claudeCodeOverview", () => {
     writeFileSync(join(cwd, ".claude", "commands", "ship.md"), "# ship");
 
     const o = claudeCodeOverview({ home, cwd });
-    expect(o.commands).toContainEqual({ name: "sdd", source: "user" });
-    expect(o.commands).toContainEqual({ name: "idea", source: "user" });
-    expect(o.commands).toContainEqual({ name: "ship", source: "project" });
+    expect(o.commands.find((c) => c.name === "sdd")).toMatchObject({ source: "user" });
+    expect(o.commands.find((c) => c.name === "idea")).toMatchObject({ source: "user" });
+    expect(o.commands.find((c) => c.name === "ship")).toMatchObject({ source: "project" });
   });
 
   it("detects installed + MCPs + user/project/plugin skills + plugins", () => {
@@ -56,9 +56,9 @@ describe("claudeCodeOverview", () => {
     expect(o.installed).toBe(true);
     expect(o.configDir).toBe(join(home, ".claude"));
     expect(o.mcps.map((m) => m.name)).toEqual(["gatewright"]);
-    expect(o.skills).toContainEqual({ name: "summarize", source: "user" });
-    expect(o.skills).toContainEqual({ name: "deploy", source: "project" });
-    expect(o.skills).toContainEqual({ name: "fromplugin", source: "plugin" });
+    expect(o.skills.find((s) => s.name === "summarize")).toMatchObject({ source: "user" });
+    expect(o.skills.find((s) => s.name === "deploy")).toMatchObject({ source: "project" });
+    expect(o.skills.find((s) => s.name === "fromplugin")).toMatchObject({ source: "plugin" });
     expect(o.plugins.map((p) => p.name)).toContain("pack");
   });
 

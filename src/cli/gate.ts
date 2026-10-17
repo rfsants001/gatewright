@@ -146,10 +146,10 @@ async function runAsyncCommand(argv: string[]): Promise<number | null> {
     case "ui":
       return (await import("../ui/components/gallery.js")).runGallery();
     case "dashboard":
-      return (await import("../ui/dashboard.js")).runDashboard();
+      return (await import("../ui/app.js")).runApp();
     case undefined:
       if (process.stdin.isTTY && process.stdout.isTTY) {
-        return (await import("../ui/dashboard.js")).runDashboard();
+        return (await import("../ui/app.js")).runApp();
       }
       return null;
     default:
