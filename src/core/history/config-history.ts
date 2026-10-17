@@ -67,7 +67,12 @@ export interface ApplyHistoryOptions {
   makeId?: () => string;
 }
 
-const defaultId = (): string => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+/** A fresh short revision id. */
+export function newRevisionId(): string {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+}
+
+const defaultId = newRevisionId;
 
 /**
  * Apply non-noop plans, capturing before/after into one recorded revision.

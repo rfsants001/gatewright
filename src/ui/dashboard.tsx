@@ -8,7 +8,7 @@ import type { Check, CheckStatus, EnvironmentReport } from "./../core/env/types.
 import { summarize } from "./../core/env/types.js";
 import type { ClaudeCodeOverview } from "../core/env/claude-code.js";
 
-export type Route = "home" | "detail" | "config" | "fix" | "dogfood";
+export type Route = "home" | "detail" | "config" | "fix" | "dogfood" | "history" | "rollback";
 
 export interface AgentRow {
   id: "claude-code" | "codex";
@@ -22,6 +22,7 @@ export interface DashboardData {
   cc: ClaudeCodeOverview;
   agents: AgentRow[];
   proxies: { name: string; value: string }[];
+  hasHistory: boolean;
 }
 
 function statusColor(status: CheckStatus): string {
@@ -45,11 +46,11 @@ function CheckRow({ check }: { check: Check }) {
 
 // ── Home ──────────────────────────────────────────────────────────────────────
 
-function NavRow({ active, label, hint }: { active: boolean; label: string; hint?: string }) {
+function NavRow({ active, label, hint, disabled }: { active: boolean; label: string; hint?: string; disabled?: boolean }) {
   return (
     <Box>
-      {active ? <Icon name="pointer" color="cyan" /> : <Text> </Text>}
-      <Text {...(active ? { color: "cyan" } : {})} bold={active}>{` ${label}`}</Text>
+      {active ? <Icon name="pointer" color={disabled ? "gray" : "cyan"} /> : <Text> </Text>}
+      <Text {...(active && !disabled ? { color: "cyan" } : {})} dimColor={disabled === true} bold={active && !disabled}>{` ${label}`}</Text>
       {hint ? <Text dimColor>{`  ${hint}`}</Text> : null}
     </Box>
   );
@@ -77,11 +78,13 @@ export function HomeView({
   // One continuous cursor over [agents…, actions…]: a single ">" that starts on the
   // first agent and jumps into the Actions panel as it moves down.
   const ccInstalled = data.agents.some((a) => a.id === "claude-code" && a.installed);
-  const actions: { value: string; label: string; hint?: string }[] = [
+  const actions: { value: string; label: string; hint?: string; disabled?: boolean }[] = [
     ...(ccInstalled ? [{ value: "launch", label: "Launch Claude Code here", hint: "handoff" }] : []),
     { value: "config", label: "Configure this project" },
     { value: "fix", label: "Fix pending items" },
     { value: "dogfood", label: "Set up dogfood" },
+    { value: "history", label: "History" },
+    { value: "rollback", label: "Rollback a change", ...(data.hasHistory ? {} : { disabled: true, hint: "no history yet" }) },
     { value: "refresh", label: "Refresh" },
     { value: "quit", label: "Quit" },
   ];
@@ -94,11 +97,13 @@ export function HomeView({
       onOpenAgent();
       return;
     }
-    const value = actions[i - data.agents.length]?.value;
+    const action = actions[i - data.agents.length];
+    if (!action || action.disabled) return;
+    const value = action.value;
     if (value === "launch") onLaunch();
     else if (value === "refresh") onRefresh();
     else if (value === "quit") onQuit();
-    else if (value) onNavigate(value as Route);
+    else onNavigate(value as Route);
   };
 
   useInput((input, key) => {
@@ -135,7 +140,7 @@ export function HomeView({
           </Panel>
           <Panel title="Actions">
             {actions.map((a, i) => (
-              <NavRow key={a.value} active={cursor === data.agents.length + i} label={a.label} {...(a.hint ? { hint: a.hint } : {})} />
+              <NavRow key={a.value} active={cursor === data.agents.length + i} label={a.label} {...(a.hint ? { hint: a.hint } : {})} {...(a.disabled ? { disabled: true } : {})} />
             ))}
           </Panel>
         </Box>

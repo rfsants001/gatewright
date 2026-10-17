@@ -11,3 +11,4 @@ export { Button } from "./button.js";
 export { Spinner } from "./spinner.js";
 export { Logo } from "./logo.js";
 export { Card } from "./card.js";
+export { StepList, type Step } from "./step-list.js";
