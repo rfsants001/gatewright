@@ -45,6 +45,7 @@ export function RunComposer({
   engines,
   cwd,
   mcpConfigPath,
+  preferredEngineId,
   onRun,
   onBack,
   onQuit,
@@ -52,15 +53,18 @@ export function RunComposer({
   engines: ComposerEngine[];
   cwd: string;
   mcpConfigPath: string;
+  /** Config-resolved default engine; used when it's installed + supported. */
+  preferredEngineId?: string;
   onRun: (engineId: string, options: EngineRunOptions) => void;
   onBack: () => void;
   onQuit: () => void;
 }) {
   const selectable = engines.filter((e) => e.installed && e.supported);
+  const preferred = selectable.find((e) => e.id === preferredEngineId)?.id;
   const [field, setField] = useState<Field>("prompt");
   const [prompt, setPrompt] = useState("");
   const [context, setContext] = useState("");
-  const [engineId, setEngineId] = useState(selectable[0]?.id ?? "");
+  const [engineId, setEngineId] = useState(preferred ?? selectable[0]?.id ?? "");
 
   const selected = engines.find((e) => e.id === engineId);
   const canRun = prompt.trim().length > 0 && engineId.length > 0;

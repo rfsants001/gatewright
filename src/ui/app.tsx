@@ -12,6 +12,8 @@ import { OllamaSetup } from "./ollama-setup.js";
 import { HistoryScreen, RollbackScreen } from "./history-screen.js";
 import { RunComposer, type ComposerEngine } from "./run-composer.js";
 import { RunLive } from "./run-live.js";
+import { SettingsScreen } from "./settings-screen.js";
+import { ConfigStore } from "../core/config/config-store.js";
 import { buildApplySteps } from "./apply-steps.js";
 import { detect } from "../core/env/detect.js";
 import type { CheckStatus, EnvironmentReport } from "../core/env/types.js";
@@ -261,6 +263,7 @@ function RunPage({ onDone, onQuit }: { onDone: () => void; onQuit: () => void })
   const cwd = process.cwd();
   const [registry] = useState(() => defaultEngineRegistry());
   const [mcpConfigPath] = useState(() => ensureGateMcpConfig(cwd));
+  const [preferredEngineId] = useState(() => new ConfigStore(new FileArtifactStore()).resolve(cwd).defaultEngine);
   const [engines, setEngines] = useState<ComposerEngine[] | null>(null);
   const [phase, setPhase] = useState<"compose" | "live">("compose");
   const [events, setEvents] = useState<EngineEvent[]>([]);
@@ -312,7 +315,7 @@ function RunPage({ onDone, onQuit }: { onDone: () => void; onQuit: () => void })
       </Box>
     );
   }
-  return <RunComposer engines={engines} cwd={cwd} mcpConfigPath={mcpConfigPath} onRun={start} onBack={onDone} onQuit={onQuit} />;
+  return <RunComposer engines={engines} cwd={cwd} mcpConfigPath={mcpConfigPath} {...(preferredEngineId ? { preferredEngineId } : {})} onRun={start} onBack={onDone} onQuit={onQuit} />;
 }
 
 function BasicDetail({ name, onBack, onQuit }: { name: string; onBack: () => void; onQuit: () => void }) {
@@ -379,6 +382,8 @@ function App({ onExit, initialRoute = "home" }: { onExit: (reason: "launch" | "q
       return <DogfoodPage onDone={backAndReload} onQuit={() => exitWith("quit")} />;
     case "run":
       return <RunPage onDone={backAndReload} onQuit={() => exitWith("quit")} />;
+    case "settings":
+      return <SettingsScreen cwd={process.cwd()} engineIds={data.agents.map((a) => a.id)} onBack={back} onQuit={() => exitWith("quit")} />;
     case "history":
       return <HistoryScreen onBack={back} onQuit={() => exitWith("quit")} />;
     case "rollback":
