@@ -14,7 +14,9 @@ import { RunComposer, type ComposerEngine } from "./run-composer.js";
 import { RunLive } from "./run-live.js";
 import { SettingsScreen } from "./settings-screen.js";
 import { ProvisionScreen } from "./provision-screen.js";
+import { SkillsScreen } from "./skills-screen.js";
 import { ConfigStore } from "../core/config/config-store.js";
+import { loadGateSkills, buildSkillsSystemPrompt } from "../core/skills/gate-catalog.js";
 import { buildApplySteps } from "./apply-steps.js";
 import { detect } from "../core/env/detect.js";
 import type { CheckStatus, EnvironmentReport } from "../core/env/types.js";
@@ -265,6 +267,7 @@ function RunPage({ onDone, onQuit }: { onDone: () => void; onQuit: () => void })
   const [registry] = useState(() => defaultEngineRegistry());
   const [mcpConfigPath] = useState(() => ensureGateMcpConfig(cwd));
   const [preferredEngineId] = useState(() => new ConfigStore(new FileArtifactStore()).resolve(cwd).defaultEngine);
+  const [skillsPrompt] = useState(() => buildSkillsSystemPrompt(loadGateSkills().list()));
   const [engines, setEngines] = useState<ComposerEngine[] | null>(null);
   const [phase, setPhase] = useState<"compose" | "live">("compose");
   const [events, setEvents] = useState<EngineEvent[]>([]);
@@ -299,7 +302,9 @@ function RunPage({ onDone, onQuit }: { onDone: () => void; onQuit: () => void })
     setEvents([]);
     setState("IDLE");
     setPhase("live");
-    handleRef.current = startRun(registry.get(engineId), options, {
+    // Hand the gate's own skills to the engine (not the host AI's).
+    const withSkills: EngineRunOptions = skillsPrompt ? { ...options, systemPrompt: skillsPrompt } : options;
+    handleRef.current = startRun(registry.get(engineId), withSkills, {
       onEvent: (ev) => setEvents((prev) => [...prev, ev]),
       onState: (s) => setState(s),
     });
@@ -387,6 +392,8 @@ function App({ onExit, initialRoute = "home" }: { onExit: (reason: "launch" | "q
       return <SettingsScreen cwd={process.cwd()} engineIds={data.agents.map((a) => a.id)} onBack={back} onQuit={() => exitWith("quit")} />;
     case "provision":
       return <ProvisionScreen cwd={process.cwd()} onBack={backAndReload} onQuit={() => exitWith("quit")} />;
+    case "skills":
+      return <SkillsScreen onBack={back} onQuit={() => exitWith("quit")} />;
     case "history":
       return <HistoryScreen onBack={back} onQuit={() => exitWith("quit")} />;
     case "rollback":
