@@ -6,14 +6,41 @@ import { homedir } from "node:os";
 import { Box, Text, useInput } from "ink";
 import { Icon, Spinner, Panel, RadioGroup } from "./components/index.js";
 import { detectOllama, writeOllamaHelper, type OllamaStatus } from "../core/jev/ollama.js";
+import { detectHardware, type Hardware } from "../core/env/hardware.js";
+import { rankModels, type FitCategory, type RankedModel } from "../core/jev/model-catalog.js";
 
 const short = (p: string): string => p.replace(homedir(), "~");
+
+function fitMark(category: FitCategory) {
+  if (category === "recommended") return <Icon name="ok" color="green" />;
+  if (category === "runs") return <Icon name="warn" color="yellow" />;
+  return <Icon name="bad" color="red" />;
+}
+
+function RecommendedModels({ hw, ranked }: { hw: Hardware; ranked: RankedModel[] }) {
+  const show = ranked.filter((m) => m.category !== "too-big").slice(0, 6);
+  return (
+    <Box flexDirection="column">
+      <Text dimColor>{`  Your machine: ${hw.totalRamGB} GB RAM · ${hw.cpuCount} CPU${hw.gpu ? ` · GPU ${hw.gpu.name}${hw.gpu.vramGB ? ` ${hw.gpu.vramGB}GB` : ""}` : ""}`}</Text>
+      <Text bold>Recommended models (best fit first)</Text>
+      {show.map((m) => (
+        <Text key={m.tag}>
+          {"  "}
+          {fitMark(m.category)} {m.tag}
+          <Text dimColor>{`  ~${m.minRamGB} GB · ollama pull ${m.tag}`}</Text>
+        </Text>
+      ))}
+    </Box>
+  );
+}
 
 export function OllamaSetup({ onUse, onSkip, onBack, onQuit }: { onUse: (model: string) => void; onSkip: () => void; onBack: () => void; onQuit: () => void }) {
   const cwd = process.cwd();
   const [status, setStatus] = useState<"detecting" | OllamaStatus>("detecting");
   const [model, setModel] = useState("");
   const [note, setNote] = useState("");
+  const [hw, setHw] = useState<Hardware | null>(null);
+  const [ranked, setRanked] = useState<RankedModel[]>([]);
 
   const check = (): void => {
     setStatus("detecting");
@@ -23,6 +50,13 @@ export function OllamaSetup({ onUse, onSkip, onBack, onQuit }: { onUse: (model: 
     });
   };
   useEffect(() => check(), []);
+  useEffect(() => {
+    const h = detectHardware();
+    setHw(h);
+    setRanked(rankModels(h));
+  }, []);
+
+  const topPick = ranked.find((m) => m.category === "recommended")?.tag ?? "qwen2.5";
 
   const hasModels = status !== "detecting" && status.reachable && status.models.length > 0;
 
@@ -32,7 +66,7 @@ export function OllamaSetup({ onUse, onSkip, onBack, onQuit }: { onUse: (model: 
     else if (input === "s") onSkip();
     else if (input === "r") check();
     else if (input === "w") {
-      const p = writeOllamaHelper(cwd, model || "qwen2.5");
+      const p = writeOllamaHelper(cwd, model || topPick);
       setNote(`wrote ${short(p)} — open it with your agent to finish setup`);
     }
   });
@@ -56,14 +90,14 @@ export function OllamaSetup({ onUse, onSkip, onBack, onQuit }: { onUse: (model: 
               <Icon name="bad" color="red" /> Ollama not reachable at http://localhost:11434
             </Text>
             <Text dimColor>  Install:  curl -fsSL https://ollama.com/install.sh | sh</Text>
-            <Text dimColor>  Then:     ollama pull qwen2.5</Text>
+            {hw ? <RecommendedModels hw={hw} ranked={ranked} /> : null}
           </>
         ) : !hasModels ? (
           <>
             <Text>
               <Icon name="warn" color="yellow" /> Ollama is running, but has no models
             </Text>
-            <Text dimColor>  Pull one:  ollama pull qwen2.5</Text>
+            {hw ? <RecommendedModels hw={hw} ranked={ranked} /> : null}
           </>
         ) : (
           <>
