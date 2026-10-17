@@ -4,12 +4,14 @@
 
 import { spawnSync } from "node:child_process";
 import { basename, join } from "node:path";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Box, Text, render, useApp, useInput } from "ink";
 import { Logo, Spinner, Panel, CheckboxGroup, SelectList, StepList, type Choice, type Step } from "./components/index.js";
 import { HomeView, AgentDetail, type DashboardData, type Route } from "./dashboard.js";
 import { OllamaSetup } from "./ollama-setup.js";
 import { HistoryScreen, RollbackScreen } from "./history-screen.js";
+import { RunComposer, type ComposerEngine } from "./run-composer.js";
+import { RunLive } from "./run-live.js";
 import { buildApplySteps } from "./apply-steps.js";
 import { detect } from "../core/env/detect.js";
 import type { CheckStatus, EnvironmentReport } from "../core/env/types.js";
@@ -19,6 +21,12 @@ import { jevConfigPath } from "../core/jev/config-store.js";
 import { ConfigHistory } from "../core/history/config-history.js";
 import { scaffoldProject } from "../core/init/scaffold.js";
 import { ProjectRegistry } from "../core/project/registry.js";
+import { defaultEngineRegistry } from "../core/engine/default-registry.js";
+import { ensureGateMcpConfig } from "../core/engine/gate-mcp-config.js";
+import { startRun, type RunHandle } from "../core/engine/runner.js";
+import type { EngineRunOptions } from "../core/engine/types.js";
+import type { ControlState } from "../core/control/control-state.js";
+import type { EngineEvent } from "../core/engine/types.js";
 
 const OLLAMA_ENDPOINT = "http://localhost:11434";
 const PROXY_KEYS = ["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY"];
@@ -232,6 +240,66 @@ function DogfoodPage({ onDone, onQuit }: { onDone: () => void; onQuit: () => voi
   );
 }
 
+// ── Run (cockpit) ─────────────────────────────────────────────────────────────
+
+function RunPage({ onDone, onQuit }: { onDone: () => void; onQuit: () => void }) {
+  const cwd = process.cwd();
+  const [registry] = useState(() => defaultEngineRegistry());
+  const [mcpConfigPath] = useState(() => ensureGateMcpConfig(cwd));
+  const [engines, setEngines] = useState<ComposerEngine[] | null>(null);
+  const [phase, setPhase] = useState<"compose" | "live">("compose");
+  const [events, setEvents] = useState<EngineEvent[]>([]);
+  const [state, setState] = useState<ControlState>("IDLE");
+  const handleRef = useRef<RunHandle | null>(null);
+
+  useEffect(() => {
+    void (async () => {
+      const detected = await registry.detectAll();
+      setEngines(
+        detected.map((d) => {
+          let supported = true;
+          try {
+            d.adapter.buildHeadlessCommand({ prompt: "", cwd, mcpConfigPath });
+          } catch {
+            supported = false;
+          }
+          return {
+            id: d.adapter.id,
+            name: d.adapter.name,
+            installed: d.availability.installed,
+            supported,
+            ...(d.availability.loggedIn === false ? { loggedOut: true } : {}),
+            ...(d.availability.detail ? { detail: d.availability.detail } : {}),
+          };
+        }),
+      );
+    })();
+  }, []);
+
+  const start = (engineId: string, options: EngineRunOptions): void => {
+    setEvents([]);
+    setState("IDLE");
+    setPhase("live");
+    handleRef.current = startRun(registry.get(engineId), options, {
+      onEvent: (ev) => setEvents((prev) => [...prev, ev]),
+      onState: (s) => setState(s),
+    });
+  };
+
+  if (phase === "live") {
+    return <RunLive events={events} state={state} onCancel={() => handleRef.current?.cancel()} onBack={onDone} />;
+  }
+  if (!engines) {
+    return (
+      <Box flexDirection="column" paddingX={1}>
+        <Logo />
+        <Spinner label="detecting engines…" />
+      </Box>
+    );
+  }
+  return <RunComposer engines={engines} cwd={cwd} mcpConfigPath={mcpConfigPath} onRun={start} onBack={onDone} onQuit={onQuit} />;
+}
+
 function BasicDetail({ name, onBack, onQuit }: { name: string; onBack: () => void; onQuit: () => void }) {
   useInput((input, key) => {
     if (input === "b" || key.escape || key.leftArrow) onBack();
@@ -294,6 +362,8 @@ function App({ onExit, initialRoute = "home" }: { onExit: (reason: "launch" | "q
       return <FixPage data={data} onDone={backAndReload} onQuit={() => exitWith("quit")} />;
     case "dogfood":
       return <DogfoodPage onDone={backAndReload} onQuit={() => exitWith("quit")} />;
+    case "run":
+      return <RunPage onDone={backAndReload} onQuit={() => exitWith("quit")} />;
     case "history":
       return <HistoryScreen onBack={back} onQuit={() => exitWith("quit")} />;
     case "rollback":
