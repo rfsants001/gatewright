@@ -99,5 +99,36 @@ describe("startRun — streaming + logs", () => {
     fake.error(new Error("ENOENT"));
     const result = await handle.done;
     expect(result.exitCode).toBeNull();
+    expect(result.state).toBe("FAILED");
+  });
+});
+
+describe("startRun — lifecycle", () => {
+  it("goes IDLE→RUNNING→PASSED on exit 0", async () => {
+    const fake = fakeSpawn();
+    const states: string[] = [];
+    const handle = startRun(adapter, opts, { onState: (s) => states.push(s) }, { spawn: fake.spawn, runJournal: memRunJournal() });
+    fake.close(0);
+    const result = await handle.done;
+    expect(states).toEqual(["RUNNING", "PASSED"]);
+    expect(result.state).toBe("PASSED");
+  });
+
+  it("goes RUNNING→FAILED on a non-zero exit", async () => {
+    const fake = fakeSpawn();
+    const handle = startRun(adapter, opts, {}, { spawn: fake.spawn, runJournal: memRunJournal() });
+    fake.close(2);
+    expect((await handle.done).state).toBe("FAILED");
+  });
+
+  it("ignores a second close (terminal state never rewrites)", async () => {
+    const fake = fakeSpawn();
+    const rj = memRunJournal();
+    const states: string[] = [];
+    const handle = startRun(adapter, opts, { onState: (s) => states.push(s) }, { spawn: fake.spawn, runJournal: rj });
+    fake.close(0);
+    await handle.done;
+    fake.close(1); // late/duplicate — must not transition again
+    expect(states).toEqual(["RUNNING", "PASSED"]);
   });
 });

@@ -5,8 +5,11 @@
 // tests never touch a real process.
 
 import { spawn as nodeSpawn } from "node:child_process";
+import { ControlStateMachine } from "../control/control-state-machine.js";
+import { canTransition, type ControlState } from "../control/control-state.js";
+import type { RunBindingStore } from "../run-binding/run-binding-store.js";
 import type { EngineAdapter, EngineCommand, EngineEvent, EngineRunOptions } from "./types.js";
-import { appendEngineEvent, openRunJournal, type RunJournal } from "./run-journal.js";
+import { appendEngineEvent, openRunJournal, sanitizeSlug, type RunJournal } from "./run-journal.js";
 
 /** Minimal stream shape we depend on (node Readable satisfies it). */
 export interface ReadableLike {
@@ -28,10 +31,12 @@ export const defaultSpawn: SpawnFn = (cmd, cwd) => nodeSpawn(cmd.bin, cmd.args, 
 
 export interface RunResult {
   exitCode: number | null;
+  state: ControlState;
 }
 
 export interface RunHandlers {
   onEvent?: (ev: EngineEvent) => void;
+  onState?: (state: ControlState) => void;
   onClose?: (result: RunResult) => void;
 }
 
@@ -42,6 +47,9 @@ export interface RunDeps {
   /** Override the run journal (tests inject an in-memory store). */
   runJournal?: RunJournal;
   now?: () => string;
+  /** When both are present, the run is bound to the workspace for crash recovery. */
+  runBindingStore?: RunBindingStore;
+  sessionKey?: string;
 }
 
 export interface RunHandle {
@@ -72,14 +80,29 @@ function makeLineSplitter(onLine: (line: string) => void): { feed: (chunk: Buffe
 export function startRun(adapter: EngineAdapter, opts: EngineRunOptions, handlers: RunHandlers = {}, deps: RunDeps = {}): RunHandle {
   const spawn = deps.spawn ?? defaultSpawn;
   const now = deps.now ?? (() => new Date().toISOString());
-  const rj = deps.runJournal ?? openRunJournal(opts.cwd, deps.slug ?? "run");
+  const slug = sanitizeSlug(deps.slug ?? "run");
+  const rj = deps.runJournal ?? openRunJournal(opts.cwd, slug);
+  const control = new ControlStateMachine(rj.journal);
 
   const emit = (ev: EngineEvent): void => {
     appendEngineEvent(rj.journal, ev, now());
     handlers.onEvent?.(ev);
   };
+  /** Transition only when legal, so an illegal move never writes a control event. */
+  const setState = (to: ControlState): void => {
+    if (!canTransition(control.current(), to)) return;
+    control.transition(to);
+    handlers.onState?.(to);
+  };
 
+  // Build the command first (a stub engine throws here before we touch the process).
   const cmd = adapter.buildHeadlessCommand(opts);
+  if (deps.runBindingStore && deps.sessionKey) {
+    deps.runBindingStore.update(opts.cwd, (bindings) => {
+      bindings[deps.sessionKey!] = slug;
+    });
+  }
+  setState("RUNNING");
   const child = spawn(cmd, opts.cwd);
 
   const outSplitter = makeLineSplitter((line) => {
@@ -92,19 +115,21 @@ export function startRun(adapter: EngineAdapter, opts: EngineRunOptions, handler
 
   const done = new Promise<RunResult>((resolve) => {
     let settled = false;
-    const finish = (result: RunResult): void => {
+    const finish = (exitCode: number | null): void => {
       if (settled) return;
       settled = true;
       outSplitter.flush();
       errSplitter.flush();
+      setState(exitCode === 0 ? "PASSED" : "FAILED");
+      const result: RunResult = { exitCode, state: control.current() };
       handlers.onClose?.(result);
       resolve(result);
     };
     child.on("error", (err) => {
       emit({ kind: "error", text: `spawn failed: ${err.message}` });
-      finish({ exitCode: null });
+      finish(null);
     });
-    child.on("close", (code) => finish({ exitCode: code }));
+    child.on("close", (code) => finish(code));
   });
 
   return { done };
