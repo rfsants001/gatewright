@@ -3,7 +3,6 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { runHook } from "../host/run-hook.js";
 import { SkillCatalog } from "../core/skills/catalog.js";
 import { scaffoldSkill } from "../core/skills/scaffold.js";
 import { SkillError } from "../core/skills/types.js";
@@ -58,17 +57,6 @@ function skillCommand(args: string[]): number {
 function main(argv: string[]): number {
   const [cmd] = argv;
   switch (cmd) {
-    case "hook": {
-      let raw = "";
-      try {
-        raw = readFileSync(0, "utf8");
-      } catch {
-        raw = "";
-      }
-      const out = runHook(raw);
-      if (out.stdout) process.stdout.write(`${out.stdout}\n`);
-      return out.exitCode;
-    }
     case "skill":
       return skillCommand(argv.slice(1));
     case "replay": {
@@ -127,6 +115,19 @@ async function runAsyncCommand(argv: string[]): Promise<number | null> {
   const app = async (route?: Parameters<typeof import("../ui/app.js").runApp>[0]) => (await import("../ui/app.js")).runApp(route);
   const plain = () => import("../ui/plain.js");
   switch (argv[0]) {
+    // Headless hook entrypoint the host calls on every lifecycle event.
+    case "hook": {
+      let raw = "";
+      try {
+        raw = readFileSync(0, "utf8");
+      } catch {
+        raw = "";
+      }
+      const { runHookWithJev } = await import("../host/run-hook-jev.js");
+      const out = await runHookWithJev(raw);
+      if (out.stdout) process.stdout.write(`${out.stdout}\n`);
+      return out.exitCode;
+    }
     // Interactive, mutating flows → the Ink app, opened at the right screen.
     case "dashboard":
       return app();
