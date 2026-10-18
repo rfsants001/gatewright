@@ -12,7 +12,7 @@ describe("gate skill catalog (bundled)", () => {
   it("parses all bundled skills with no problems", () => {
     const cat = loadGateSkills(root);
     expect(cat.problems()).toEqual([]);
-    expect(cat.list().length).toBeGreaterThanOrEqual(29);
+    expect(cat.list().length).toBeGreaterThanOrEqual(30);
   });
 
   it("every bundled skill is gate-prefixed and tool-agnostic (no enterprise connectors)", () => {

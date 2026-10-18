@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { render } from "ink-testing-library";
 import { ProvisionScreen } from "./provision-screen.js";
 import type { provision as ProvisionFn } from "../core/provision/provisioner.js";
@@ -20,12 +20,31 @@ function fakeRun(): { fn: typeof ProvisionFn; calls: { id: string; params: Recor
 }
 
 describe("ProvisionScreen", () => {
-  it("lists the catalog tools and a custom option", () => {
+  it("lists the catalog tools, an AI-install and a custom option", () => {
     const out = render(<ProvisionScreen cwd="/p" onBack={noop} onQuit={noop} probe={probe} run={fakeRun().fn} />).lastFrame() ?? "";
     expect(out).toContain("Ollama");
     expect(out).toContain("LiteLLM");
     expect(out).toContain("graphify");
+    expect(out).toContain("Install with AI");
     expect(out).toContain("Custom package");
+  });
+
+  it("hands a repo URL to onAiInstall", async () => {
+    const onAiInstall = vi.fn();
+    const { stdin, lastFrame } = render(<ProvisionScreen cwd="/p" onBack={noop} onQuit={noop} probe={probe} run={fakeRun().fn} onAiInstall={onAiInstall} />);
+    // list: ollama, litellm, graphify, AI(3), custom(4) → 3 downs to reach AI
+    for (let i = 0; i < 3; i++) {
+      stdin.write(DOWN);
+      await delay(10);
+    }
+    stdin.write(ENTER); // select "Install with AI"
+    await delay(20);
+    expect(lastFrame() ?? "").toContain("Repo URL or tool name");
+    stdin.write("https://github.com/owner/repo");
+    await delay(20);
+    stdin.write(ENTER);
+    await delay(20);
+    expect(onAiInstall).toHaveBeenCalledWith("https://github.com/owner/repo");
   });
 
   it("provisions Ollama with the prefilled default model on enter", async () => {
@@ -47,6 +66,8 @@ describe("ProvisionScreen", () => {
     await delay(10);
     stdin.write(DOWN); // → graphify
     await delay(10);
+    stdin.write(DOWN); // → AI
+    await delay(10);
     stdin.write(DOWN); // → custom
     await delay(10);
     stdin.write(ENTER); // select custom
@@ -63,8 +84,8 @@ describe("ProvisionScreen", () => {
   it("lets a custom install record at the gate scope via tab", async () => {
     const { fn, calls } = fakeRun();
     const { stdin, lastFrame } = render(<ProvisionScreen cwd="/p" onBack={noop} onQuit={noop} probe={probe} run={fn} />);
-    for (let i = 0; i < 3; i++) {
-      stdin.write(DOWN);
+    for (let i = 0; i < 4; i++) {
+      stdin.write(DOWN); // ollama→litellm→graphify→AI→custom
       await delay(10);
     }
     stdin.write(ENTER); // custom
