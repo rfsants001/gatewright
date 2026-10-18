@@ -15,6 +15,8 @@ import { RunLive } from "./run-live.js";
 import { SettingsScreen } from "./settings-screen.js";
 import { ProvisionScreen } from "./provision-screen.js";
 import { SkillsScreen } from "./skills-screen.js";
+import { FlowScreen, type RunEngine } from "./flow-screen.js";
+import { AskPrompts } from "./ask-prompt.js";
 import { ConfigStore } from "../core/config/config-store.js";
 import { loadGateSkills, buildSkillsSystemPrompt } from "../core/skills/gate-catalog.js";
 import { buildApplySteps } from "./apply-steps.js";
@@ -345,6 +347,84 @@ function RunPage({ onDone, onQuit, autoPrompt }: { onDone: () => void; onQuit: (
   return <RunComposer engines={engines} cwd={cwd} mcpConfigPath={mcpConfigPath} {...(preferredEngineId ? { preferredEngineId } : {})} onRun={start} onBack={onDone} onQuit={onQuit} />;
 }
 
+// ── Flow (end-to-end) ─────────────────────────────────────────────────────────
+
+function FlowPage({ onDone }: { onDone: () => void }) {
+  const cwd = process.cwd();
+  const [registry] = useState(() => defaultEngineRegistry());
+  const [mcpConfigPath] = useState(() => ensureGateMcpConfig(cwd));
+  const [preferredEngineId] = useState(() => new ConfigStore(new FileArtifactStore()).resolve(cwd).defaultEngine);
+  const [skillsPrompt] = useState(() => buildSkillsSystemPrompt(loadGateSkills().list()));
+  const [engineId, setEngineId] = useState<string | null | undefined>(undefined); // undefined=detecting, null=none usable
+  const [goal, setGoal] = useState<string | null>(null);
+
+  useEffect(() => {
+    void (async () => {
+      const detected = await registry.detectAll();
+      const usable = detected
+        .filter((d) => d.availability.installed)
+        .map((d) => d.adapter.id)
+        .filter((id) => {
+          try {
+            registry.get(id).buildHeadlessCommand({ prompt: "", cwd, mcpConfigPath });
+            return true;
+          } catch {
+            return false;
+          }
+        });
+      setEngineId(usable.find((id) => id === preferredEngineId) ?? usable[0] ?? null);
+    })();
+  }, []);
+
+  if (engineId === undefined) {
+    return (
+      <Box flexDirection="column" paddingX={1}>
+        <Logo />
+        <Spinner label="detecting engines…" />
+      </Box>
+    );
+  }
+  if (engineId === null) {
+    return (
+      <Box flexDirection="column" paddingX={1}>
+        <Logo />
+        <Panel title="Flow" color="yellow">
+          <Text>No usable engine found. Install Claude Code (and log in) to run a flow.</Text>
+          <Text dimColor>  b back</Text>
+        </Panel>
+      </Box>
+    );
+  }
+  if (goal === null) {
+    return (
+      <AskPrompts
+        title="New flow — end to end"
+        questions={[{ id: "goal", type: "text", prompt: "What do you want to build? (goal → SDD → review → PR)" }]}
+        onComplete={(a) => setGoal(typeof a["goal"] === "string" ? a["goal"] : "")}
+        onCancel={onDone}
+      />
+    );
+  }
+
+  const runEngine: RunEngine = (prompt, handlers) => {
+    let text = "";
+    const h = startRun(
+      registry.get(engineId),
+      { prompt, cwd, mcpConfigPath, ...(skillsPrompt ? { systemPrompt: skillsPrompt } : {}) },
+      {
+        onEvent: (e) => {
+          if (e.text && (e.kind === "assistant" || e.kind === "result")) text += `${e.text}\n`;
+          handlers.onEvent(e);
+        },
+        onState: handlers.onState,
+      },
+    );
+    return { done: h.done.then(() => text), cancel: () => h.cancel() };
+  };
+
+  return <FlowScreen goal={goal} runEngine={runEngine} onDone={onDone} />;
+}
+
 function BasicDetail({ name, onBack, onQuit }: { name: string; onBack: () => void; onQuit: () => void }) {
   useInput((input, key) => {
     if (input === "b" || key.escape || key.leftArrow) onBack();
@@ -423,6 +503,8 @@ function App({ onExit, initialRoute = "home" }: { onExit: (reason: "launch" | "q
       );
     case "skills":
       return <SkillsScreen onBack={back} onQuit={() => exitWith("quit")} />;
+    case "flow":
+      return <FlowPage onDone={backAndReload} />;
     case "history":
       return <HistoryScreen onBack={back} onQuit={() => exitWith("quit")} />;
     case "rollback":
