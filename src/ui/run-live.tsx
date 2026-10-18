@@ -11,7 +11,6 @@ import { isTerminal } from "../core/control/control-state.js";
 import type { EngineEvent } from "../core/engine/types.js";
 
 const VIEW_H = 18;
-const WIDTH = 96;
 
 interface Line {
   text: string;
@@ -31,38 +30,61 @@ export function cleanMarkdown(text: string): string {
     .replace(/^\s{0,3}>\s?/gm, "");
 }
 
-const clip = (s: string): string => (s.length > WIDTH ? `${s.slice(0, WIDTH - 1)}…` : s);
+/** Greedy word-wrap to `width`; hard-splits a word longer than the width. */
+export function wrap(text: string, width: number): string[] {
+  if (width < 4) width = 4;
+  const rows: string[] = [];
+  for (const word of text.split(/\s+/).filter(Boolean)) {
+    let w = word;
+    while (w.length > width) {
+      if (rows.length && rows[rows.length - 1] === "") rows.pop();
+      rows.push(w.slice(0, width));
+      w = w.slice(width);
+    }
+    const last = rows[rows.length - 1];
+    if (last === undefined || last.length + 1 + w.length > width || last === "") rows.push(w);
+    else rows[rows.length - 1] = `${last} ${w}`;
+  }
+  return rows.length ? rows : [""];
+}
 
-/** Flatten events into display lines — one terminal row each, so scrolling is exact. */
-export function toLines(events: EngineEvent[]): Line[] {
+/**
+ * Flatten events into display lines — one terminal row each (wrapped to `width`, no
+ * ellipsis), so scrolling is exact and long text reads in full.
+ */
+export function toLines(events: EngineEvent[], width = 1000): Line[] {
   const out: Line[] = [];
+  const push = (prefix: string, cont: string, body: string, color?: string, dim?: boolean): void => {
+    const base: Partial<Line> = { ...(color ? { color } : {}), ...(dim ? { dim: true } : {}) };
+    wrap(body, width - prefix.length).forEach((seg, i) => out.push({ text: `${i === 0 ? prefix : cont}${seg}`, ...base } as Line));
+  };
   for (const ev of events) {
     switch (ev.kind) {
       case "assistant": {
         const body = cleanMarkdown(ev.text ?? "").trimEnd();
         if (!body) break;
-        body.split("\n").forEach((l, i) => out.push({ text: clip(`${i === 0 ? "● " : "  "}${l}`) }));
+        body.split("\n").forEach((para) => (para.trim() ? push("● ", "  ", para) : out.push({ text: "" })));
         break;
       }
       case "tool_use":
-        out.push({ text: clip(`→ ${ev.tool}${ev.detail ? `  ${ev.detail}` : ""}`), color: "cyan" });
+        push("→ ", "  ", `${ev.tool}${ev.detail ? `  ${ev.detail}` : ""}`, "cyan");
         break;
       case "tool_result":
-        if (ev.detail) out.push({ text: clip(`  ⤷ ${ev.detail}`), dim: true });
+        if (ev.detail) push("  ⤷ ", "     ", ev.detail, undefined, true);
         break;
       case "result": {
         const body = cleanMarkdown(ev.text ?? "").trim();
-        if (body) out.push({ text: clip(`✓ ${body.split("\n")[0]}`), color: "green" });
+        if (body) push("✓ ", "  ", body, "green");
         break;
       }
       case "error":
-        out.push({ text: clip(`✗ ${ev.text ?? "error"}`), color: "red" });
+        push("✗ ", "  ", ev.text ?? "error", "red");
         break;
       case "system":
-        if (ev.text && ev.text !== "init") out.push({ text: clip(`∴ ${ev.text}`), dim: true });
+        if (ev.text && ev.text !== "init") push("∴ ", "  ", ev.text, undefined, true);
         break;
       default:
-        if (ev.text) out.push({ text: clip(ev.text), dim: true });
+        if (ev.text) push("", "", ev.text, undefined, true);
     }
   }
   return out;
@@ -87,17 +109,23 @@ export function RunLive({
   onBack: () => void;
 }) {
   const done = isTerminal(state);
-  const lines = useMemo(() => toLines(events), [events]);
+  const wrapW = Math.max(40, (process.stdout.columns ?? 80) - 6);
+  const lines = useMemo(() => toLines(events, wrapW), [events, wrapW]);
   const maxOffset = Math.max(0, lines.length - VIEW_H);
   // follow = pinned to the tail; any scroll-up detaches until the user returns to bottom.
   const [follow, setFollow] = useState(true);
   const [offset, setOffset] = useState(0);
   const effectiveOffset = follow ? maxOffset : Math.min(offset, maxOffset);
 
+  const leave = (): void => {
+    if (!done) onCancel(); // leaving a live run cancels it
+    onBack();
+  };
+
   useInput((input, key) => {
-    if (input === "q" && done) return onBack();
-    if (input === "c" && !done) return onCancel();
-    if (input === "b" && done) return onBack();
+    if (input === "b" || key.escape) return leave(); // back to dashboard anytime
+    if (input === "q") return leave();
+    if (input === "c" && !done) return onCancel(); // cancel but stay to read the log
     if (key.upArrow || input === "k") {
       setFollow(false);
       setOffset((o) => Math.max(0, (follow ? maxOffset : o) - 1));
@@ -136,7 +164,7 @@ export function RunLive({
             ))
           )}
         </Box>
-        <Text dimColor>{done ? "  ↑↓ scroll · g/G top/bottom · b back" : "  ↑↓ scroll · g/G top/bottom · c cancel"}</Text>
+        <Text dimColor>{done ? "  ↑↓ scroll · g/G top/bottom · b/esc dashboard" : "  ↑↓ scroll · g/G top/bottom · c cancel · b/esc dashboard"}</Text>
       </Panel>
     </Box>
   );
