@@ -27,6 +27,39 @@ function credentialExists(deps: ClaudeAdapterDeps): boolean {
   return [join(deps.home, ".claude", ".credentials.json"), join(deps.home, ".claude.json")].some(deps.fileExists);
 }
 
+/** A concise "what" for a tool call, from its input (e.g. Read → the file path). */
+function toolUseDetail(name: string, input: unknown): string {
+  if (typeof input !== "object" || input === null) return "";
+  const rec = input as Record<string, unknown>;
+  const str = (k: string): string => (typeof rec[k] === "string" ? (rec[k] as string) : "");
+  const byTool: Record<string, string> = {
+    Read: str("file_path"),
+    Write: str("file_path"),
+    Edit: str("file_path"),
+    MultiEdit: str("file_path"),
+    Bash: str("command"),
+    Grep: str("pattern"),
+    Glob: str("pattern"),
+    Task: str("description"),
+    WebFetch: str("url"),
+    WebSearch: str("query"),
+  };
+  const picked = byTool[name];
+  if (picked) return picked.replace(/\s+/g, " ").slice(0, 100);
+  // Fallback: first string field.
+  const first = Object.values(rec).find((v) => typeof v === "string") as string | undefined;
+  return first ? first.replace(/\s+/g, " ").slice(0, 100) : "";
+}
+
+/** A short one-line preview of a tool result's content. */
+function toolResultPreview(content: unknown): string {
+  let text = "";
+  if (typeof content === "string") text = content;
+  else if (Array.isArray(content)) text = content.map((b) => (typeof b === "object" && b && "text" in b ? String((b as { text: unknown }).text ?? "") : "")).join(" ");
+  const firstLine = text.split("\n").find((l) => l.trim().length > 0) ?? "";
+  return firstLine.trim().slice(0, 100);
+}
+
 function parseLine(line: string): EngineEvent | null {
   const trimmed = line.trim();
   if (!trimmed) return null;
@@ -44,7 +77,10 @@ function parseLine(line: string): EngineEvent | null {
       const content = (rec["message"] as { content?: unknown })?.content;
       const blocks = Array.isArray(content) ? (content as Record<string, unknown>[]) : [];
       const toolUse = blocks.find((b) => b["type"] === "tool_use");
-      if (toolUse) return { kind: "tool_use", tool: String(toolUse["name"] ?? "tool"), raw: obj };
+      if (toolUse) {
+        const detail = toolUseDetail(String(toolUse["name"] ?? ""), toolUse["input"]);
+        return { kind: "tool_use", tool: String(toolUse["name"] ?? "tool"), ...(detail ? { detail } : {}), raw: obj };
+      }
       const text = blocks
         .filter((b) => b["type"] === "text")
         .map((b) => String(b["text"] ?? ""))
@@ -55,7 +91,10 @@ function parseLine(line: string): EngineEvent | null {
       const content = (rec["message"] as { content?: unknown })?.content;
       const blocks = Array.isArray(content) ? (content as Record<string, unknown>[]) : [];
       const result = blocks.find((b) => b["type"] === "tool_result");
-      if (result) return { kind: "tool_result", raw: obj };
+      if (result) {
+        const preview = toolResultPreview(result["content"]);
+        return { kind: "tool_result", ...(preview ? { detail: preview } : {}), raw: obj };
+      }
       return { kind: "raw", raw: obj };
     }
     case "result":

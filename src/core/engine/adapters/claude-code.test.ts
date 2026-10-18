@@ -41,6 +41,16 @@ describe("claude-code adapter — parseStreamLine", () => {
     const ev = a.parseStreamLine(JSON.stringify({ type: "assistant", message: { content: [{ type: "tool_use", name: "Bash" }] } }));
     expect(ev).toMatchObject({ kind: "tool_use", tool: "Bash" });
   });
+  it("extracts the tool target into detail (Read → file, Bash → command)", () => {
+    const read = a.parseStreamLine(JSON.stringify({ type: "assistant", message: { content: [{ type: "tool_use", name: "Read", input: { file_path: "src/foo.ts" } }] } }));
+    expect(read).toMatchObject({ kind: "tool_use", tool: "Read", detail: "src/foo.ts" });
+    const bash = a.parseStreamLine(JSON.stringify({ type: "assistant", message: { content: [{ type: "tool_use", name: "Bash", input: { command: "npm test" } }] } }));
+    expect(bash).toMatchObject({ tool: "Bash", detail: "npm test" });
+  });
+  it("previews a tool_result's first non-empty line", () => {
+    const ev = a.parseStreamLine(JSON.stringify({ type: "user", message: { content: [{ type: "tool_result", content: "\nline one\nline two" }] } }));
+    expect(ev).toMatchObject({ kind: "tool_result", detail: "line one" });
+  });
   it("maps result and system", () => {
     expect(a.parseStreamLine(JSON.stringify({ type: "result", result: "done" }))).toMatchObject({ kind: "result", text: "done" });
     expect(a.parseStreamLine(JSON.stringify({ type: "system", subtype: "init" }))).toMatchObject({ kind: "system", text: "init" });
