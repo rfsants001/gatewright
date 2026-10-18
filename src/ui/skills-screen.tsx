@@ -12,6 +12,7 @@ const CAT_COLOR: Record<string, string> = {
   quality: "magenta",
   workflows: "cyan",
   sdd: "yellow",
+  provisioning: "red",
 };
 
 export function SkillsScreen({ onBack, onQuit, skills }: { onBack: () => void; onQuit: () => void; skills?: Skill[] }) {

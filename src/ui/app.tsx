@@ -262,7 +262,17 @@ function DogfoodPage({ onDone, onQuit }: { onDone: () => void; onQuit: () => voi
 
 // ── Run (cockpit) ─────────────────────────────────────────────────────────────
 
-function RunPage({ onDone, onQuit }: { onDone: () => void; onQuit: () => void }) {
+/** The prompt for an AI-driven install; the gate-package-installer skill (injected) carries the method. */
+function buildInstallPrompt(target: string): string {
+  return (
+    `Install and configure "${target}" into this environment so Gatewright can use it. ` +
+    `Follow the gate-package-installer skill: read the project's README and manifest, pick the documented install method, ` +
+    `run it, verify it works (version/help), and report exactly what you did, where its config lives, and how to use it. ` +
+    `Show any download-and-run script before executing it and confirm before anything destructive.`
+  );
+}
+
+function RunPage({ onDone, onQuit, autoPrompt }: { onDone: () => void; onQuit: () => void; autoPrompt?: string }) {
   const cwd = process.cwd();
   const [registry] = useState(() => defaultEngineRegistry());
   const [mcpConfigPath] = useState(() => ensureGateMcpConfig(cwd));
@@ -273,6 +283,7 @@ function RunPage({ onDone, onQuit }: { onDone: () => void; onQuit: () => void })
   const [events, setEvents] = useState<EngineEvent[]>([]);
   const [state, setState] = useState<ControlState>("IDLE");
   const handleRef = useRef<RunHandle | null>(null);
+  const autoStartedRef = useRef(false);
 
   useEffect(() => {
     void (async () => {
@@ -309,6 +320,16 @@ function RunPage({ onDone, onQuit }: { onDone: () => void; onQuit: () => void })
       onState: (s) => setState(s),
     });
   };
+
+  // AI-driven install (or any preset): skip the composer and run immediately.
+  useEffect(() => {
+    if (!autoPrompt || !engines || autoStartedRef.current) return;
+    const target = engines.find((e) => e.id === preferredEngineId && e.installed && e.supported) ?? engines.find((e) => e.installed && e.supported);
+    if (target) {
+      autoStartedRef.current = true;
+      start(target.id, { prompt: autoPrompt, cwd, mcpConfigPath });
+    }
+  }, [engines, autoPrompt]);
 
   if (phase === "live") {
     return <RunLive events={events} state={state} onCancel={() => handleRef.current?.cancel()} onBack={onDone} />;
@@ -349,6 +370,7 @@ function App({ onExit, initialRoute = "home" }: { onExit: (reason: "launch" | "q
   const [route, setRoute] = useState<Route>(initialRoute);
   const [agentIndex, setAgentIndex] = useState(0);
   const [data, setData] = useState<DashboardData | null>(null);
+  const [aiInstallPrompt, setAiInstallPrompt] = useState<string | undefined>(undefined);
 
   const load = (): void => {
     setData(null);
@@ -387,11 +409,18 @@ function App({ onExit, initialRoute = "home" }: { onExit: (reason: "launch" | "q
     case "dogfood":
       return <DogfoodPage onDone={backAndReload} onQuit={() => exitWith("quit")} />;
     case "run":
-      return <RunPage onDone={backAndReload} onQuit={() => exitWith("quit")} />;
+      return <RunPage onDone={() => { setAiInstallPrompt(undefined); backAndReload(); }} onQuit={() => exitWith("quit")} {...(aiInstallPrompt ? { autoPrompt: aiInstallPrompt } : {})} />;
     case "settings":
       return <SettingsScreen cwd={process.cwd()} engineIds={data.agents.map((a) => a.id)} onBack={back} onQuit={() => exitWith("quit")} />;
     case "provision":
-      return <ProvisionScreen cwd={process.cwd()} onBack={backAndReload} onQuit={() => exitWith("quit")} />;
+      return (
+        <ProvisionScreen
+          cwd={process.cwd()}
+          onBack={backAndReload}
+          onQuit={() => exitWith("quit")}
+          onAiInstall={(target) => { setAiInstallPrompt(buildInstallPrompt(target)); setRoute("run"); }}
+        />
+      );
     case "skills":
       return <SkillsScreen onBack={back} onQuit={() => exitWith("quit")} />;
     case "history":

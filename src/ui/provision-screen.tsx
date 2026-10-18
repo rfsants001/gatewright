@@ -13,17 +13,21 @@ import type { ProvisionTool, StepOutcome } from "../core/provision/types.js";
 import type { ConfigScope } from "../core/config/config-store.js";
 
 const CUSTOM = "__custom__";
+const AI = "__ai__";
 
 export function ProvisionScreen({
   cwd,
   onBack,
   onQuit,
+  onAiInstall,
   probe = defaultCommandProbe,
   run = defaultProvision,
 }: {
   cwd: string;
   onBack: () => void;
   onQuit: () => void;
+  /** Hand an "install from this repo/name" target to the AI-driven installer (a run). */
+  onAiInstall?: (target: string) => void;
   probe?: CommandProbe;
   run?: typeof defaultProvision;
 }) {
@@ -31,7 +35,7 @@ export function ProvisionScreen({
   const [phase, setPhase] = useState<"list" | "input" | "run">("list");
   const [idx, setIdx] = useState(0);
   const [tool, setTool] = useState<ProvisionTool | null>(null);
-  const [asks, setAsks] = useState<"model" | "command" | "customcmd">("model");
+  const [asks, setAsks] = useState<"model" | "command" | "customcmd" | "ai">("model");
   const [value, setValue] = useState("");
   const [scope, setScope] = useState<ConfigScope>("project");
   const [outcomes, setOutcomes] = useState<StepOutcome[]>([]);
@@ -46,6 +50,12 @@ export function ProvisionScreen({
   };
 
   const choose = (id: string): void => {
+    if (id === AI) {
+      setAsks("ai");
+      setValue("");
+      setPhase("input");
+      return;
+    }
     if (id === CUSTOM) {
       setAsks("customcmd");
       setValue("");
@@ -74,6 +84,8 @@ export function ProvisionScreen({
     else if (asks === "customcmd" && value.trim()) {
       const id = value.trim().split(/\s+/)[0]!.replace(/[^A-Za-z0-9._-]/g, "") || "package";
       start(customTool(id, value.trim(), scope), {});
+    } else if (asks === "ai" && value.trim()) {
+      onAiInstall?.(value.trim());
     }
   };
 
@@ -86,12 +98,21 @@ export function ProvisionScreen({
   });
 
   if (phase === "input") {
-    const label = asks === "model" ? `Model for ${tool?.name}` : asks === "command" ? `Install command for ${tool?.name}` : "Install command (pasted)";
+    const label =
+      asks === "model"
+        ? `Model for ${tool?.name}`
+        : asks === "command"
+          ? `Install command for ${tool?.name}`
+          : asks === "ai"
+            ? "Repo URL or tool name — the AI reads it and installs"
+            : "Install command (pasted)";
+    const placeholder = asks === "model" ? "llama3.2" : asks === "ai" ? "https://github.com/owner/repo" : "e.g. npm i -g graphify";
     return (
       <Box flexDirection="column" paddingX={1}>
         <Logo />
-        <Panel title="Install a package" color="cyan">
-          <TextInputField label={label} value={value} placeholder={asks === "model" ? "llama3.2" : "e.g. npm i -g graphify"} onChange={setValue} onSubmit={submitInput} />
+        <Panel title={asks === "ai" ? "Install with AI" : "Install a package"} color="cyan">
+          <TextInputField label={label} value={value} placeholder={placeholder} onChange={setValue} onSubmit={submitInput} />
+          {asks === "ai" ? <Text dimColor>  the gate runs the engine to read the project and install + configure it</Text> : null}
           {asks === "customcmd" ? (
             <Text>
               <Icon name="bullet" color="cyan" />
@@ -127,6 +148,7 @@ export function ProvisionScreen({
 
   const options = [
     ...statuses.map(({ tool: t, status }) => ({ value: t.id, label: `${status.installed ? "● " : "○ "}${t.name}`, hint: status.installed ? "installed" : t.description })),
+    { value: AI, label: "✨ Install with AI…", hint: "paste a repo URL/name — the AI installs it" },
     { value: CUSTOM, label: "＋ Custom package…", hint: "paste an install command" },
   ];
   return (
