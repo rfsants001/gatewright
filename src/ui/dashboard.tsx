@@ -8,7 +8,7 @@ import type { Check, CheckStatus, EnvironmentReport } from "./../core/env/types.
 import { summarize } from "./../core/env/types.js";
 import type { ClaudeCodeOverview } from "../core/env/claude-code.js";
 
-export type Route = "home" | "detail" | "config" | "fix" | "dogfood" | "history" | "rollback" | "run" | "settings" | "provision" | "skills";
+export type Route = "home" | "detail" | "config" | "fix" | "dogfood" | "history" | "rollback" | "run" | "settings" | "provision" | "skills" | "flow";
 
 export interface AgentRow {
   id: "claude-code" | "codex";
@@ -79,6 +79,7 @@ export function HomeView({
   // first agent and jumps into the Actions panel as it moves down.
   const ccInstalled = data.agents.some((a) => a.id === "claude-code" && a.installed);
   const actions: { value: string; label: string; hint?: string; disabled?: boolean }[] = [
+    { value: "flow", label: "Flow", hint: "end-to-end: SDD → review → PR" },
     { value: "run", label: "Run an agent", hint: "through the gate" },
     { value: "skills", label: "Skills", hint: "the gate's curated skills" },
     { value: "config", label: "Configure this project" },
