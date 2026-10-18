@@ -13,6 +13,9 @@ export interface JevConfig {
   model: string;
   /** feature → quota (calls). */
   budget: Record<string, number>;
+  /** Max ms to wait for the local model before abstaining. Local 7B models on modest
+   *  hardware routinely need ~10s for the first token, so the default is generous. */
+  timeoutMs: number;
 }
 
 /** A partial config patch; keys may be explicitly undefined (ignored on write). */
@@ -23,6 +26,7 @@ export const DEFAULT_JEV_CONFIG: JevConfig = {
   endpoint: "http://localhost:11434",
   model: "llama3.2",
   budget: {},
+  timeoutMs: 30000,
 };
 
 /** Path of the Jev config file. Overridable via GATEWRIGHT_JEV_CONFIG (test isolation). */

@@ -18,7 +18,7 @@ export async function jevAdvise(feature: string, summary: string): Promise<Actio
 
   const journal = new Journal(new FileArtifactStore(), join(homedir(), ".gatewright", "jev-journal.json"));
   const engine = new JevDecisionEngine(
-    new OllamaAdapter(cfg.model, { endpoint: cfg.endpoint, timeoutMs: 8000 }),
+    new OllamaAdapter(cfg.model, { endpoint: cfg.endpoint, timeoutMs: cfg.timeoutMs }),
     new BudgetLedger(cfg.budget, journal),
     journal,
     { enabled: true },
