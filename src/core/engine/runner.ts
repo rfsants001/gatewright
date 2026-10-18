@@ -27,7 +27,10 @@ export interface ChildLike {
 
 export type SpawnFn = (cmd: EngineCommand, cwd: string) => ChildLike;
 
-export const defaultSpawn: SpawnFn = (cmd, cwd) => nodeSpawn(cmd.bin, cmd.args, { cwd, env: { ...process.env, ...cmd.env } });
+export const defaultSpawn: SpawnFn = (cmd, cwd) =>
+  // stdin is closed (ignore) so the engine doesn't wait on an open pipe it'll never
+  // get — otherwise `claude -p` warns "no stdin data received in 3s".
+  nodeSpawn(cmd.bin, cmd.args, { cwd, env: { ...process.env, ...cmd.env }, stdio: ["ignore", "pipe", "pipe"] });
 
 export interface RunResult {
   exitCode: number | null;

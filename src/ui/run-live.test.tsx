@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { render } from "ink-testing-library";
-import { RunLive, cleanMarkdown, toLines } from "./run-live.js";
+import { RunLive, cleanMarkdown, toLines, wrap } from "./run-live.js";
 import type { EngineEvent } from "../core/engine/types.js";
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -13,10 +13,27 @@ describe("cleanMarkdown", () => {
   });
 });
 
+describe("wrap", () => {
+  it("wraps at word boundaries to the width (no ellipsis)", () => {
+    expect(wrap("the quick brown fox", 9)).toEqual(["the quick", "brown fox"]);
+  });
+  it("hard-splits a word longer than the width", () => {
+    expect(wrap("supercalifragilistic", 5)).toEqual(["super", "calif", "ragil", "istic"]);
+  });
+});
+
 describe("toLines", () => {
   it("prefixes assistant text with a dot and strips markdown", () => {
     const [l] = toLines([{ kind: "assistant", text: "## Hello **world**" }]);
     expect(l?.text).toBe("● Hello world");
+  });
+
+  it("wraps long assistant text across rows with a hanging indent, no ellipsis", () => {
+    const lines = toLines([{ kind: "assistant", text: "alpha beta gamma delta" }], 12);
+    expect(lines[0]?.text.startsWith("● ")).toBe(true);
+    expect(lines.length).toBeGreaterThan(1);
+    expect(lines.every((l) => !l.text.includes("…"))).toBe(true);
+    expect(lines[1]?.text.startsWith("  ")).toBe(true);
   });
   it("shows the tool and what it touched", () => {
     const [l] = toLines([{ kind: "tool_use", tool: "Read", detail: "src/foo.ts" }]);
@@ -45,23 +62,34 @@ describe("RunLive", () => {
     expect(out).not.toContain("**");
   });
 
-  it("shows cancel hint while running and back hint when terminal", () => {
+  it("always offers back to the dashboard; cancel only while running", () => {
     expect(render(<RunLive events={events} state="RUNNING" onCancel={noop} onBack={noop} />).lastFrame() ?? "").toContain("cancel");
-    expect(render(<RunLive events={events} state="PASSED" onCancel={noop} onBack={noop} />).lastFrame() ?? "").toContain("b back");
+    expect(render(<RunLive events={events} state="RUNNING" onCancel={noop} onBack={noop} />).lastFrame() ?? "").toContain("dashboard");
+    expect(render(<RunLive events={events} state="PASSED" onCancel={noop} onBack={noop} />).lastFrame() ?? "").toContain("dashboard");
   });
 
-  it("cancels on 'c' only while running and goes back on 'b' when done", async () => {
+  it("'c' cancels but stays; 'b'/esc leave to the dashboard (cancelling a live run)", async () => {
     const onCancel = vi.fn();
-    const r1 = render(<RunLive events={events} state="RUNNING" onCancel={onCancel} onBack={noop} />);
-    r1.stdin.write("c");
+    const onBack = vi.fn();
+    const r1 = render(<RunLive events={events} state="RUNNING" onCancel={onCancel} onBack={onBack} />);
+    r1.stdin.write("c"); // cancel, stay
     await delay(20);
     expect(onCancel).toHaveBeenCalledOnce();
+    expect(onBack).not.toHaveBeenCalled();
 
-    const onBack = vi.fn();
-    const r2 = render(<RunLive events={events} state="FAILED" onCancel={noop} onBack={onBack} />);
-    r2.stdin.write("b");
+    const c2 = vi.fn();
+    const b2 = vi.fn();
+    const r2 = render(<RunLive events={events} state="RUNNING" onCancel={c2} onBack={b2} />);
+    r2.stdin.write("\x1B"); // esc → leave (cancels the live run first)
     await delay(20);
-    expect(onBack).toHaveBeenCalledOnce();
+    expect(c2).toHaveBeenCalledOnce();
+    expect(b2).toHaveBeenCalledOnce();
+
+    const b3 = vi.fn();
+    const r3 = render(<RunLive events={events} state="PASSED" onCancel={noop} onBack={b3} />);
+    r3.stdin.write("b"); // done → just back
+    await delay(20);
+    expect(b3).toHaveBeenCalledOnce();
   });
 
   it("auto-follows the tail and scrolls back to the top with 'g'", async () => {
