@@ -47,6 +47,8 @@ export interface EngineEvent {
   text?: string;
   /** Tool name for tool_use / tool_result. */
   tool?: string;
+  /** What the tool acted on (file path, command, pattern) or a short result preview. */
+  detail?: string;
   /** The underlying parsed line, for replay/debug. */
   raw?: unknown;
 }
