@@ -28,7 +28,11 @@ describe("FlowScreen", () => {
     const onDone = vi.fn();
     const { stdin, lastFrame } = render(<FlowScreen goal="x" steps={steps} runEngine={fakeEngine({ PLAN: "planned", IMPLEMENT: "built" })} onDone={onDone} />);
     await delay(120);
-    // plan run resolved immediately → advanced to the gate
+    // plan run resolved → review of the plan output shown first
+    expect(lastFrame() ?? "").toContain("Review");
+    expect(lastFrame() ?? "").toContain("planned");
+    stdin.write(ENTER); // continue past review → gate
+    await delay(60);
     expect(lastFrame() ?? "").toContain("Sign off");
     expect(lastFrame() ?? "").toContain("Approve?");
     stdin.write(ENTER); // Yes (confirm) → approve → runs implement → done
@@ -43,6 +47,8 @@ describe("FlowScreen", () => {
     ];
     const { stdin, lastFrame } = render(<FlowScreen goal="x" steps={steps2} runEngine={fakeEngine({ PLAN: "planned" })} onDone={vi.fn()} />);
     await delay(120);
+    stdin.write(ENTER); // continue past the review of the plan output
+    await delay(60);
     stdin.write("[B"); // move to "No"
     await delay(60);
     stdin.write(ENTER); // decline
@@ -54,6 +60,21 @@ describe("FlowScreen", () => {
     const ask = `<gate-ask>${JSON.stringify({ questions: [{ id: "scope", type: "select", prompt: "Scope?", options: ["MVP", "Full"] }] })}</gate-ask>`;
     const { lastFrame } = render(<FlowScreen goal="x" steps={[{ id: "plan", kind: "run", title: "Plan", prompt: () => "do PLAN" }]} runEngine={fakeEngine({ PLAN: ask })} onDone={vi.fn()} />);
     await delay(120);
+    // a bare gate-ask has no prose to review → the question is shown straight away
+    expect(lastFrame() ?? "").toContain("Scope?");
+  });
+
+  it("reviews the prose but hides the raw gate-ask block, then shows the question", async () => {
+    const q = JSON.stringify({ questions: [{ id: "scope", type: "select", prompt: "Scope?", options: ["MVP", "Full"] }] });
+    const out = `Here is my reasoning for RICHES.\n<gate-ask>${q}</gate-ask>`;
+    const { stdin, lastFrame } = render(<FlowScreen goal="x" steps={[{ id: "plan", kind: "run", title: "Plan", prompt: () => "do PLAN" }]} runEngine={fakeEngine({ PLAN: out })} onDone={vi.fn()} />);
+    await delay(120);
+    // review shows the prose, not the XML or the question yet
+    expect(lastFrame() ?? "").toContain("RICHES");
+    expect(lastFrame() ?? "").not.toContain("gate-ask");
+    expect(lastFrame() ?? "").not.toContain("Scope?");
+    stdin.write(ENTER); // continue past review → the injected question
+    await delay(60);
     expect(lastFrame() ?? "").toContain("Scope?");
   });
 });
