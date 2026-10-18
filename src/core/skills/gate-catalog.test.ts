@@ -12,7 +12,7 @@ describe("gate skill catalog (bundled)", () => {
   it("parses all bundled skills with no problems", () => {
     const cat = loadGateSkills(root);
     expect(cat.problems()).toEqual([]);
-    expect(cat.list().length).toBeGreaterThanOrEqual(24);
+    expect(cat.list().length).toBeGreaterThanOrEqual(29);
   });
 
   it("every bundled skill is gate-prefixed and tool-agnostic (no enterprise connectors)", () => {
@@ -24,7 +24,7 @@ describe("gate skill catalog (bundled)", () => {
 
   it("groups into architecture/development/quality/workflows", () => {
     const kinds = new Set(Object.keys(loadGateSkills(root).byCategory()));
-    for (const k of ["architecture", "development", "quality", "workflows"]) expect(kinds.has(k)).toBe(true);
+    for (const k of ["architecture", "development", "quality", "workflows", "sdd"]) expect(kinds.has(k)).toBe(true);
   });
 
   it("builds a system-prompt fragment listing the skills", () => {
