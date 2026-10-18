@@ -40,6 +40,29 @@ describe("toLines", () => {
     expect(l?.text).toContain("Read");
     expect(l?.text).toContain("src/foo.ts");
   });
+
+  it("tints only the glyph/tool keyword, not the body", () => {
+    const [l] = toLines([{ kind: "tool_use", tool: "Read", detail: "src/foo.ts" }]);
+    expect(l?.leadColor).toBe("cyan");
+    expect(l?.leadLen).toBe("→ Read ".length);
+  });
+
+  it("renders the final result in FULL with line breaks, tinting only the ✓ (not all green)", () => {
+    const lines = toLines([{ kind: "result", text: "Done.\nSecond line." }], 80);
+    expect(lines.map((l) => l.text)).toEqual(["✓ Done.", "  Second line."]);
+    expect(lines[0]?.leadColor).toBe("green");
+    expect(lines[0]?.leadLen).toBe(2);
+    expect(lines[1]?.leadColor).toBeUndefined(); // continuation not colored
+    expect(lines[1]?.color).toBeUndefined(); // body is not whole-green
+  });
+  it("shows a terse ✓ done when the result just repeats the streamed assistant text", () => {
+    const lines = toLines([{ kind: "assistant", text: "Here is the answer." }, { kind: "result", text: "Here is the answer." }], 80);
+    const texts = lines.map((l) => l.text);
+    expect(texts).toContain("● Here is the answer.");
+    expect(texts).toContain("✓ done");
+    expect(texts.filter((t) => t.includes("Here is the answer")).length).toBe(1); // not duplicated
+  });
+
   it("skips the init system line and empty assistant text", () => {
     expect(toLines([{ kind: "system", text: "init" }, { kind: "assistant", text: "" }])).toEqual([]);
   });

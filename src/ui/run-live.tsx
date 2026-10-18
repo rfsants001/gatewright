@@ -14,7 +14,11 @@ const VIEW_H = 18;
 
 interface Line {
   text: string;
+  /** Colors the whole line (used for errors — they're important). */
   color?: string;
+  /** Colors only the first `leadLen` chars (the glyph/keyword); the rest stays default. */
+  leadLen?: number;
+  leadColor?: string;
   dim?: boolean;
 }
 
@@ -50,41 +54,60 @@ export function wrap(text: string, width: number): string[] {
 
 /**
  * Flatten events into display lines — one terminal row each (wrapped to `width`, no
- * ellipsis), so scrolling is exact and long text reads in full.
+ * ellipsis), so scrolling is exact and long text reads in full. Color is minimal:
+ * only the glyph/tool-keyword is tinted; the body stays the default color (errors are
+ * the exception and go fully red). This matches how OpenCode reads.
  */
 export function toLines(events: EngineEvent[], width = 1000): Line[] {
   const out: Line[] = [];
-  const push = (prefix: string, cont: string, body: string, color?: string, dim?: boolean): void => {
-    const base: Partial<Line> = { ...(color ? { color } : {}), ...(dim ? { dim: true } : {}) };
-    wrap(body, width - prefix.length).forEach((seg, i) => out.push({ text: `${i === 0 ? prefix : cont}${seg}`, ...base } as Line));
+  // Tint only the lead glyph/keyword; body default. Wraps body across rows, no ellipsis.
+  const push = (lead: string, leadColor: string | undefined, body: string, dim?: boolean): void => {
+    const indent = " ".repeat(lead.length);
+    wrap(body, Math.max(8, width - lead.length)).forEach((seg, i) =>
+      out.push({
+        text: `${i === 0 ? lead : indent}${seg}`,
+        ...(i === 0 && leadColor ? { leadLen: lead.length, leadColor } : {}),
+        ...(dim ? { dim: true } : {}),
+      }),
+    );
   };
+  const norm = (s: string): string => s.replace(/\s+/g, " ").trim();
+  let assistantAcc = "";
   for (const ev of events) {
     switch (ev.kind) {
       case "assistant": {
         const body = cleanMarkdown(ev.text ?? "").trimEnd();
         if (!body) break;
-        body.split("\n").forEach((para) => (para.trim() ? push("● ", "  ", para) : out.push({ text: "" })));
+        assistantAcc += ` ${body}`;
+        body.split("\n").forEach((para) => (para.trim() ? push("● ", undefined, para) : out.push({ text: "" })));
         break;
       }
       case "tool_use":
-        push("→ ", "  ", `${ev.tool}${ev.detail ? `  ${ev.detail}` : ""}`, "cyan");
+        push(`→ ${ev.tool} `, "cyan", ev.detail ?? "");
         break;
       case "tool_result":
-        if (ev.detail) push("  ⤷ ", "     ", ev.detail, undefined, true);
+        if (ev.detail) push("  ⤷ ", undefined, ev.detail, true);
         break;
       case "result": {
-        const body = cleanMarkdown(ev.text ?? "").trim();
-        if (body) push("✓ ", "  ", body, "green");
+        const body = cleanMarkdown(ev.text ?? "").trimEnd();
+        if (!body) break;
+        // The engine repeats the final text in `result`; if it already streamed as
+        // assistant messages, show a terse marker instead of duplicating it.
+        if (assistantAcc && norm(assistantAcc).includes(norm(body))) {
+          out.push({ text: "✓ done", leadLen: 2, leadColor: "green" });
+          break;
+        }
+        body.split("\n").forEach((para, i) => (para.trim() ? push(i === 0 ? "✓ " : "  ", i === 0 ? "green" : undefined, para) : out.push({ text: "" })));
         break;
       }
       case "error":
-        push("✗ ", "  ", ev.text ?? "error", "red");
+        wrap(ev.text ?? "error", Math.max(8, width - 2)).forEach((seg, i) => out.push({ text: `${i === 0 ? "✗ " : "  "}${seg}`, color: "red" }));
         break;
       case "system":
-        if (ev.text && ev.text !== "init") push("∴ ", "  ", ev.text, undefined, true);
+        if (ev.text && ev.text !== "init") push("∴ ", undefined, ev.text, true);
         break;
       default:
-        if (ev.text) push("", "", ev.text, undefined, true);
+        if (ev.text) push("", undefined, ev.text, true);
     }
   }
   return out;
@@ -157,11 +180,19 @@ export function RunLive({
           {visible.length === 0 ? (
             <Text dimColor>  waiting for the engine…</Text>
           ) : (
-            visible.map((l, i) => (
-              <Text key={effectiveOffset + i} {...(l.color ? { color: l.color } : {})} dimColor={l.dim === true}>
-                {l.text}
-              </Text>
-            ))
+            visible.map((l, i) => {
+              const key = effectiveOffset + i;
+              if (l.color) return <Text key={key} color={l.color}>{l.text || " "}</Text>;
+              if (l.leadLen && l.leadColor) {
+                return (
+                  <Text key={key}>
+                    <Text color={l.leadColor}>{l.text.slice(0, l.leadLen)}</Text>
+                    <Text dimColor={l.dim === true}>{l.text.slice(l.leadLen)}</Text>
+                  </Text>
+                );
+              }
+              return <Text key={key} dimColor={l.dim === true}>{l.text || " "}</Text>;
+            })
           )}
         </Box>
         <Text dimColor>{done ? "  ↑↓ scroll · g/G top/bottom · b/esc dashboard" : "  ↑↓ scroll · g/G top/bottom · c cancel · b/esc dashboard"}</Text>
