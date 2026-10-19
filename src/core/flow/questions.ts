@@ -52,3 +52,8 @@ export function parseQuestions(text: string): Question[] {
 export function hasQuestions(text: string): boolean {
   return parseQuestions(text).length > 0;
 }
+
+/** Remove any <gate-ask> block(s) so the surrounding prose can be shown on its own. */
+export function stripQuestions(text: string): string {
+  return text.replace(/<gate-ask>[\s\S]*?<\/gate-ask>/g, "").trim();
+}

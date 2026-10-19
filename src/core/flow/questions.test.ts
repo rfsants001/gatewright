@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseQuestions, hasQuestions } from "./questions.js";
+import { parseQuestions, hasQuestions, stripQuestions } from "./questions.js";
 
 const block = (json: string) => `blah blah\n<gate-ask>\n${json}\n</gate-ask>\ntrailing`;
 
@@ -28,5 +28,19 @@ describe("parseQuestions", () => {
     expect(parseQuestions("<gate-ask>{ not json </gate-ask>")).toEqual([]);
     expect(hasQuestions("plain text")).toBe(false);
     expect(hasQuestions(block(JSON.stringify([{ type: "text", prompt: "hi" }])))).toBe(true);
+  });
+});
+
+describe("stripQuestions", () => {
+  it("removes the gate-ask block and trims surrounding prose", () => {
+    expect(stripQuestions(block(JSON.stringify([{ type: "text", prompt: "hi" }])))).toBe("blah blah\n\ntrailing");
+  });
+
+  it("leaves text without a block untouched", () => {
+    expect(stripQuestions("just prose")).toBe("just prose");
+  });
+
+  it("is empty when the text is only a block", () => {
+    expect(stripQuestions("<gate-ask>[]</gate-ask>")).toBe("");
   });
 });
