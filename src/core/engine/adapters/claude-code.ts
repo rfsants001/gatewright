@@ -8,7 +8,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import type { CommandProbe } from "../../env/probes.js";
 import { defaultCommandProbe } from "../../env/probes.js";
-import type { EngineAdapter, EngineAvailability, EngineCommand, EngineEvent, EngineRunOptions } from "../types.js";
+import type { EngineAdapter, EngineAvailability, EngineCommand, EngineEvent, EngineRunOptions, EngineUsage } from "../types.js";
 
 export interface ClaudeAdapterDeps {
   commandProbe: CommandProbe;
@@ -60,7 +60,31 @@ function toolResultPreview(content: unknown): string {
   return firstLine.trim().slice(0, 100);
 }
 
-function parseLine(line: string): EngineEvent | null {
+/** Map Claude's `usage` shape to a normalized EngineUsage (0 for absent fields). */
+function extractUsage(usage: unknown, costUsd?: unknown): EngineUsage | null {
+  if (typeof usage !== "object" || usage === null) return null;
+  const u = usage as Record<string, unknown>;
+  const num = (k: string): number => (typeof u[k] === "number" ? (u[k] as number) : 0);
+  const tokensIn = num("input_tokens");
+  const tokensOut = num("output_tokens");
+  const cacheRead = num("cache_read_input_tokens");
+  if (!tokensIn && !tokensOut && !cacheRead && costUsd === undefined) return null;
+  return {
+    tokensIn,
+    tokensOut,
+    cacheRead,
+    ...(typeof costUsd === "number" ? { costUsd } : {}),
+  };
+}
+
+/** Collapse one event list to the single element when there's exactly one. */
+function one(events: EngineEvent[]): EngineEvent | EngineEvent[] | null {
+  if (events.length === 0) return null;
+  if (events.length === 1) return events[0]!;
+  return events;
+}
+
+function parseLine(line: string): EngineEvent | EngineEvent[] | null {
   const trimmed = line.trim();
   if (!trimmed) return null;
   let obj: unknown;
@@ -74,18 +98,35 @@ function parseLine(line: string): EngineEvent | null {
 
   switch (rec["type"]) {
     case "assistant": {
-      const content = (rec["message"] as { content?: unknown })?.content;
-      const blocks = Array.isArray(content) ? (content as Record<string, unknown>[]) : [];
-      const toolUse = blocks.find((b) => b["type"] === "tool_use");
-      if (toolUse) {
-        const detail = toolUseDetail(String(toolUse["name"] ?? ""), toolUse["input"]);
-        return { kind: "tool_use", tool: String(toolUse["name"] ?? "tool"), ...(detail ? { detail } : {}), raw: obj };
-      }
+      const message = (rec["message"] as { content?: unknown; usage?: unknown }) ?? {};
+      const blocks = Array.isArray(message.content) ? (message.content as Record<string, unknown>[]) : [];
+      const events: EngineEvent[] = [];
+
+      // Reasoning (thinking) first — a first-class citizen, not discarded.
+      const thinking = blocks
+        .filter((b) => b["type"] === "thinking" || b["type"] === "reasoning")
+        .map((b) => String(b["thinking"] ?? b["text"] ?? ""))
+        .join("");
+      if (thinking) events.push({ kind: "reasoning", text: thinking, raw: obj });
+
+      // Assistant prose: join the message's text blocks into one event.
       const text = blocks
         .filter((b) => b["type"] === "text")
         .map((b) => String(b["text"] ?? ""))
         .join("");
-      return { kind: "assistant", text, raw: obj };
+      if (text) events.push({ kind: "assistant", text, raw: obj });
+
+      // Each tool_use is its own part, in order.
+      for (const b of blocks.filter((b) => b["type"] === "tool_use")) {
+        const detail = toolUseDetail(String(b["name"] ?? ""), b["input"]);
+        events.push({ kind: "tool_use", tool: String(b["name"] ?? "tool"), ...(detail ? { detail } : {}), raw: obj });
+      }
+
+      const usage = extractUsage(message.usage);
+      if (usage) events.push({ kind: "usage", usage, raw: obj });
+
+      // An assistant turn with no renderable block still surfaces as raw.
+      return events.length ? one(events) : { kind: "assistant", text: "", raw: obj };
     }
     case "user": {
       const content = (rec["message"] as { content?: unknown })?.content;
@@ -97,8 +138,11 @@ function parseLine(line: string): EngineEvent | null {
       }
       return { kind: "raw", raw: obj };
     }
-    case "result":
-      return { kind: "result", text: String(rec["result"] ?? rec["subtype"] ?? ""), raw: obj };
+    case "result": {
+      const resultEv: EngineEvent = { kind: "result", text: String(rec["result"] ?? rec["subtype"] ?? ""), raw: obj };
+      const usage = extractUsage(rec["usage"], rec["total_cost_usd"]);
+      return usage ? [resultEv, { kind: "usage", usage, raw: obj }] : resultEv;
+    }
     case "system":
       return { kind: "system", text: String(rec["subtype"] ?? "system"), raw: obj };
     default:

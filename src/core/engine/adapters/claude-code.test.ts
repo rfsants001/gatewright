@@ -59,6 +59,72 @@ describe("claude-code adapter — parseStreamLine", () => {
     expect(a.parseStreamLine("not json")).toMatchObject({ kind: "raw", text: "not json" });
     expect(a.parseStreamLine("   ")).toBeNull();
   });
+
+  it("emits a reasoning event from a thinking block", () => {
+    const ev = a.parseStreamLine(
+      JSON.stringify({ type: "assistant", message: { content: [{ type: "thinking", thinking: "let me plan" }] } }),
+    );
+    expect(ev).toMatchObject({ kind: "reasoning", text: "let me plan" });
+  });
+
+  it("returns multiple events when one message carries reasoning + text + tool_use", () => {
+    const ev = a.parseStreamLine(
+      JSON.stringify({
+        type: "assistant",
+        message: {
+          content: [
+            { type: "thinking", thinking: "plan" },
+            { type: "text", text: "doing it" },
+            { type: "tool_use", name: "Bash", input: { command: "ls" } },
+          ],
+        },
+      }),
+    );
+    expect(Array.isArray(ev)).toBe(true);
+    expect(ev).toMatchObject([
+      { kind: "reasoning", text: "plan" },
+      { kind: "assistant", text: "doing it" },
+      { kind: "tool_use", tool: "Bash", detail: "ls" },
+    ]);
+  });
+
+  it("extracts usage from an assistant message alongside its text", () => {
+    const ev = a.parseStreamLine(
+      JSON.stringify({
+        type: "assistant",
+        message: {
+          content: [{ type: "text", text: "hi" }],
+          usage: { input_tokens: 1247, output_tokens: 834, cache_read_input_tokens: 970 },
+        },
+      }),
+    );
+    expect(ev).toMatchObject([
+      { kind: "assistant", text: "hi" },
+      { kind: "usage", usage: { tokensIn: 1247, tokensOut: 834, cacheRead: 970 } },
+    ]);
+  });
+
+  it("attaches a usage event with cost to the final result", () => {
+    const ev = a.parseStreamLine(
+      JSON.stringify({
+        type: "result",
+        result: "done",
+        usage: { input_tokens: 10, output_tokens: 5, cache_read_input_tokens: 0 },
+        total_cost_usd: 0.12,
+      }),
+    );
+    expect(ev).toMatchObject([
+      { kind: "result", text: "done" },
+      { kind: "usage", usage: { tokensIn: 10, tokensOut: 5, cacheRead: 0, costUsd: 0.12 } },
+    ]);
+  });
+
+  it("result without usage stays a single event", () => {
+    expect(a.parseStreamLine(JSON.stringify({ type: "result", result: "done" }))).toMatchObject({
+      kind: "result",
+      text: "done",
+    });
+  });
 });
 
 describe("claude-code adapter — detect", () => {
