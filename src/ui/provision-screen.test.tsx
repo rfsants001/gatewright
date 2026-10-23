@@ -4,7 +4,7 @@ import { ProvisionScreen } from "./provision-screen.js";
 import type { provision as ProvisionFn } from "../core/provision/provisioner.js";
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
-const DOWN = "[B";
+const DOWN = "\x1b[B";
 const ENTER = "\r";
 const noop = () => {};
 const probe = () => null; // nothing installed
@@ -56,7 +56,8 @@ describe("ProvisionScreen", () => {
     stdin.write(ENTER); // accept default
     await delay(20);
     expect(calls[0]).toMatchObject({ id: "ollama", params: { model: "llama3.2" } });
-    expect(lastFrame() ?? "").toContain("Installing Ollama");
+    // breadcrumb shows the tool name
+    expect(lastFrame() ?? "").toContain("Ollama");
   });
 
   it("runs a pasted custom install command", async () => {
@@ -90,10 +91,12 @@ describe("ProvisionScreen", () => {
     }
     stdin.write(ENTER); // custom
     await delay(20);
-    expect(lastFrame() ?? "").toContain("record in: project");
+    // "record in:" text + badge "[project]" rendered separately
+    expect(lastFrame() ?? "").toContain("record in:");
+    expect(lastFrame() ?? "").toContain("[project]");
     stdin.write("\t"); // toggle scope → gate
     await delay(20);
-    expect(lastFrame() ?? "").toContain("record in: gate");
+    expect(lastFrame() ?? "").toContain("[gate]");
     stdin.write("npm i -g graphify");
     await delay(20);
     stdin.write(ENTER);

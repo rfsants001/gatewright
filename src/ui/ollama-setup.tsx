@@ -1,10 +1,8 @@
-// Jev local-AI setup — check Ollama, guide installation if missing, let the user
-// pick a model, and (optionally) drop an AI-helper doc the main agent can follow.
-
 import { useEffect, useState } from "react";
 import { homedir } from "node:os";
 import { Box, Text, useInput } from "ink";
-import { Icon, Spinner, Panel, RadioGroup } from "./components/index.js";
+import { AppFrame, Icon, Spinner, RadioGroup, ProgressBar } from "./components/index.js";
+import { HINTS_BACK, HINTS_QUIT } from "./components/index.js";
 import { detectOllama, writeOllamaHelper, type OllamaStatus } from "../core/jev/ollama.js";
 import { detectHardware, type Hardware } from "../core/env/hardware.js";
 import { rankModels, type FitCategory, type RankedModel } from "../core/jev/model-catalog.js";
@@ -19,9 +17,11 @@ function fitMark(category: FitCategory) {
 
 function RecommendedModels({ hw, ranked }: { hw: Hardware; ranked: RankedModel[] }) {
   const show = ranked.filter((m) => m.category !== "too-big").slice(0, 6);
+  const pct = show.length / Math.max(1, ranked.length);
   return (
     <Box flexDirection="column">
       <Text dimColor>{`  Your machine: ${hw.totalRamGB} GB RAM · ${hw.cpuCount} CPU${hw.gpu ? ` · GPU ${hw.gpu.name}${hw.gpu.vramGB ? ` ${hw.gpu.vramGB}GB` : ""}` : ""}`}</Text>
+      <ProgressBar value={pct} width={20} label="  Compatible" color="green" />
       <Text bold>Recommended models (best fit first)</Text>
       {show.map((m) => (
         <Text key={m.tag}>
@@ -49,6 +49,7 @@ export function OllamaSetup({ onUse, onSkip, onBack, onQuit }: { onUse: (model: 
       if (s.models[0]) setModel(s.models[0]);
     });
   };
+
   useEffect(() => check(), []);
   useEffect(() => {
     const h = detectHardware();
@@ -57,7 +58,6 @@ export function OllamaSetup({ onUse, onSkip, onBack, onQuit }: { onUse: (model: 
   }, []);
 
   const topPick = ranked.find((m) => m.category === "recommended")?.tag ?? "qwen2.5";
-
   const hasModels = status !== "detecting" && status.reachable && status.models.length > 0;
 
   useInput((input, key) => {
@@ -73,45 +73,49 @@ export function OllamaSetup({ onUse, onSkip, onBack, onQuit }: { onUse: (model: 
 
   if (status === "detecting") {
     return (
-      <Box flexDirection="column" paddingX={1}>
-        <Text bold color="cyan">{" Jev · local AI setup "}</Text>
+      <AppFrame breadcrumb="setup · jev · ollama" hints={[]}>
         <Spinner label="checking Ollama…" />
-      </Box>
+      </AppFrame>
     );
   }
 
+  const hints = [
+    ...(hasModels ? [{ key: "enter", label: "use model" }, { key: "w", label: "AI helper" }] : [{ key: "w", label: "write AI helper" }, { key: "r", label: "recheck" }]),
+    { key: "s", label: "skip Jev" },
+    ...HINTS_BACK,
+    ...HINTS_QUIT,
+  ];
+
   return (
-    <Box flexDirection="column" paddingX={1}>
-      <Panel title="Jev · local AI setup" color="cyan">
-        <Text dimColor>Jev needs a local Ollama model. It stays advisory — it never blocks.</Text>
-        {!status.reachable ? (
-          <>
-            <Text>
-              <Icon name="bad" color="red" /> Ollama not reachable at http://localhost:11434
-            </Text>
-            <Text dimColor>  Install:  curl -fsSL https://ollama.com/install.sh | sh</Text>
-            {hw ? <RecommendedModels hw={hw} ranked={ranked} /> : null}
-          </>
-        ) : !hasModels ? (
-          <>
-            <Text>
-              <Icon name="warn" color="yellow" /> Ollama is running, but has no models
-            </Text>
-            {hw ? <RecommendedModels hw={hw} ranked={ranked} /> : null}
-          </>
-        ) : (
-          <>
-            <Text>
-              <Icon name="ok" color="green" /> {`Ollama running · ${status.models.length} model(s)`}
-            </Text>
-            <RadioGroup label="Pick a model for Jev" value={model} onChange={setModel} onSubmit={onUse} options={status.models.map((m) => ({ value: m, label: m }))} />
-          </>
-        )}
-        {note ? <Text color="green">{`  ${note}`}</Text> : null}
-        <Text dimColor>
-          {hasModels ? "  enter use model · w AI helper · s skip Jev · b back · q quit" : "  w write AI helper · r recheck · s skip Jev · b back · q quit"}
-        </Text>
-      </Panel>
-    </Box>
+    <AppFrame breadcrumb="setup · jev · ollama" hints={hints}>
+      <Text dimColor>Jev needs a local Ollama model. It stays advisory — it never blocks.</Text>
+      {!status.reachable ? (
+        <Box flexDirection="column" marginTop={1}>
+          <Box gap={1}>
+            <Icon name="bad" color="red" />
+            <Text>Ollama not reachable at http://localhost:11434</Text>
+          </Box>
+          <Text dimColor>  Install:  curl -fsSL https://ollama.com/install.sh | sh</Text>
+          {hw ? <RecommendedModels hw={hw} ranked={ranked} /> : null}
+        </Box>
+      ) : !hasModels ? (
+        <Box flexDirection="column" marginTop={1}>
+          <Box gap={1}>
+            <Icon name="warn" color="yellow" />
+            <Text>Ollama is running, but has no models</Text>
+          </Box>
+          {hw ? <RecommendedModels hw={hw} ranked={ranked} /> : null}
+        </Box>
+      ) : (
+        <Box flexDirection="column" marginTop={1}>
+          <Box gap={1}>
+            <Icon name="ok" color="green" />
+            <Text>{`Ollama running · ${status.models.length} model(s)`}</Text>
+          </Box>
+          <RadioGroup label="Pick a model for Jev" value={model} onChange={setModel} onSubmit={onUse} options={status.models.map((m) => ({ value: m, label: m }))} />
+        </Box>
+      )}
+      {note ? <Box marginTop={1}><Text color="green">{`  ${note}`}</Text></Box> : null}
+    </AppFrame>
   );
 }

@@ -1,15 +1,11 @@
-// SettingsScreen — surfaces the two config scopes. Tab flips between Gate (global,
-// applies everywhere) and Project (this folder, overrides the gate). You pick the
-// default engine for the focused scope; the effective value (what a run actually
-// uses) is shown so the override is legible. Provisioned packages are listed per scope.
-
 import { useState } from "react";
 import { Box, Text, useInput } from "ink";
-import { Logo, Panel, Icon } from "./components/index.js";
+import { AppFrame, TabBar, Badge, Icon, SelectList, type Choice } from "./components/index.js";
+import { HINTS_BACK, HINTS_QUIT } from "./components/index.js";
 import { FileArtifactStore } from "../core/artifact-store/artifact-store.js";
 import { ConfigStore, type ConfigScope, type GatewrightConfig } from "../core/config/config-store.js";
 
-const NONE = "(none)";
+const NONE = "(none / inherit)";
 
 export function SettingsScreen({
   cwd,
@@ -27,53 +23,59 @@ export function SettingsScreen({
   const [scope, setScope] = useState<ConfigScope>("project");
   const [gate, setGate] = useState<GatewrightConfig>(() => store.read("gate", cwd));
   const [project, setProject] = useState<GatewrightConfig>(() => store.read("project", cwd));
+  const [engineIdx, setEngineIdx] = useState(0);
 
-  const options = [NONE, ...engineIds];
+  const options: Choice<string>[] = [NONE, ...engineIds].map((e) => ({ value: e, label: e }));
   const current = scope === "gate" ? gate : project;
   const setCurrent = scope === "gate" ? setGate : setProject;
   const effective = store.resolve(cwd);
 
-  const cycle = (dir: 1 | -1): void => {
-    const now = current.defaultEngine ?? NONE;
-    const i = Math.max(0, options.indexOf(now));
-    const nextVal = options[(i + dir + options.length) % options.length]!;
-    const patch = { defaultEngine: nextVal === NONE ? undefined : nextVal };
+  useInput((input, key) => {
+    if (input === "q") return onQuit();
+    if (input === "b" || key.escape) return onBack();
+  });
+
+  const selectEngine = (val: string): void => {
+    const patch = { defaultEngine: val === NONE ? undefined : val };
     const saved = store.write(scope, patch, cwd);
     setCurrent(saved);
   };
 
-  useInput((input, key) => {
-    if (input === "q") return onQuit();
-    if (input === "b" || key.escape) return onBack();
-    if (key.tab) return setScope((s) => (s === "gate" ? "project" : "gate"));
-    if (key.leftArrow || key.upArrow) return cycle(-1);
-    if (key.rightArrow || key.downArrow) return cycle(1);
-  });
+  const tabs = [
+    { id: "gate", label: "Gate (global)" },
+    { id: "project", label: "Project (this folder)" },
+  ];
 
-  const scopeLine = (label: string, cfg: GatewrightConfig, active: boolean) => (
-    <Box flexDirection="column">
-      <Text {...(active ? { color: "cyan" } : {})} bold={active}>
-        {active ? "❯ " : "  "}
-        {label}
-      </Text>
-      <Text dimColor>{`    default engine: ${cfg.defaultEngine ?? "—"}`}</Text>
-      <Text dimColor>{`    packages: ${cfg.packages?.map((p) => p.id).join(", ") || "none"}`}</Text>
-    </Box>
-  );
+  const cfg = scope === "gate" ? gate : project;
+  const packages = cfg.packages ?? [];
 
   return (
-    <Box flexDirection="column" paddingX={1}>
-      <Logo />
-      <Panel title="Settings · two config scopes" color="cyan">
-        <Text dimColor>Gate config applies everywhere; Project config overrides it for this folder.</Text>
-        {scopeLine("Gate (global)", gate, scope === "gate")}
-        {scopeLine("Project (this folder)", project, scope === "project")}
-        <Box marginTop={1}>
-          <Icon name="bullet" color="green" />
-          <Text>{` effective default engine: ${effective.defaultEngine ?? "(first installed)"}`}</Text>
+    <AppFrame breadcrumb="settings" hints={[...HINTS_BACK, ...HINTS_QUIT, { key: "tab/←→", label: "switch scope" }]}>
+      <Text dimColor>Gate config applies everywhere · Project config overrides it for this folder.</Text>
+      <Box marginTop={1}>
+        <TabBar tabs={tabs} active={scope} onSwitch={(id) => setScope(id as ConfigScope)} />
+      </Box>
+      <Box marginTop={1} flexDirection="column">
+        <Text bold>Default engine</Text>
+        <SelectList options={options} index={engineIdx} onMove={setEngineIdx} onSelect={selectEngine} />
+        <Box marginTop={1} gap={1}>
+          <Icon name="pass" color="green" />
+          <Text>{`effective: `}</Text>
+          <Badge label={effective.defaultEngine ?? "first installed"} color="green" />
         </Box>
-        <Text dimColor>  tab switch scope · ←→ change default engine · b back · q quit</Text>
-      </Panel>
-    </Box>
+      </Box>
+      {packages.length > 0 && (
+        <Box marginTop={1} flexDirection="column">
+          <Text bold>Packages ({scope})</Text>
+          {packages.map((p) => (
+            <Box key={p.id} gap={1}>
+              <Icon name="bullet" color="cyan" />
+              <Text>{p.id}</Text>
+              {p.version ? <Badge label={p.version} color="blue" dim /> : null}
+            </Box>
+          ))}
+        </Box>
+      )}
+    </AppFrame>
   );
 }

@@ -26,15 +26,14 @@ describe("TUI app (dashboard SPA)", () => {
   });
   afterEach(() => vi.unstubAllGlobals());
 
-  it("shows the logo + loading, then the overview with an agents panel and actions", async () => {
+  it("shows the logo + loading, then the overview with agents and actions", async () => {
     const { lastFrame, unmount } = render(<App onExit={() => {}} />);
     expect(lastFrame()).toContain("headless guardrails for AI code agents");
 
     await delay(60);
     const out = lastFrame() ?? "";
-    expect(out).toContain("AI agents");
     expect(out).toContain("Claude Code");
-    expect(out).toContain("Actions");
+    expect(out).toContain("Run an agent");
     expect(out).toContain("Local AI");
     expect(out).toMatch(/ready|to configure|missing/);
     unmount();
@@ -51,13 +50,13 @@ describe("TUI app (dashboard SPA)", () => {
 
   it("navigates into the agent detail on enter and back", async () => {
     const { lastFrame, stdin, unmount } = render(<App onExit={() => {}} />);
-    await delay(60);
+    await delay(120);
     stdin.write("\r"); // enter → open selected agent (Claude Code) detail
-    await delay(20);
-    expect(lastFrame()).toContain("Claude Code · detail");
+    await delay(120);
+    expect(lastFrame()).toContain("claude code · detail");
     stdin.write("b"); // back
     await delay(20);
-    expect(lastFrame()).toContain("AI agents");
+    expect(lastFrame()).toContain("Run an agent");
     unmount();
   });
 });

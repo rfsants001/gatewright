@@ -1,11 +1,7 @@
-// AskPrompts — renders the flow's structured questions (from a <gate-ask> block) one
-// at a time, picking the right control per type: free text, confirm (yes/no), single
-// select, or multiselect (checkbox). Collects all answers and hands them back. This is
-// how the end-to-end flow gets human input/approval between engine steps.
-
 import { useEffect, useState } from "react";
 import { Box, Text, useInput } from "ink";
-import { Logo, Panel, SelectList, CheckboxGroup, TextInputField, type Choice } from "./components/index.js";
+import { AppFrame, Panel, SelectList, CheckboxGroup, TextInputField, type Choice } from "./components/index.js";
+import { HINTS_BACK } from "./components/index.js";
 import type { Answers, Question } from "../core/flow/questions.js";
 
 const opt = (o: string): Choice<string> => ({ value: o, label: o });
@@ -33,7 +29,6 @@ export function AskPrompts({
     setSelIdx(0);
   }, [index]);
 
-  // Nothing to ask → complete immediately (hook stays unconditional).
   useEffect(() => {
     if (questions.length === 0) onComplete({});
   }, []);
@@ -55,31 +50,32 @@ export function AskPrompts({
     }
   };
 
+  const breadcrumb = `${title}  ·  question ${index + 1}/${questions.length}`;
+  const hints = onCancel ? [...HINTS_BACK] : [];
+
   return (
-    <Box flexDirection="column" paddingX={1}>
-      <Logo />
-      <Panel title={`${title}  ·  ${index + 1}/${questions.length}`} color="yellow">
-        <Text bold>{q.prompt}</Text>
+    <AppFrame breadcrumb={breadcrumb} hints={hints}>
+      <Panel title={q.prompt} color="yellow">
         {q.type === "text" ? (
-          <>
+          <Box flexDirection="column">
             <TextInputField value={text} placeholder="type your answer" onChange={setText} onSubmit={() => answer(text.trim())} />
             <Text dimColor>  enter submit{onCancel ? " · esc cancel" : ""}</Text>
-          </>
+          </Box>
         ) : null}
         {q.type === "confirm" ? (
-          <>
+          <Box flexDirection="column">
             <SelectList options={[opt("Yes"), opt("No")]} index={selIdx} onMove={setSelIdx} onSelect={(v) => answer(v === "Yes")} />
             <Text dimColor>  ↑↓ · enter choose{onCancel ? " · esc cancel" : ""}</Text>
-          </>
+          </Box>
         ) : null}
         {q.type === "select" ? (
-          <>
+          <Box flexDirection="column">
             <SelectList options={(q.options ?? []).map(opt)} index={selIdx} onMove={setSelIdx} onSelect={(v) => answer(v)} />
             <Text dimColor>  ↑↓ · enter choose{onCancel ? " · esc cancel" : ""}</Text>
-          </>
+          </Box>
         ) : null}
         {q.type === "multiselect" ? (
-          <>
+          <Box flexDirection="column">
             <CheckboxGroup
               options={(q.options ?? []).map(opt)}
               selected={multi}
@@ -87,9 +83,9 @@ export function AskPrompts({
               onSubmit={() => answer(multi)}
             />
             <Text dimColor>  space toggle · enter submit{onCancel ? " · esc cancel" : ""}</Text>
-          </>
+          </Box>
         ) : null}
       </Panel>
-    </Box>
+    </AppFrame>
   );
 }

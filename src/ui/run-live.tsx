@@ -5,10 +5,12 @@
 
 import { useMemo, useState } from "react";
 import { Box, Text, useInput } from "ink";
-import { Logo, Panel, Spinner } from "./components/index.js";
+import { AppFrame, Panel, Spinner } from "./components/index.js";
+import { HINTS_SCROLL, HINTS_BACK } from "./components/index.js";
 import type { ControlState } from "../core/control/control-state.js";
 import { isTerminal } from "../core/control/control-state.js";
 import type { EngineEvent } from "../core/engine/types.js";
+import { statusColor } from "./theme.js";
 
 const VIEW_H = 18;
 
@@ -113,13 +115,6 @@ export function toLines(events: EngineEvent[], width = 1000): Line[] {
   return out;
 }
 
-function stateColor(state: ControlState): string {
-  if (state === "PASSED") return "green";
-  if (state === "FAILED") return "red";
-  if (state === "CANCELLED") return "yellow";
-  return "cyan";
-}
-
 export function RunLive({
   events,
   state,
@@ -167,13 +162,19 @@ export function RunLive({
   const visible = lines.slice(effectiveOffset, effectiveOffset + VIEW_H);
   const scrollInfo = lines.length > VIEW_H ? `  [${effectiveOffset + 1}-${Math.min(effectiveOffset + VIEW_H, lines.length)}/${lines.length}]${follow ? " ⤓" : ""}` : "";
 
+  const stateIcon = done ? (state === "PASSED" ? "✓" : state === "CANCELLED" ? "◼" : "✗") : null;
+  const hints = [
+    ...HINTS_SCROLL,
+    ...(done ? [] : [{ key: "c", label: "cancel" }]),
+    ...HINTS_BACK,
+  ];
+
   return (
-    <Box flexDirection="column" paddingX={1}>
-      <Logo />
-      <Panel title="Run · live log" color={stateColor(state)}>
+    <AppFrame breadcrumb={`run · ${state.toLowerCase()}`} hints={hints}>
+      <Panel title="Run · live log" color={statusColor(state)}>
         <Box>
-          {done ? <Text color={stateColor(state)} bold>{state === "PASSED" ? "✓" : state === "CANCELLED" ? "◼" : "✗"}</Text> : <Spinner label="" />}
-          <Text color={stateColor(state)} bold>{` ${state}`}</Text>
+          {stateIcon ? <Text color={statusColor(state)} bold>{stateIcon}</Text> : <Spinner label="" />}
+          <Text color={statusColor(state)} bold>{` ${state}`}</Text>
           <Text dimColor>{`  ${events.length} events${scrollInfo}`}</Text>
         </Box>
         <Box flexDirection="column" marginTop={1} minHeight={VIEW_H}>
@@ -195,8 +196,7 @@ export function RunLive({
             })
           )}
         </Box>
-        <Text dimColor>{done ? "  ↑↓ scroll · g/G top/bottom · b/esc dashboard" : "  ↑↓ scroll · g/G top/bottom · c cancel · b/esc dashboard"}</Text>
       </Panel>
-    </Box>
+    </AppFrame>
   );
 }

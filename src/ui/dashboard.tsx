@@ -1,9 +1,10 @@
-// Dashboard views (presentational) — the home overview and the per-agent detail.
-// Stateful orchestration (routing, data, launch) lives in app.tsx.
-
 import { useState } from "react";
 import { Box, Text, useInput } from "ink";
-import { Logo, Panel, Icon, Card } from "./components/index.js";
+import { AppFrame, Badge, Icon, Card } from "./components/index.js";
+import { HINTS_QUIT } from "./components/index.js";
+import { SplitView } from "./components/split-view.js";
+import { useTerminalSize } from "./hooks/use-terminal-size.js";
+import { statusColor } from "./theme.js";
 import type { Check, CheckStatus, EnvironmentReport } from "./../core/env/types.js";
 import { summarize } from "./../core/env/types.js";
 import type { ClaudeCodeOverview } from "../core/env/claude-code.js";
@@ -25,26 +26,34 @@ export interface DashboardData {
   hasHistory: boolean;
 }
 
-function statusColor(status: CheckStatus): string {
-  return status === "ok" ? "green" : status === "warn" ? "yellow" : "red";
+function checkStatusColor(status: CheckStatus): string {
+  return statusColor(status === "ok" ? "ok" : status === "warn" ? "warn" : "bad");
 }
-function statusIcon(status: CheckStatus): "ok" | "warn" | "bad" {
-  return status === "ok" ? "ok" : status === "warn" ? "warn" : "bad";
-}
+
 function groupChecks(report: EnvironmentReport, title: string): Check[] {
   return report.groups.find((g) => g.title === title)?.checks ?? [];
 }
 
 function CheckRow({ check }: { check: Check }) {
+  const color = checkStatusColor(check.status);
+  const icon = check.status === "ok" ? "ok" : check.status === "warn" ? "warn" : "bad";
   return (
-    <Text>
-      <Icon name={statusIcon(check.status)} color={statusColor(check.status)} /> {check.label}
-      {check.detail ? <Text dimColor>{`  ${check.detail}`}</Text> : null}
-    </Text>
+    <Box gap={1}>
+      <Icon name={icon} color={color} />
+      <Text>{check.label}</Text>
+      {check.detail ? <Text dimColor>{check.detail}</Text> : null}
+    </Box>
   );
 }
 
-// ── Home ──────────────────────────────────────────────────────────────────────
+// ── Nav item ──────────────────────────────────────────────────────────────────
+
+interface ActionDef {
+  value: string;
+  label: string;
+  hint?: string;
+  disabled?: boolean;
+}
 
 function NavRow({ active, label, hint, disabled }: { active: boolean; label: string; hint?: string; disabled?: boolean }) {
   return (
@@ -55,6 +64,15 @@ function NavRow({ active, label, hint, disabled }: { active: boolean; label: str
     </Box>
   );
 }
+
+// ── HomeView ──────────────────────────────────────────────────────────────────
+
+const ACTION_GROUPS: { title: string; values: string[] }[] = [
+  { title: "Run", values: ["flow", "run"] },
+  { title: "Manage", values: ["skills", "config", "settings", "provision"] },
+  { title: "System", values: ["fix", "dogfood", "history", "rollback"] },
+  { title: "Navigation", values: ["launch", "refresh", "quit"] },
+];
 
 export function HomeView({
   data,
@@ -75,10 +93,10 @@ export function HomeView({
   onRefresh: () => void;
   onQuit: () => void;
 }) {
-  // One continuous cursor over [agents…, actions…]: a single ">" that starts on the
-  // first agent and jumps into the Actions panel as it moves down.
   const ccInstalled = data.agents.some((a) => a.id === "claude-code" && a.installed);
-  const actions: { value: string; label: string; hint?: string; disabled?: boolean }[] = [
+  const { mode } = useTerminalSize();
+
+  const actions: ActionDef[] = [
     { value: "flow", label: "Flow", hint: "end-to-end: SDD → review → PR" },
     { value: "run", label: "Run an agent", hint: "through the gate" },
     { value: "skills", label: "Skills", hint: "the gate's curated skills" },
@@ -93,6 +111,7 @@ export function HomeView({
     { value: "refresh", label: "Refresh" },
     { value: "quit", label: "Quit" },
   ];
+
   const total = data.agents.length + actions.length;
   const [cursor, setCursor] = useState(0);
 
@@ -120,68 +139,86 @@ export function HomeView({
 
   const tally = summarize(data.report);
 
-  return (
-    <Box flexDirection="column" paddingX={1}>
-      <Logo />
-      <Text dimColor>  Your machine at a glance — agents, models and what's configured.</Text>
-      <Box gap={3}>
-        <Text>
-          <Icon name="ok" color="green" /> {`${tally.ok} ready`}
-        </Text>
-        <Text>
-          <Icon name="warn" color="yellow" /> {`${tally.warn} to configure`}
-        </Text>
-        <Text>
-          <Icon name="bad" color="red" /> {`${tally.missing} missing`}
-        </Text>
-      </Box>
-
-      <Box gap={1}>
-        <Box flexDirection="column" width="52%">
-          <Panel title="AI agents  ·  enter to see details">
-            {data.agents.map((a, i) => (
-              <NavRow key={a.id} active={cursor === i} label={`${a.installed ? "●" : "○"} ${a.name}`} hint={a.summary} />
-            ))}
-          </Panel>
-          <Panel title="Actions">
-            {actions.map((a, i) => (
-              <NavRow key={a.value} active={cursor === data.agents.length + i} label={a.label} {...(a.hint ? { hint: a.hint } : {})} {...(a.disabled ? { disabled: true } : {})} />
-            ))}
-          </Panel>
-        </Box>
-
-        <Box flexDirection="column" width="48%">
-          <Panel title="Local AI">
-            {groupChecks(data.report, "Local AI").map((c) => (
-              <CheckRow key={c.label} check={c} />
-            ))}
-          </Panel>
-          <Panel title="Jev">
-            {groupChecks(data.report, "Jev").map((c) => (
-              <CheckRow key={c.label} check={c} />
-            ))}
-          </Panel>
-          <Panel title="Proxies">
-            {data.proxies.length === 0 ? (
-              <Text dimColor>  none active</Text>
-            ) : (
-              data.proxies.map((p) => (
-                <Text key={p.name}>
-                  <Icon name="bullet" color="cyan" /> {p.name}
-                  <Text dimColor>{`  ${p.value}`}</Text>
-                </Text>
-              ))
-            )}
-          </Panel>
-        </Box>
-      </Box>
-
-      <Text dimColor>{`  ↑↓ move (across panels) · enter select · q quit`}</Text>
+  // ── Grouped action list rendering ────────────────────────────────────────
+  const actionList = (
+    <Box flexDirection="column">
+      {/* Agent rows */}
+      {data.agents.map((a, i) => (
+        <NavRow key={a.id} active={cursor === i} label={`${a.installed ? "●" : "○"} ${a.name}`} hint={a.summary} />
+      ))}
+      {/* Action groups */}
+      {ACTION_GROUPS.map((group) => {
+        const groupActions = actions.filter((a) => group.values.includes(a.value));
+        if (groupActions.length === 0) return null;
+        return (
+          <Box key={group.title} flexDirection="column" marginTop={1}>
+            <Text dimColor bold>{`  ${group.title}`}</Text>
+            {groupActions.map((a) => {
+              const globalIdx = data.agents.length + actions.indexOf(a);
+              return (
+                <NavRow
+                  key={a.value}
+                  active={cursor === globalIdx}
+                  label={a.label}
+                  {...(a.hint ? { hint: a.hint } : {})}
+                  {...(a.disabled ? { disabled: true } : {})}
+                />
+              );
+            })}
+          </Box>
+        );
+      })}
     </Box>
+  );
+
+  // ── Health panels ────────────────────────────────────────────────────────
+  const healthPanel = (
+    <Box flexDirection="column" gap={1}>
+      <Box flexDirection="column" borderStyle="round" borderColor="cyan" paddingX={1}>
+        <Text bold color="cyan"> Local AI </Text>
+        {groupChecks(data.report, "Local AI").map((c) => <CheckRow key={c.label} check={c} />)}
+      </Box>
+      <Box flexDirection="column" borderStyle="round" borderColor="cyan" paddingX={1}>
+        <Text bold color="cyan"> Jev </Text>
+        {groupChecks(data.report, "Jev").map((c) => <CheckRow key={c.label} check={c} />)}
+      </Box>
+      {data.proxies.length > 0 && (
+        <Box flexDirection="column" borderStyle="round" borderColor="cyan" paddingX={1}>
+          <Text bold color="cyan"> Proxies </Text>
+          {data.proxies.map((p) => (
+            <Box key={p.name} gap={1}>
+              <Icon name="bullet" color="cyan" />
+              <Text>{p.name}</Text>
+              <Text dimColor>{p.value}</Text>
+            </Box>
+          ))}
+        </Box>
+      )}
+    </Box>
+  );
+
+  return (
+    <AppFrame breadcrumb="" logoMode hints={[{ key: "↑↓", label: "move" }, { key: "enter", label: "select" }, ...HINTS_QUIT]}>
+      <Box gap={2} marginBottom={1}>
+        <Badge label={`${tally.ok} ready`} color="green" />
+        <Badge label={`${tally.warn} to configure`} color="yellow" dim={tally.warn === 0} />
+        <Badge label={`${tally.missing} missing`} color="red" dim={tally.missing === 0} />
+      </Box>
+      {mode === "compact" ? (
+        actionList
+      ) : (
+        <SplitView
+          left={actionList}
+          right={healthPanel}
+          leftWidth="55%"
+          mode={mode}
+        />
+      )}
+    </AppFrame>
   );
 }
 
-// ── Agent detail ────────────────────────────────────────────────────────────
+// ── AgentDetail ───────────────────────────────────────────────────────────────
 
 interface DetailItem {
   key: string;
@@ -211,18 +248,19 @@ export function AgentDetail({ cc, onBack, onQuit }: { cc: ClaudeCodeOverview; on
   });
 
   return (
-    <Box flexDirection="column" paddingX={1}>
-      <Text bold color="cyan">{` Claude Code · detail ${cc.installed ? "" : "(not installed) "}`}</Text>
-      <Text dimColor>  Everything this agent carries — commands, skills and MCP servers.</Text>
-      <Text dimColor>{`${cc.mcps.length} MCP · ${cc.plugins.length} plugins · ${cc.commands.length} commands · ${cc.skills.length} skills`}</Text>
-      <Box flexWrap="wrap">
+    <AppFrame
+      breadcrumb="claude code · detail"
+      hints={[{ key: "n/p", label: "page" }, ...HINTS_QUIT, { key: "b/←", label: "back" }]}
+    >
+      <Text dimColor>{`${cc.mcps.length} MCP · ${cc.plugins.length} plugins · ${cc.commands.length} commands · ${cc.skills.length} skills${cc.installed ? "" : "  (not installed)"}`}</Text>
+      <Box flexWrap="wrap" marginTop={1}>
         {slice.map((it) => (
           <Box key={it.key} width="50%" paddingRight={1}>
             <Card title={it.title} color={it.color} {...(it.description ? { description: it.description } : {})} />
           </Box>
         ))}
       </Box>
-      <Text dimColor>{`page ${current + 1}/${pages}  ·  n/p page · b back · q quit`}</Text>
-    </Box>
+      <Text dimColor>{`page ${current + 1}/${pages}`}</Text>
+    </AppFrame>
   );
 }

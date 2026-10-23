@@ -14,7 +14,7 @@ const skills: Skill[] = [
 describe("SkillsScreen", () => {
   it("lists the gate's skills grouped by category", () => {
     const out = render(<SkillsScreen onBack={noop} onQuit={noop} skills={skills} />).lastFrame() ?? "";
-    expect(out).toContain("the gate's, not the AI's");
+    expect(out).toContain("curated skills");
     expect(out).toContain("quality");
     expect(out).toContain("architecture");
     expect(out).toContain("gate-code-review");

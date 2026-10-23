@@ -1,20 +1,14 @@
-// RunComposer — the cockpit's compose screen: write a prompt, pick an engine,
-// attach context dirs, hit Run. Only installed + supported engines are selectable;
-// the rest show why they're unavailable. The assembled EngineRunOptions is handed
-// up via onRun — this component owns no process logic.
-
 import { useState } from "react";
 import { Box, Text, useInput } from "ink";
-import { Logo, Panel, Icon, TextInputField } from "./components/index.js";
+import { AppFrame, Icon, TextInputField, Badge } from "./components/index.js";
+import { HINTS_BACK, HINTS_QUIT } from "./components/index.js";
 import type { EngineRunOptions } from "../core/engine/types.js";
 
-/** A UI-ready view of one engine (app.tsx maps DetectedEngine → this). */
 export interface ComposerEngine {
   id: string;
   name: string;
   installed: boolean;
   supported: boolean;
-  /** inherited-cli engine with no login detected — run won't authenticate. */
   loggedOut?: boolean;
   detail?: string;
 }
@@ -22,7 +16,6 @@ export interface ComposerEngine {
 type Field = "prompt" | "engine" | "context" | "run";
 const ORDER: Field[] = ["prompt", "engine", "context", "run"];
 
-/** Pure: assemble run options from the form + run context. Exported for tests. */
 export function buildRunOptions(
   prompt: string,
   engineId: string,
@@ -41,6 +34,12 @@ export function buildRunOptions(
   };
 }
 
+function charCountColor(len: number): string {
+  if (len > 8000) return "red";
+  if (len > 2000) return "yellow";
+  return "gray";
+}
+
 export function RunComposer({
   engines,
   cwd,
@@ -53,7 +52,6 @@ export function RunComposer({
   engines: ComposerEngine[];
   cwd: string;
   mcpConfigPath: string;
-  /** Config-resolved default engine; used when it's installed + supported. */
   preferredEngineId?: string;
   onRun: (engineId: string, options: EngineRunOptions) => void;
   onBack: () => void;
@@ -68,11 +66,13 @@ export function RunComposer({
 
   const selected = engines.find((e) => e.id === engineId);
   const canRun = prompt.trim().length > 0 && engineId.length > 0;
+
   const submit = (): void => {
     if (!canRun) return;
     const { options } = buildRunOptions(prompt, engineId, context, { cwd, mcpConfigPath });
     onRun(engineId, options);
   };
+
   const advance = (dir: 1 | -1): void => {
     setField((f) => ORDER[(ORDER.indexOf(f) + dir + ORDER.length) % ORDER.length]!);
   };
@@ -89,66 +89,78 @@ export function RunComposer({
     if (field === "run" && key.return) submit();
   });
 
+  const charCount = prompt.length;
+
   return (
-    <Box flexDirection="column" paddingX={1}>
-      <Logo />
-      <Panel title="Run an agent through the gate" color="cyan">
-        <Text dimColor>The gate drives the engine headlessly — every tool call passes the gates + Jev.</Text>
+    <AppFrame
+      breadcrumb="run"
+      hints={[
+        { key: "tab", label: "next field" },
+        { key: "↑↓", label: "engine" },
+        { key: "enter on Run", label: "start" },
+        ...HINTS_BACK,
+      ]}
+    >
+      <Text dimColor>The gate drives the engine headlessly — every tool call passes the gates + Jev.</Text>
 
-        <Box marginTop={1}>
-          <TextInputField
-            label="Prompt"
-            value={prompt}
-            placeholder="what should the agent do?"
-            focus={field === "prompt"}
-            onChange={setPrompt}
-            onSubmit={() => advance(1)}
-          />
+      <Box marginTop={1} flexDirection="column">
+        <TextInputField
+          label="Prompt"
+          value={prompt}
+          placeholder="what should the agent do?"
+          focus={field === "prompt"}
+          onChange={setPrompt}
+          onSubmit={() => advance(1)}
+        />
+        {charCount > 0 && (
+          <Text color={charCountColor(charCount)} dimColor={charCount <= 2000}>{`  ${charCount} chars`}</Text>
+        )}
+      </Box>
+
+      <Box flexDirection="column" marginTop={1}>
+        <Text bold {...(field === "engine" ? { color: "cyan" } : {})}>Engine</Text>
+        {engines.map((e) => {
+          const active = e.id === engineId;
+          const usable = e.installed && e.supported;
+          const why = !e.installed ? "not installed" : !e.supported ? "detected — not yet supported" : e.detail;
+          return (
+            <Box key={e.id} gap={1}>
+              <Icon name={active && usable ? "radioOn" : "radioOff"} color={active && usable ? "cyan" : "gray"} />
+              <Text dimColor={!usable} {...(active && usable ? { color: "cyan" } : {})}>{e.name}</Text>
+              {!usable && why ? <Badge label={why} color="gray" dim /> : null}
+            </Box>
+          );
+        })}
+      </Box>
+
+      {selected?.loggedOut ? (
+        <Box marginTop={1} gap={1}>
+          <Icon name="warn" color="yellow" />
+          <Text color="yellow">{`${selected.name} has no login — run \`claude\` once to authenticate`}</Text>
         </Box>
+      ) : null}
 
-        <Box flexDirection="column" marginTop={1}>
-          <Text bold {...(field === "engine" ? { color: "cyan" } : {})}>Engine</Text>
-          {engines.map((e) => {
-            const active = e.id === engineId;
-            const usable = e.installed && e.supported;
-            const why = !e.installed ? "not installed" : !e.supported ? "detected — not yet supported" : e.detail;
-            return (
-              <Box key={e.id}>
-                <Icon name={active && usable ? "radioOn" : "radioOff"} color={active && usable ? "cyan" : "gray"} />
-                <Text dimColor={!usable} {...(active && usable ? { color: "cyan" } : {})}>{` ${e.name}`}</Text>
-                {!usable && why ? <Text dimColor>{`  — ${why}`}</Text> : null}
-              </Box>
-            );
-          })}
-        </Box>
+      <Box marginTop={1}>
+        <TextInputField
+          label="Context dirs (optional, space-separated)"
+          value={context}
+          placeholder="e.g. src docs"
+          focus={field === "context"}
+          onChange={setContext}
+          onSubmit={() => advance(1)}
+        />
+      </Box>
 
-        {selected?.loggedOut ? (
-          <Box marginTop={1}>
-            <Icon name="warn" color="yellow" />
-            <Text color="yellow">{` ${selected.name} has no login — run \`claude\` once to authenticate, then try again`}</Text>
-          </Box>
-        ) : null}
-
-        <Box marginTop={1}>
-          <TextInputField
-            label="Context dirs (optional, space-separated)"
-            value={context}
-            placeholder="e.g. src docs"
-            focus={field === "context"}
-            onChange={setContext}
-            onSubmit={() => advance(1)}
-          />
-        </Box>
-
-        <Box marginTop={1}>
-          <Icon name="pointer" color={field === "run" ? (canRun ? "green" : "gray") : "gray"} />
-          <Text {...(field === "run" ? { color: canRun ? "green" : "gray" } : {})} bold={field === "run"}>
-            {canRun ? " Run" : " Run (write a prompt first)"}
-          </Text>
-        </Box>
-
-        <Text dimColor>  tab next field · ↑↓ pick engine · enter on Run · esc back</Text>
-      </Panel>
-    </Box>
+      <Box
+        marginTop={1}
+        {...(field === "run" && canRun ? { borderStyle: "round" as const, borderColor: "green" } : {})}
+        paddingX={field === "run" && canRun ? 1 : 0}
+      >
+        <Icon name={field === "run" ? (canRun ? "run" : "locked") : "sep"} color={field === "run" ? (canRun ? "green" : "gray") : "gray"} />
+        <Text {...(field === "run" ? { color: canRun ? "green" : "gray" } : {})} bold={field === "run"}>
+          {canRun ? " Run" : " Run (write a prompt first)"}
+        </Text>
+      </Box>
+    </AppFrame>
   );
 }

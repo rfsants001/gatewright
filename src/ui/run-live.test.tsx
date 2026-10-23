@@ -85,10 +85,10 @@ describe("RunLive", () => {
     expect(out).not.toContain("**");
   });
 
-  it("always offers back to the dashboard; cancel only while running", () => {
+  it("always offers back; cancel only while running", () => {
     expect(render(<RunLive events={events} state="RUNNING" onCancel={noop} onBack={noop} />).lastFrame() ?? "").toContain("cancel");
-    expect(render(<RunLive events={events} state="RUNNING" onCancel={noop} onBack={noop} />).lastFrame() ?? "").toContain("dashboard");
-    expect(render(<RunLive events={events} state="PASSED" onCancel={noop} onBack={noop} />).lastFrame() ?? "").toContain("dashboard");
+    expect(render(<RunLive events={events} state="RUNNING" onCancel={noop} onBack={noop} />).lastFrame() ?? "").toContain("back");
+    expect(render(<RunLive events={events} state="PASSED" onCancel={noop} onBack={noop} />).lastFrame() ?? "").toContain("back");
   });
 
   it("'c' cancels but stays; 'b'/esc leave to the dashboard (cancelling a live run)", async () => {
