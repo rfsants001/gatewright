@@ -114,7 +114,9 @@ export function startRun(adapter: EngineAdapter, opts: EngineRunOptions, handler
 
   const outSplitter = makeLineSplitter((line) => {
     const ev = adapter.parseStreamLine(line);
-    if (ev) emit(ev);
+    if (!ev) return;
+    if (Array.isArray(ev)) ev.forEach(emit);
+    else emit(ev);
   });
   const errSplitter = makeLineSplitter((line) => emit({ kind: "error", text: line }));
   child.stdout?.on("data", (c) => outSplitter.feed(c));

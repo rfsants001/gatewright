@@ -40,15 +40,27 @@ export interface EngineAvailability {
   detail?: string;
 }
 
+/** Token/cost usage carried by `usage` events (and the final result). */
+export interface EngineUsage {
+  tokensIn: number;
+  tokensOut: number;
+  /** Cache-read input tokens; 0 when none/unknown. */
+  cacheRead: number;
+  /** Total cost in USD, when the engine reports it (final result only). */
+  costUsd?: number;
+}
+
 /** A normalized event parsed from an engine's output stream. */
 export interface EngineEvent {
-  kind: "assistant" | "tool_use" | "tool_result" | "result" | "system" | "error" | "raw";
-  /** Human-readable text for assistant/result/error/system/raw. */
+  kind: "assistant" | "reasoning" | "tool_use" | "tool_result" | "result" | "system" | "error" | "usage" | "raw";
+  /** Human-readable text for assistant/reasoning/result/error/system/raw. */
   text?: string;
   /** Tool name for tool_use / tool_result. */
   tool?: string;
   /** What the tool acted on (file path, command, pattern) or a short result preview. */
   detail?: string;
+  /** Token/cost usage for `usage` events (or attached to the final result). */
+  usage?: EngineUsage;
   /** The underlying parsed line, for replay/debug. */
   raw?: unknown;
 }
@@ -62,8 +74,12 @@ export interface EngineAdapter {
   detect(): Promise<EngineAvailability>;
   /** Pure: same options → same command. Throws EngineNotSupportedError for stubs. */
   buildHeadlessCommand(opts: EngineRunOptions): EngineCommand;
-  /** Parse one line of the engine's stream into a normalized event (null to skip). */
-  parseStreamLine(line: string): EngineEvent | null;
+  /**
+   * Parse one line of the engine's stream into normalized event(s). Returns null
+   * to skip, a single event, or several when one line carries multiple parts
+   * (e.g. a message with reasoning + text + usage).
+   */
+  parseStreamLine(line: string): EngineEvent | EngineEvent[] | null;
 }
 
 /** Thrown by detectable-but-not-yet-runnable adapters (Codex, OpenCode). */
