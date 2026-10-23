@@ -10,6 +10,11 @@ import type { Part } from "./parts.js";
 export type Verbosity = "low" | "medium" | "high";
 export const defaultVerbosity: Verbosity = "medium";
 
+/** Coerce a config value (possibly absent/garbage) to a valid Verbosity. */
+export function coerceVerbosity(value: unknown): Verbosity {
+  return value === "low" || value === "medium" || value === "high" ? value : defaultVerbosity;
+}
+
 export type GroupKind = "exploration" | "reasoning" | "activity";
 
 export interface PartGroup {

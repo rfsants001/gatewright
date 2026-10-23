@@ -21,6 +21,8 @@ export interface PackageRecord {
 export interface GatewrightConfig {
   /** Engine pre-selected in the Run composer. */
   defaultEngine?: string;
+  /** Run-transcript verbosity (see src/core/run/grouping.ts Verbosity); default "medium". */
+  verbosity?: "low" | "medium" | "high";
   /** Jev preferences at this scope (merged over the dedicated jev.config.json at use). */
   jev?: { enabled?: boolean; model?: string; endpoint?: string };
   /** Tools the provisioner has set up at this scope. */
@@ -51,6 +53,10 @@ export function mergeConfig(base: GatewrightConfig, over: ConfigPatch): Gatewrig
   if ("defaultEngine" in over) {
     if (over.defaultEngine === undefined) delete merged.defaultEngine;
     else merged.defaultEngine = over.defaultEngine;
+  }
+  if ("verbosity" in over) {
+    if (over.verbosity === undefined) delete merged.verbosity;
+    else merged.verbosity = over.verbosity;
   }
   if (base.jev || over.jev) merged.jev = { ...base.jev, ...over.jev };
   const pkgs = mergePackages(base.packages, over.packages);

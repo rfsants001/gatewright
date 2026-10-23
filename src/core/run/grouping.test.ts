@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { appendPart, groupParts, partPath, type GroupedRow } from "./grouping.js";
+import { appendPart, coerceVerbosity, groupParts, partPath, type GroupedRow } from "./grouping.js";
 import type { Part, ReasoningPart, TextPart, ToolPart } from "./parts.js";
 
 const text = (t = "hi"): TextPart => ({ type: "text", text: t, status: "completed" });
@@ -65,6 +65,17 @@ describe("groupParts", () => {
   it("text and question stay standalone even in low", () => {
     const rows = groupParts([text(), tool("question"), tool("read")], "low");
     expect(rows.map((r) => r.type)).toEqual(["part", "part", "group"]);
+  });
+});
+
+describe("coerceVerbosity", () => {
+  it("passes valid modes through and defaults everything else to medium", () => {
+    expect(coerceVerbosity("low")).toBe("low");
+    expect(coerceVerbosity("high")).toBe("high");
+    expect(coerceVerbosity("medium")).toBe("medium");
+    expect(coerceVerbosity(undefined)).toBe("medium");
+    expect(coerceVerbosity("nonsense")).toBe("medium");
+    expect(coerceVerbosity(42)).toBe("medium");
   });
 });
 
