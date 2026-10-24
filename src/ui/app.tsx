@@ -12,6 +12,7 @@ import { OllamaSetup } from "./ollama-setup.js";
 import { HistoryScreen, RollbackScreen } from "./history-screen.js";
 import { RunComposer, type ComposerEngine } from "./run-composer.js";
 import { RunLive } from "./run-live.js";
+import { RunScreen } from "./run-screen.js";
 import { SettingsScreen } from "./settings-screen.js";
 import { ProvisionScreen } from "./provision-screen.js";
 import { SkillsScreen } from "./skills-screen.js";
@@ -279,13 +280,7 @@ function RunPage({ onDone, onQuit, autoPrompt }: { onDone: () => void; onQuit: (
   const [registry] = useState(() => defaultEngineRegistry());
   const [mcpConfigPath] = useState(() => ensureGateMcpConfig(cwd));
   const [preferredEngineId] = useState(() => new ConfigStore(new FileArtifactStore()).resolve(cwd).defaultEngine);
-  const [skillsPrompt] = useState(() => buildSkillsSystemPrompt(loadGateSkills().list()));
   const [engines, setEngines] = useState<ComposerEngine[] | null>(null);
-  const [phase, setPhase] = useState<"compose" | "live">("compose");
-  const [events, setEvents] = useState<EngineEvent[]>([]);
-  const [state, setState] = useState<ControlState>("IDLE");
-  const handleRef = useRef<RunHandle | null>(null);
-  const autoStartedRef = useRef(false);
 
   useEffect(() => {
     void (async () => {
@@ -311,40 +306,18 @@ function RunPage({ onDone, onQuit, autoPrompt }: { onDone: () => void; onQuit: (
     })();
   }, []);
 
-  const start = (engineId: string, options: EngineRunOptions): void => {
-    setEvents([]);
-    setState("IDLE");
-    setPhase("live");
-    // Hand the gate's own skills to the engine (not the host AI's).
-    const withSkills: EngineRunOptions = skillsPrompt ? { ...options, systemPrompt: skillsPrompt } : options;
-    handleRef.current = startRun(registry.get(engineId), withSkills, {
-      onEvent: (ev) => setEvents((prev) => [...prev, ev]),
-      onState: (s) => setState(s),
-    });
-  };
-
-  // AI-driven install (or any preset): skip the composer and run immediately.
-  useEffect(() => {
-    if (!autoPrompt || !engines || autoStartedRef.current) return;
-    const target = engines.find((e) => e.id === preferredEngineId && e.installed && e.supported) ?? engines.find((e) => e.installed && e.supported);
-    if (target) {
-      autoStartedRef.current = true;
-      start(target.id, { prompt: autoPrompt, cwd, mcpConfigPath });
-    }
-  }, [engines, autoPrompt]);
-
-  if (phase === "live") {
-    return <RunLive events={events} state={state} onCancel={() => handleRef.current?.cancel()} onBack={onDone} />;
-  }
-  if (!engines) {
-    return (
-      <Box flexDirection="column" paddingX={1}>
-        <Logo />
-        <Spinner label="detecting engines…" />
-      </Box>
-    );
-  }
-  return <RunComposer engines={engines} cwd={cwd} mcpConfigPath={mcpConfigPath} {...(preferredEngineId ? { preferredEngineId } : {})} onRun={start} onBack={onDone} onQuit={onQuit} />;
+  return (
+    <RunScreen
+      engines={engines}
+      cwd={cwd}
+      mcpConfigPath={mcpConfigPath}
+      registry={registry}
+      {...(preferredEngineId ? { preferredEngineId } : {})}
+      {...(autoPrompt ? { autoPrompt } : {})}
+      onBack={onDone}
+      onQuit={onQuit}
+    />
+  );
 }
 
 // ── Flow (end-to-end) ─────────────────────────────────────────────────────────
