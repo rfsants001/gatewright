@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { appendPart, coerceVerbosity, groupParts, partPath, type GroupedRow } from "./grouping.js";
+import { appendPart, coerceVerbosity, completeGroupBoundary, groupParts, partPath, type GroupedRow } from "./grouping.js";
 import type { Part, ReasoningPart, TextPart, ToolPart } from "./parts.js";
 
 const text = (t = "hi"): TextPart => ({ type: "text", text: t, status: "completed" });
@@ -76,6 +76,30 @@ describe("coerceVerbosity", () => {
     expect(coerceVerbosity(undefined)).toBe("medium");
     expect(coerceVerbosity("nonsense")).toBe("medium");
     expect(coerceVerbosity(42)).toBe("medium");
+  });
+});
+
+describe("completeGroupBoundary", () => {
+  // [read, read, text, read] → groups: exploration(0,1), text(2), exploration(3)
+  const parts = [tool("read"), tool("read"), text(), tool("read")];
+
+  it("walks a grouped start back to the first part of its group", () => {
+    expect(completeGroupBoundary(parts, 1)).toBe(0);
+  });
+
+  it("leaves a standalone part where it is", () => {
+    expect(completeGroupBoundary(parts, 2)).toBe(2); // the text
+    expect(completeGroupBoundary(parts, 3)).toBe(3); // a lone read after text
+  });
+
+  it("clamps at the bounds", () => {
+    expect(completeGroupBoundary(parts, 0)).toBe(0);
+    expect(completeGroupBoundary(parts, 99)).toBe(parts.length);
+  });
+
+  it("in low verbosity, snaps back across the whole activity run", () => {
+    const run = [tool("read"), tool("shell"), tool("edit")];
+    expect(completeGroupBoundary(run, 2, "low")).toBe(0);
   });
 });
 

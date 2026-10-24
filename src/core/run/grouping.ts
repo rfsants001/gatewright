@@ -71,3 +71,22 @@ export function groupParts(parts: Part[], verbosity: Verbosity = defaultVerbosit
   for (const part of parts) appendPart(rows, part, verbosity);
   return rows;
 }
+
+/**
+ * Snap a tentative page start back to the beginning of the group it lands in, so
+ * paginating long history never renders a group missing its earlier parts. A
+ * standalone part is already a boundary; a grouped part walks back over its peers.
+ */
+export function completeGroupBoundary(
+  parts: Part[],
+  start: number,
+  verbosity: Verbosity = defaultVerbosity,
+): number {
+  if (start <= 0) return 0;
+  if (start >= parts.length) return parts.length;
+  const kind = partPath(parts[start]!, verbosity);
+  if (kind === null) return start;
+  let i = start;
+  while (i > 0 && partPath(parts[i - 1]!, verbosity) === kind) i--;
+  return i;
+}
