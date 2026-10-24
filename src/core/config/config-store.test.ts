@@ -61,4 +61,13 @@ describe("ConfigStore", () => {
     s.write("project", { defaultEngine: "codex" }, proj);
     expect(s.resolve(proj)).toEqual({ defaultEngine: "codex", jev: { enabled: true } });
   });
+
+  it("persists verbosity per scope and lets the project override the gate", () => {
+    const s = store();
+    s.write("gate", { verbosity: "low" }, proj);
+    expect(s.read("gate", proj).verbosity).toBe("low");
+    expect(s.resolve(proj).verbosity).toBe("low");
+    s.write("project", { verbosity: "high" }, proj);
+    expect(s.resolve(proj).verbosity).toBe("high");
+  });
 });
