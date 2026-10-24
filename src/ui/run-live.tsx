@@ -1,26 +1,37 @@
-// RunLive — the live run log, styled after OpenCode's TUI: a scrollable viewport,
-// compact dot/symbol indicators (no "ai"/"tool" tags), tool calls that show WHAT they
-// touched (Read <file>, Bash <cmd>), and assistant prose with markdown noise stripped.
-// It auto-follows the tail; ↑↓ scroll back through history. "c" cancels, "b" goes back.
+// RunLive — the live run cockpit. Projects engine events into the Turn/Part
+// model, groups parts by verbosity, budgets the viewport, and wires chrome
+// (header, context bar, gate footer, keymap).
+//
+// Public props are unchanged from Phase 28; cleanMarkdown and wrap stay exported
+// so flow-screen.tsx compiles unchanged.
 
 import { useMemo, useState } from "react";
 import { Box, Text, useInput } from "ink";
+import type { Key } from "ink";
 import { Logo, Panel, Spinner } from "./components/index.js";
 import type { ControlState } from "../core/control/control-state.js";
 import { isTerminal } from "../core/control/control-state.js";
 import type { EngineEvent } from "../core/engine/types.js";
+import { projectTurns } from "../core/run/project-turns.js";
+import { groupParts, coerceVerbosity } from "../core/run/grouping.js";
+import type { GroupedRow, GroupKind, PartGroup } from "../core/run/grouping.js";
+import { rowWeights } from "../core/run/mount-budget.js";
+import { visibleRange } from "./run/viewport.js";
+import { handleKey, defaultCockpitState } from "./run/keymap.js";
+import type { RunHeaderProps } from "./run/header.js";
+import { RunHeader } from "./run/header.js";
+import { ContextBar } from "./run/context-bar.js";
+import { GateFooter } from "./run/gate-footer.js";
+import type { GateStatus } from "./run/gate-footer.js";
+import { Markdown } from "./run/markdown.js";
+import { Reasoning } from "./run/reasoning.js";
+import { ToolPart } from "./run/tool-part.js";
+import { TurnUsage } from "./run/turn-usage.js";
+import { TimelineDialog } from "./run/timeline-dialog.js";
+import type { Turn } from "../core/run/parts.js";
+import type { ReactElement } from "react";
 
-const VIEW_H = 18;
-
-interface Line {
-  text: string;
-  /** Colors the whole line (used for errors — they're important). */
-  color?: string;
-  /** Colors only the first `leadLen` chars (the glyph/keyword); the rest stays default. */
-  leadLen?: number;
-  leadColor?: string;
-  dim?: boolean;
-}
+// ── Legacy helpers — kept for flow-screen.tsx compatibility ──────────────
 
 /** Strip markdown noise so prose reads cleanly in a terminal. */
 export function cleanMarkdown(text: string): string {
@@ -52,66 +63,58 @@ export function wrap(text: string, width: number): string[] {
   return rows.length ? rows : [""];
 }
 
-/**
- * Flatten events into display lines — one terminal row each (wrapped to `width`, no
- * ellipsis), so scrolling is exact and long text reads in full. Color is minimal:
- * only the glyph/tool-keyword is tinted; the body stays the default color (errors are
- * the exception and go fully red). This matches how OpenCode reads.
- */
-export function toLines(events: EngineEvent[], width = 1000): Line[] {
-  const out: Line[] = [];
-  // Tint only the lead glyph/keyword; body default. Wraps body across rows, no ellipsis.
-  const push = (lead: string, leadColor: string | undefined, body: string, dim?: boolean): void => {
-    const indent = " ".repeat(lead.length);
-    wrap(body, Math.max(8, width - lead.length)).forEach((seg, i) =>
-      out.push({
-        text: `${i === 0 ? lead : indent}${seg}`,
-        ...(i === 0 && leadColor ? { leadLen: lead.length, leadColor } : {}),
-        ...(dim ? { dim: true } : {}),
-      }),
-    );
-  };
-  const norm = (s: string): string => s.replace(/\s+/g, " ").trim();
-  let assistantAcc = "";
-  for (const ev of events) {
-    switch (ev.kind) {
-      case "assistant": {
-        const body = cleanMarkdown(ev.text ?? "").trimEnd();
-        if (!body) break;
-        assistantAcc += ` ${body}`;
-        body.split("\n").forEach((para) => (para.trim() ? push("● ", undefined, para) : out.push({ text: "" })));
-        break;
-      }
-      case "tool_use":
-        push(`→ ${ev.tool} `, "cyan", ev.detail ?? "");
-        break;
-      case "tool_result":
-        if (ev.detail) push("  ⤷ ", undefined, ev.detail, true);
-        break;
-      case "result": {
-        const body = cleanMarkdown(ev.text ?? "").trimEnd();
-        if (!body) break;
-        // The engine repeats the final text in `result`; if it already streamed as
-        // assistant messages, show a terse marker instead of duplicating it.
-        if (assistantAcc && norm(assistantAcc).includes(norm(body))) {
-          out.push({ text: "✓ done", leadLen: 2, leadColor: "green" });
-          break;
-        }
-        body.split("\n").forEach((para, i) => (para.trim() ? push(i === 0 ? "✓ " : "  ", i === 0 ? "green" : undefined, para) : out.push({ text: "" })));
-        break;
-      }
-      case "error":
-        wrap(ev.text ?? "error", Math.max(8, width - 2)).forEach((seg, i) => out.push({ text: `${i === 0 ? "✗ " : "  "}${seg}`, color: "red" }));
-        break;
-      case "system":
-        if (ev.text && ev.text !== "init") push("∴ ", undefined, ev.text, true);
-        break;
-      default:
-        if (ev.text) push("", undefined, ev.text, true);
+// ── Row renderer ─────────────────────────────────────────────────────────
+
+function renderRow(row: GroupedRow, key: number, expanded: boolean): ReactElement {
+  if (row.type === "part") {
+    const { part } = row;
+    if (part.type === "text") {
+      const streamingProps = part.status === "streaming" ? { streaming: true } : {};
+      return <Markdown key={key} text={part.text} {...streamingProps} />;
+    }
+    if (part.type === "reasoning") {
+      const expandedProps = expanded ? { expanded: true } : {};
+      return <Reasoning key={key} part={part} {...expandedProps} />;
+    }
+    if (part.type === "tool") {
+      const expandedProps = expanded ? { expanded: true } : {};
+      return <ToolPart key={key} part={part} {...expandedProps} />;
     }
   }
-  return out;
+  if (row.type === "group") {
+    const { group } = row;
+    return (
+      <Box key={key} flexDirection="column">
+        {group.parts.map((part, i) => {
+          if (part.type === "text") {
+            const streamingProps = part.status === "streaming" ? { streaming: true } : {};
+            return <Markdown key={i} text={part.text} {...streamingProps} />;
+          }
+          if (part.type === "reasoning") {
+            const expandedProps = expanded ? { expanded: true } : {};
+            return <Reasoning key={i} part={part} {...expandedProps} />;
+          }
+          if (part.type === "tool") {
+            const expandedProps = expanded ? { expanded: true } : {};
+            return <ToolPart key={i} part={part} {...expandedProps} />;
+          }
+          return null;
+        })}
+      </Box>
+    );
+  }
+  return <Text key={key} dimColor>—</Text>;
 }
+
+// ── Mock gate statuses ────────────────────────────────────────────────────
+
+const DEFAULT_GATES: GateStatus[] = [
+  { name: "secret", state: "not-fired" },
+  { name: "proportion", state: "not-fired" },
+  { name: "plan", state: "not-fired" },
+  { name: "completion", state: "not-fired" },
+  { name: "quality", state: "not-fired" },
+];
 
 function stateColor(state: ControlState): string {
   if (state === "PASSED") return "green";
@@ -119,6 +122,28 @@ function stateColor(state: ControlState): string {
   if (state === "CANCELLED") return "yellow";
   return "cyan";
 }
+
+// ── Cumulative usage ──────────────────────────────────────────────────────
+
+interface CumulativeUsage {
+  tokensIn: number;
+  tokensOut: number;
+  cacheHit: number | undefined;
+}
+
+function sumUsage(turns: Turn[]): CumulativeUsage {
+  let tokensIn = 0;
+  let tokensOut = 0;
+  let cacheHit: number | undefined;
+  for (const t of turns) {
+    tokensIn += t.tokensIn;
+    tokensOut += t.tokensOut;
+    cacheHit = t.cacheHit;
+  }
+  return { tokensIn, tokensOut, cacheHit };
+}
+
+// ── RunLive ───────────────────────────────────────────────────────────────
 
 export function RunLive({
   events,
@@ -132,70 +157,131 @@ export function RunLive({
   onBack: () => void;
 }) {
   const done = isTerminal(state);
-  const wrapW = Math.max(40, (process.stdout.columns ?? 80) - 6);
-  const lines = useMemo(() => toLines(events, wrapW), [events, wrapW]);
-  const maxOffset = Math.max(0, lines.length - VIEW_H);
-  // follow = pinned to the tail; any scroll-up detaches until the user returns to bottom.
+  const startedAt = useMemo(() => Date.now(), []);
+  const [elapsedMs, setElapsedMs] = useState(0);
+  const [cockpit, setCockpit] = useState(() => defaultCockpitState(coerceVerbosity("medium")));
   const [follow, setFollow] = useState(true);
-  const [offset, setOffset] = useState(0);
-  const effectiveOffset = follow ? maxOffset : Math.min(offset, maxOffset);
+  const [anchor, setAnchor] = useState(0);
+
+  useMemo(() => {
+    if (done) return;
+    const id = setInterval(() => setElapsedMs(Date.now() - startedAt), 1000);
+    return () => clearInterval(id);
+  }, [done, startedAt]);
+
+  const turns = useMemo(() => projectTurns(events, { userMessage: "" }), [events]);
+
+  const allRows: GroupedRow[] = useMemo(() => {
+    const rows: GroupedRow[] = [];
+    for (const turn of turns) {
+      const grouped = groupParts(turn.parts, cockpit.verbosity);
+      rows.push(...grouped);
+    }
+    return rows;
+  }, [turns, cockpit.verbosity]);
+
+  const controls: { expanded: (g: PartGroup) => boolean; grouped: (k: GroupKind) => boolean } = {
+    expanded: (_g: PartGroup) => cockpit.expanded,
+    grouped: (_k: GroupKind) => true,
+  };
+  const weights = useMemo(() => rowWeights(allRows, controls), [allRows, cockpit.expanded]);
+
+  const tRows = process.stdout.rows ?? 24;
+  const chromRows = cockpit.showContextBar ? 5 : 4;
+  const viewH = Math.max(4, tRows - chromRows);
+
+  const usage = useMemo(() => sumUsage(turns), [turns]);
+
+  const { start, end } = useMemo(
+    () => visibleRange(weights, anchor, viewH, { follow: follow || !done }),
+    [weights, anchor, viewH, follow, done],
+  );
 
   const leave = (): void => {
-    if (!done) onCancel(); // leaving a live run cancels it
+    if (!done) onCancel();
     onBack();
   };
 
-  useInput((input, key) => {
-    if (input === "b" || key.escape) return leave(); // back to dashboard anytime
-    if (input === "q") return leave();
-    if (input === "c" && !done) return onCancel(); // cancel but stay to read the log
+  useInput((input: string, key: Key) => {
+    const result = handleKey(input, key.escape ?? false, cockpit);
+    if (result.state !== cockpit) setCockpit(result.state);
+    if (result.action === "back") { leave(); return; }
+    if (result.action === "cancel" && !done) { onCancel(); return; }
+
+    const maxAnchor = Math.max(0, allRows.length - 1);
     if (key.upArrow || input === "k") {
       setFollow(false);
-      setOffset((o) => Math.max(0, (follow ? maxOffset : o) - 1));
+      setAnchor((a: number) => Math.max(0, a - 1));
     } else if (key.downArrow || input === "j") {
-      const next = (follow ? maxOffset : offset) + 1;
-      if (next >= maxOffset) setFollow(true);
-      else setOffset(next);
+      const next = anchor + 1;
+      if (next >= maxAnchor) setFollow(true);
+      else { setFollow(false); setAnchor(next); }
     } else if (input === "G") {
       setFollow(true);
     } else if (input === "g") {
       setFollow(false);
-      setOffset(0);
+      setAnchor(0);
     }
   });
 
-  const visible = lines.slice(effectiveOffset, effectiveOffset + VIEW_H);
-  const scrollInfo = lines.length > VIEW_H ? `  [${effectiveOffset + 1}-${Math.min(effectiveOffset + VIEW_H, lines.length)}/${lines.length}]${follow ? " ⤓" : ""}` : "";
+  const model = "claude-sonnet";
+  const visibleRows = allRows.slice(start, end);
+  const scrollInfo = allRows.length > viewH
+    ? `  [${start + 1}-${Math.min(end, allRows.length)}/${allRows.length}]${follow ? " ⤓" : ""}`
+    : "";
+
+  const headerProps: RunHeaderProps = {
+    model,
+    tokensIn: usage.tokensIn,
+    tokensOut: usage.tokensOut,
+    elapsedMs: done ? elapsedMs : Date.now() - startedAt,
+    paused: cockpit.paused,
+  };
+  if (usage.cacheHit !== undefined) headerProps.cacheHit = usage.cacheHit;
 
   return (
     <Box flexDirection="column" paddingX={1}>
       <Logo />
       <Panel title="Run · live log" color={stateColor(state)}>
+        <RunHeader {...headerProps} />
+
+        {cockpit.showContextBar && (
+          <ContextBar used={usage.tokensIn} total={200_000} />
+        )}
+
         <Box>
-          {done ? <Text color={stateColor(state)} bold>{state === "PASSED" ? "✓" : state === "CANCELLED" ? "◼" : "✗"}</Text> : <Spinner label="" />}
+          {done ? (
+            <Text color={stateColor(state)} bold>
+              {state === "PASSED" ? "✓" : state === "CANCELLED" ? "◼" : "✗"}
+            </Text>
+          ) : (
+            <Spinner label="" />
+          )}
           <Text color={stateColor(state)} bold>{` ${state}`}</Text>
           <Text dimColor>{`  ${events.length} events${scrollInfo}`}</Text>
         </Box>
-        <Box flexDirection="column" marginTop={1} minHeight={VIEW_H}>
-          {visible.length === 0 ? (
+
+        <Box flexDirection="column" marginTop={1} minHeight={viewH}>
+          {visibleRows.length === 0 ? (
             <Text dimColor>  waiting for the engine…</Text>
           ) : (
-            visible.map((l, i) => {
-              const key = effectiveOffset + i;
-              if (l.color) return <Text key={key} color={l.color}>{l.text || " "}</Text>;
-              if (l.leadLen && l.leadColor) {
-                return (
-                  <Text key={key}>
-                    <Text color={l.leadColor}>{l.text.slice(0, l.leadLen)}</Text>
-                    <Text dimColor={l.dim === true}>{l.text.slice(l.leadLen)}</Text>
-                  </Text>
-                );
-              }
-              return <Text key={key} dimColor={l.dim === true}>{l.text || " "}</Text>;
-            })
+            visibleRows.map((row, i) => renderRow(row, start + i, cockpit.expanded))
           )}
+          {turns.map((turn: Turn, i: number) => {
+            if (!turn.tokensIn && !turn.tokensOut) return null;
+            return <TurnUsage key={i} turn={turn} model={model} />;
+          })}
         </Box>
-        <Text dimColor>{done ? "  ↑↓ scroll · g/G top/bottom · b/esc dashboard" : "  ↑↓ scroll · g/G top/bottom · c cancel · b/esc dashboard"}</Text>
+
+        {cockpit.showTimeline && <TimelineDialog turns={turns} />}
+
+        <GateFooter gates={DEFAULT_GATES} />
+
+        <Text dimColor>
+          {done
+            ? "  ↑↓ scroll · g/G top/bottom · t timeline · b/esc dashboard"
+            : "  ↑↓ scroll · g/G · v verbosity · e expand · c context · t timeline · p pause · b/esc dashboard"}
+        </Text>
       </Panel>
     </Box>
   );
