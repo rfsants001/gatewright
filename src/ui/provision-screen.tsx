@@ -5,7 +5,8 @@
 
 import { useMemo, useState } from "react";
 import { Box, Text, useInput } from "ink";
-import { Logo, Panel, Icon, Spinner, SelectList, TextInputField } from "./components/index.js";
+import { Icon, Spinner, SelectList, TextInputField, AppFrame, HINTS_BACK, HINTS_QUIT } from "./components/index.js";
+import { SUCCESS, ERROR } from "./theme.js";
 import { defaultCommandProbe, type CommandProbe } from "../core/env/probes.js";
 import { CATALOG, customTool } from "../core/provision/catalog.js";
 import { provision as defaultProvision } from "../core/provision/provisioner.js";
@@ -107,58 +108,60 @@ export function ProvisionScreen({
             ? "Repo URL or tool name — the AI reads it and installs"
             : "Install command (pasted)";
     const placeholder = asks === "model" ? "llama3.2" : asks === "ai" ? "https://github.com/owner/repo" : "e.g. npm i -g graphify";
+    const inputHints = asks === "customcmd"
+      ? [{ key: "enter", label: "run" }, { key: "tab", label: "scope" }, { key: "esc", label: "back" }]
+      : [{ key: "enter", label: "run" }, { key: "esc", label: "back" }];
     return (
-      <Box flexDirection="column" paddingX={1}>
-        <Logo />
-        <Panel title={asks === "ai" ? "Install with AI" : "Install a package"} color="cyan">
-          <TextInputField label={label} value={value} placeholder={placeholder} onChange={setValue} onSubmit={submitInput} />
-          {asks === "ai" ? <Text dimColor>  the gate runs the engine to read the project and install + configure it</Text> : null}
-          {asks === "customcmd" ? (
-            <Text>
-              <Icon name="bullet" color="cyan" />
-              <Text>{` record in: `}</Text>
-              <Text color="cyan" bold>{scope}</Text>
-              <Text dimColor>{scope === "gate" ? "  (global — all projects)" : "  (this folder only)"}</Text>
-            </Text>
-          ) : null}
-          <Text dimColor>{asks === "customcmd" ? "  enter run · tab toggle scope · esc back" : "  enter run · esc back"}</Text>
-        </Panel>
-      </Box>
+      <AppFrame breadcrumb={asks === "ai" ? "install · AI" : "install"} hints={inputHints}>
+        <TextInputField label={label} value={value} placeholder={placeholder} onChange={setValue} onSubmit={submitInput} />
+        {asks === "ai" ? <Text dimColor>  the gate runs the engine to read the project and install + configure it</Text> : null}
+        {asks === "customcmd" ? (
+          <Text>
+            <Icon name="bullet" color="cyan" />
+            <Text>{` record in: `}</Text>
+            <Text color="cyan" bold>{scope}</Text>
+            <Text dimColor>{scope === "gate" ? "  (global — all projects)" : "  (this folder only)"}</Text>
+          </Text>
+        ) : null}
+      </AppFrame>
     );
   }
 
   if (phase === "run") {
     return (
-      <Box flexDirection="column" paddingX={1}>
-        <Logo />
-        <Panel title={`Installing ${tool?.name}`} color={done === null ? "cyan" : done ? "green" : "red"}>
-          {outcomes.map((o, i) => (
-            <Text key={i}>
-              <Icon name={o.ok ? "ok" : "bad"} color={o.ok ? "green" : "red"} />
-              <Text>{` ${o.step.label}`}</Text>
-              {o.output ? <Text dimColor>{`  ${o.output.replace(/\s+/g, " ").slice(0, 80)}`}</Text> : null}
-            </Text>
-          ))}
-          {done === null ? <Spinner label="working…" /> : <Text color={done ? "green" : "red"}>{done ? "✓ installed + recorded in config" : "✗ failed — see output above"}</Text>}
-          {done !== null ? <Text dimColor>  b — back</Text> : null}
-        </Panel>
-      </Box>
+      <AppFrame breadcrumb={`install · ${tool?.name ?? "run"}`} hints={done !== null ? [HINTS_BACK[0]!] : []}>
+        {outcomes.map((o, i) => (
+          <Text key={i}>
+            <Icon name={o.ok ? "ok" : "bad"} color={o.ok ? SUCCESS : ERROR} />
+            <Text>{` ${o.step.label}`}</Text>
+            {o.output ? <Text dimColor>{`  ${o.output.replace(/\s+/g, " ").slice(0, 80)}`}</Text> : null}
+          </Text>
+        ))}
+        {done === null ? (
+          <Spinner label="working…" />
+        ) : (
+          <Text color={done ? SUCCESS : ERROR}>{done ? "✓ installed + recorded in config" : "✗ failed — see output above"}</Text>
+        )}
+      </AppFrame>
     );
   }
 
   const options = [
-    ...statuses.map(({ tool: t, status }) => ({ value: t.id, label: `${status.installed ? "● " : "○ "}${t.name}`, hint: status.installed ? "installed" : t.description })),
+    ...statuses.map(({ tool: t, status }) => ({
+      value: t.id,
+      label: `${status.installed ? "[installed]" : "[not found]"} ${t.name}`,
+      hint: status.installed ? "installed" : t.description,
+    })),
     { value: AI, label: "✨ Install with AI…", hint: "paste a repo URL/name — the AI installs it" },
     { value: CUSTOM, label: "＋ Custom package…", hint: "paste an install command" },
   ];
   return (
-    <Box flexDirection="column" paddingX={1}>
-      <Logo />
-      <Panel title="Install / provision tools" color="cyan">
-        <Text dimColor>The gate installs + configures these for you, and records them per scope.</Text>
-        <SelectList options={options} index={idx} onMove={setIdx} onSelect={choose} />
-        <Text dimColor>  ↑↓ move · enter select · b back · q quit</Text>
-      </Panel>
-    </Box>
+    <AppFrame
+      breadcrumb="install"
+      hints={[{ key: "↑↓", label: "move" }, { key: "enter", label: "select" }, HINTS_BACK[0]!, ...HINTS_QUIT]}
+    >
+      <Text dimColor>The gate installs + configures these for you, and records them per scope.</Text>
+      <SelectList options={options} index={idx} onMove={setIdx} onSelect={choose} />
+    </AppFrame>
   );
 }

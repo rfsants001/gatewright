@@ -56,7 +56,7 @@ describe("ProvisionScreen", () => {
     stdin.write(ENTER); // accept default
     await delay(20);
     expect(calls[0]).toMatchObject({ id: "ollama", params: { model: "llama3.2" } });
-    expect(lastFrame() ?? "").toContain("Installing Ollama");
+    expect(lastFrame() ?? "").toContain("install · Ollama");
   });
 
   it("runs a pasted custom install command", async () => {
