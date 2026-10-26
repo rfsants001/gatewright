@@ -7,6 +7,7 @@ import { Logo, Panel, Icon, Card } from "./components/index.js";
 import type { Check, CheckStatus, EnvironmentReport } from "./../core/env/types.js";
 import { summarize } from "./../core/env/types.js";
 import type { ClaudeCodeOverview } from "../core/env/claude-code.js";
+import { statusColor as themeStatusColor } from "./theme.js";
 
 export type Route = "home" | "detail" | "config" | "fix" | "dogfood" | "history" | "rollback" | "run" | "settings" | "provision" | "skills" | "flow";
 
@@ -26,7 +27,8 @@ export interface DashboardData {
 }
 
 function statusColor(status: CheckStatus): string {
-  return status === "ok" ? "green" : status === "warn" ? "yellow" : "red";
+  // "missing" maps to the shared palette's "bad"; ok/warn pass through.
+  return themeStatusColor(status === "missing" ? "bad" : status);
 }
 function statusIcon(status: CheckStatus): "ok" | "warn" | "bad" {
   return status === "ok" ? "ok" : status === "warn" ? "warn" : "bad";

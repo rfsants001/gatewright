@@ -5,15 +5,7 @@ import { Box, Text, useInput } from "ink";
 import { Logo, Panel, Card } from "./components/index.js";
 import { loadGateSkills } from "../core/skills/gate-catalog.js";
 import type { Skill } from "../core/skills/types.js";
-
-const CAT_COLOR: Record<string, string> = {
-  architecture: "blue",
-  development: "green",
-  quality: "magenta",
-  workflows: "cyan",
-  sdd: "yellow",
-  provisioning: "red",
-};
+import { categoryColor } from "./theme.js";
 
 export function SkillsScreen({ onBack, onQuit, skills }: { onBack: () => void; onQuit: () => void; skills?: Skill[] }) {
   const list = skills ?? loadGateSkills().list();
@@ -32,11 +24,11 @@ export function SkillsScreen({ onBack, onQuit, skills }: { onBack: () => void; o
         <Text dimColor>These ship with Gatewright and are handed to the engine it runs.</Text>
         {Object.keys(byCat).sort().map((cat) => (
           <Box key={cat} flexDirection="column" marginTop={1}>
-            <Text bold color={CAT_COLOR[cat] ?? "white"}>{cat}</Text>
+            <Text bold color={categoryColor(cat)}>{cat}</Text>
             <Box flexWrap="wrap">
               {byCat[cat]!.map((s) => (
                 <Box key={s.frontmatter.name} width="50%" paddingRight={1}>
-                  <Card title={s.frontmatter.name} color={CAT_COLOR[cat] ?? "white"} description={s.frontmatter.description} />
+                  <Card title={s.frontmatter.name} color={categoryColor(cat)} description={s.frontmatter.description} />
                 </Box>
               ))}
             </Box>
