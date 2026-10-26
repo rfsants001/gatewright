@@ -25,6 +25,8 @@ export interface SidebarProps {
   keyBindings?: ReadonlyArray<{ key: string; label: string }>;
   onOpenDiff?: (path: string) => void;
   onGateClick?: (name: string) => void;
+  /** Only scroll when the sidebar has focus. */
+  isActive?: boolean;
 }
 
 const SECTION_CHAR = "─";
@@ -74,6 +76,7 @@ export function Sidebar({
   keyBindings = [],
   onOpenDiff,
   onGateClick,
+  isActive = true,
 }: SidebarProps): ReactElement {
   const [scrollOffset, setScrollOffset] = useState(0);
   const running = runState === "running";
@@ -81,7 +84,7 @@ export function Sidebar({
   useInput((_input, key) => {
     if (key.upArrow) setScrollOffset((o) => Math.max(0, o - 1));
     if (key.downArrow) setScrollOffset((o) => o + 1);
-  });
+  }, { isActive });
 
   const ctx: ContextBarResult = contextBar(contextUsed, contextTotal);
 

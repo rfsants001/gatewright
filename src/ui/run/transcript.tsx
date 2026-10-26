@@ -19,6 +19,8 @@ export interface TranscriptProps {
   termRows?: number;
   live?: boolean;
   expanded?: boolean;
+  /** Only handle keys when this pane has focus (prevents multi-pane key conflicts). */
+  isActive?: boolean;
 }
 
 export function Transcript({
@@ -28,6 +30,7 @@ export function Transcript({
   termRows,
   live = false,
   expanded = false,
+  isActive = true,
 }: TranscriptProps): ReactElement {
   const tRows = termRows ?? process.stdout.rows ?? 24;
   const viewH = Math.max(4, tRows - CHROME_ROWS);
@@ -64,7 +67,7 @@ export function Transcript({
       const idx = navToMessage(turnStarts, anchor, "prev");
       if (idx !== null) { setFollow(false); setAnchor(idx); }
     }
-  });
+  }, { isActive });
 
   const visible = rows.slice(start, end);
   return <Box flexDirection="column">{visible}</Box>;
