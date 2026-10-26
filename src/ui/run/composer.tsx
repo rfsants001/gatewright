@@ -25,6 +25,8 @@ export interface ComposerProps {
   models?: string[];
   /** Number of queued prompts (shown as badge). */
   queuedCount?: number;
+  /** Only capture keys when the composer has focus. */
+  isActive?: boolean;
 }
 
 const PLACEHOLDER = "> type a prompt, / for commands";
@@ -35,7 +37,7 @@ function splitLines(text: string): string[] {
   return text.split("\n");
 }
 
-export function Composer({ onSubmit, onQuit, live = false, models, queuedCount = 0 }: ComposerProps): ReactElement {
+export function Composer({ onSubmit, onQuit, live = false, models, queuedCount = 0, isActive = true }: ComposerProps): ReactElement {
   const [collapsed, setCollapsed] = useState(false);
   const [text, setText] = useState("");
   const [lineOffset, setLineOffset] = useState(0);
@@ -156,7 +158,7 @@ export function Composer({ onSubmit, onQuit, live = false, models, queuedCount =
         setLineOffset(newLines.length - MAX_VISIBLE_LINES);
       }
     }
-  });
+  }, { isActive });
 
   if (collapsed) {
     return (

@@ -10,6 +10,8 @@ export interface SessionTabsProps {
   activeId: string | null;
   onActivate: (id: string) => void;
   onNew: () => void;
+  /** Only handle ctrl+1..9 / ctrl+n when active (default true — these are global-ish). */
+  isActive?: boolean;
 }
 
 function stateGlyph(state: Session["state"]): string {
@@ -32,7 +34,7 @@ function stateColor(state: Session["state"]): string | undefined {
   }
 }
 
-export function SessionTabs({ sessions, activeId, onActivate, onNew }: SessionTabsProps): ReactElement {
+export function SessionTabs({ sessions, activeId, onActivate, onNew, isActive = true }: SessionTabsProps): ReactElement {
   useInput((input, key) => {
     if (key.ctrl && input === "n") {
       onNew();
@@ -43,7 +45,7 @@ export function SessionTabs({ sessions, activeId, onActivate, onNew }: SessionTa
       const session = sessions[idx];
       if (session) onActivate(session.id);
     }
-  });
+  }, { isActive });
 
   return (
     <Box flexDirection="column" width={3}>
