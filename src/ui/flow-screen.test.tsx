@@ -29,7 +29,7 @@ describe("FlowScreen", () => {
     const { stdin, lastFrame } = render(<FlowScreen goal="x" steps={steps} runEngine={fakeEngine({ PLAN: "planned", IMPLEMENT: "built" })} onDone={onDone} />);
     await delay(120);
     // plan run resolved → review of the plan output shown first
-    expect(lastFrame() ?? "").toContain("Review");
+    expect(lastFrame() ?? "").toContain("review ·");
     expect(lastFrame() ?? "").toContain("planned");
     stdin.write(ENTER); // continue past review → gate
     await delay(60);
