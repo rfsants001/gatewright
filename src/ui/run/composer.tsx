@@ -151,7 +151,7 @@ export function Composer({ onSubmit, onQuit, live = false, models, queuedCount =
       return;
     }
 
-    if (input && !key.ctrl && !key.meta) {
+    if (input && !key.ctrl && !key.meta && !key.tab) {
       setText((t) => t + input);
       const newLines = splitLines(text + input);
       if (newLines.length > MAX_VISIBLE_LINES) {
