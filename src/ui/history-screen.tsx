@@ -7,45 +7,57 @@ import { homedir } from "node:os";
 import { dirname } from "node:path";
 import { useState } from "react";
 import { Box, Text, useInput } from "ink";
-import { Panel, SelectList, StepList, type Step, type Choice } from "./components/index.js";
+import {
+  Panel,
+  SelectList,
+  StepList,
+  AppFrame,
+  ScrollableList,
+  Badge,
+  HINTS_BACK,
+  HINTS_QUIT,
+  type Step,
+  type Choice,
+} from "./components/index.js";
 import { ConfigHistory, newRevisionId } from "../core/history/config-history.js";
 import type { FileChange, Revision } from "../core/history/types.js";
+import { ACCENT, SUCCESS } from "./theme.js";
 
 const short = (p: string): string => p.replace(homedir(), "~");
 const when = (iso: string): string => iso.slice(0, 16).replace("T", " ");
-const PER_PAGE = 5;
 
 export function HistoryScreen({ onBack, onQuit }: { onBack: () => void; onQuit: () => void }) {
   const revs = new ConfigHistory().list();
-  const [page, setPage] = useState(0);
-  const pages = Math.max(1, Math.ceil(revs.length / PER_PAGE));
-  const current = Math.min(page, pages - 1);
 
   useInput((input, key) => {
     if (input === "q") onQuit();
     else if (input === "b" || key.escape) onBack();
-    else if (input === "n" || key.rightArrow) setPage((p) => Math.min(pages - 1, p + 1));
-    else if (input === "p" || key.leftArrow) setPage((p) => Math.max(0, p - 1));
   });
 
   return (
-    <Box flexDirection="column" paddingX={1}>
-      <Text bold color="cyan">{" Configuration history "}</Text>
+    <AppFrame breadcrumb="history" hints={[HINTS_BACK[0]!, ...HINTS_QUIT]}>
       <Text dimColor>What Gatewright changed on this machine, newest first.</Text>
       {revs.length === 0 ? (
         <Text dimColor>  no changes recorded yet</Text>
       ) : (
-        revs.slice(current * PER_PAGE, current * PER_PAGE + PER_PAGE).map((r) => (
-          <Panel key={r.id} title={`${when(r.at)}  ·  ${r.kind}`} color={r.kind === "rollback" ? "magenta" : "green"}>
-            <Text>{r.summary}</Text>
-            {r.files.map((f) => (
-              <Text key={f.path} dimColor>{`  ${f.action}  ${short(f.path)}`}</Text>
-            ))}
-          </Panel>
-        ))
+        <ScrollableList
+          items={revs}
+          renderItem={(r, active) => (
+            <Box flexDirection="column">
+              <Text>
+                <Text {...(active ? { color: "cyan" } : {})}>{active ? "> " : "  "}</Text>
+                <Text>{when(r.at)} </Text>
+                <Badge label={r.kind} color={r.kind === "rollback" ? ACCENT : SUCCESS} />
+                <Text>{` ${r.summary}`}</Text>
+              </Text>
+              {active
+                ? r.files.map((f) => <Text key={f.path} dimColor>{`      ${f.action}  ${short(f.path)}`}</Text>)
+                : null}
+            </Box>
+          )}
+        />
       )}
-      <Text dimColor>{revs.length ? `  page ${current + 1}/${pages} · n/p page · b back · q quit` : "  b back · q quit"}</Text>
-    </Box>
+    </AppFrame>
   );
 }
 

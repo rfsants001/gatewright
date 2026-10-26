@@ -3,10 +3,12 @@
 
 import { useState } from "react";
 import { Box, Text, useInput } from "ink";
-import { Logo, Panel, Icon, Card } from "./components/index.js";
+import { Logo, Panel, Icon, Card, AppFrame, Badge, SplitView, HINTS_QUIT } from "./components/index.js";
+import { useTerminalSize } from "./hooks/use-terminal-size.js";
 import type { Check, CheckStatus, EnvironmentReport } from "./../core/env/types.js";
 import { summarize } from "./../core/env/types.js";
 import type { ClaudeCodeOverview } from "../core/env/claude-code.js";
+import { statusColor as themeStatusColor, SUCCESS, WARNING, ERROR } from "./theme.js";
 
 export type Route = "home" | "detail" | "config" | "fix" | "dogfood" | "history" | "rollback" | "run" | "settings" | "provision" | "skills" | "flow";
 
@@ -26,7 +28,8 @@ export interface DashboardData {
 }
 
 function statusColor(status: CheckStatus): string {
-  return status === "ok" ? "green" : status === "warn" ? "yellow" : "red";
+  // "missing" maps to the shared palette's "bad"; ok/warn pass through.
+  return themeStatusColor(status === "missing" ? "bad" : status);
 }
 function statusIcon(status: CheckStatus): "ok" | "warn" | "bad" {
   return status === "ok" ? "ok" : status === "warn" ? "warn" : "bad";
@@ -119,65 +122,65 @@ export function HomeView({
   });
 
   const tally = summarize(data.report);
+  const { mode } = useTerminalSize();
+
+  const left = (
+    <>
+      <Panel title="AI agents  ·  enter to see details">
+        {data.agents.map((a, i) => (
+          <NavRow key={a.id} active={cursor === i} label={`${a.installed ? "●" : "○"} ${a.name}`} hint={a.summary} />
+        ))}
+      </Panel>
+      <Panel title="Actions">
+        {actions.map((a, i) => (
+          <NavRow key={a.value} active={cursor === data.agents.length + i} label={a.label} {...(a.hint ? { hint: a.hint } : {})} {...(a.disabled ? { disabled: true } : {})} />
+        ))}
+      </Panel>
+    </>
+  );
+
+  const right = (
+    <>
+      <Panel title="Local AI">
+        {groupChecks(data.report, "Local AI").map((c) => (
+          <CheckRow key={c.label} check={c} />
+        ))}
+      </Panel>
+      <Panel title="Jev">
+        {groupChecks(data.report, "Jev").map((c) => (
+          <CheckRow key={c.label} check={c} />
+        ))}
+      </Panel>
+      <Panel title="Proxies">
+        {data.proxies.length === 0 ? (
+          <Text dimColor>  none active</Text>
+        ) : (
+          data.proxies.map((p) => (
+            <Text key={p.name}>
+              <Icon name="bullet" color="cyan" /> {p.name}
+              <Text dimColor>{`  ${p.value}`}</Text>
+            </Text>
+          ))
+        )}
+      </Panel>
+    </>
+  );
 
   return (
-    <Box flexDirection="column" paddingX={1}>
-      <Logo />
+    <AppFrame
+      breadcrumb="home"
+      logoMode
+      hints={[{ key: "↑↓", label: "move" }, { key: "enter", label: "select" }, ...HINTS_QUIT]}
+    >
       <Text dimColor>  Your machine at a glance — agents, models and what's configured.</Text>
-      <Box gap={3}>
-        <Text>
-          <Icon name="ok" color="green" /> {`${tally.ok} ready`}
-        </Text>
-        <Text>
-          <Icon name="warn" color="yellow" /> {`${tally.warn} to configure`}
-        </Text>
-        <Text>
-          <Icon name="bad" color="red" /> {`${tally.missing} missing`}
-        </Text>
+      <Box gap={2}>
+        <Badge label={`${tally.ok} ready`} color={SUCCESS} />
+        <Badge label={`${tally.warn} warn`} color={WARNING} dim={tally.warn === 0} />
+        <Badge label={`${tally.missing} missing`} color={ERROR} dim={tally.missing === 0} />
       </Box>
-
-      <Box gap={1}>
-        <Box flexDirection="column" width="52%">
-          <Panel title="AI agents  ·  enter to see details">
-            {data.agents.map((a, i) => (
-              <NavRow key={a.id} active={cursor === i} label={`${a.installed ? "●" : "○"} ${a.name}`} hint={a.summary} />
-            ))}
-          </Panel>
-          <Panel title="Actions">
-            {actions.map((a, i) => (
-              <NavRow key={a.value} active={cursor === data.agents.length + i} label={a.label} {...(a.hint ? { hint: a.hint } : {})} {...(a.disabled ? { disabled: true } : {})} />
-            ))}
-          </Panel>
-        </Box>
-
-        <Box flexDirection="column" width="48%">
-          <Panel title="Local AI">
-            {groupChecks(data.report, "Local AI").map((c) => (
-              <CheckRow key={c.label} check={c} />
-            ))}
-          </Panel>
-          <Panel title="Jev">
-            {groupChecks(data.report, "Jev").map((c) => (
-              <CheckRow key={c.label} check={c} />
-            ))}
-          </Panel>
-          <Panel title="Proxies">
-            {data.proxies.length === 0 ? (
-              <Text dimColor>  none active</Text>
-            ) : (
-              data.proxies.map((p) => (
-                <Text key={p.name}>
-                  <Icon name="bullet" color="cyan" /> {p.name}
-                  <Text dimColor>{`  ${p.value}`}</Text>
-                </Text>
-              ))
-            )}
-          </Panel>
-        </Box>
-      </Box>
-
-      <Text dimColor>{`  ↑↓ move (across panels) · enter select · q quit`}</Text>
-    </Box>
+      {/* compact: only the actions list; otherwise agents/actions | health side by side */}
+      {mode === "compact" ? left : <SplitView mode={mode} left={left} right={right} />}
+    </AppFrame>
   );
 }
 

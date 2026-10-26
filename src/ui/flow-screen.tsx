@@ -5,7 +5,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Box, Text, useInput } from "ink";
-import { Logo, Panel } from "./components/index.js";
+import { AppFrame, Icon } from "./components/index.js";
+import { PRIMARY, SUCCESS, WARNING, DIM } from "./theme.js";
 import { RunLive, cleanMarkdown, wrap } from "./run-live.js";
 import { AskPrompts } from "./ask-prompt.js";
 import { FlowEngine, type Directive, type FlowStep } from "../core/flow/flow.js";
@@ -58,15 +59,24 @@ export function FlowScreen({
     };
   }, [directive]);
 
+  const stepTitles = steps.map((s) => s.title);
   if (directive.type === "done") {
-    return <FlowDone aborted={directive.aborted === true} onBack={onDone} />;
+    return <FlowDone aborted={directive.aborted === true} stepTitles={stepTitles} onBack={onDone} />;
   }
   if (directive.type === "ask") {
     // Show what the engine produced (the plan, etc.) before asking to approve it —
     // but only when there's prose to read (a bare <gate-ask> leaves nothing to review).
     const reviewText = lastOutput ? stripQuestions(lastOutput) : "";
     if (reviewText && !reviewed) {
-      return <FlowReview title={directive.step.title} text={reviewText} onContinue={() => setReviewed(true)} onBack={onDone} />;
+      return (
+        <FlowReview
+          title={directive.step.title}
+          text={reviewText}
+          stepTitles={stepTitles}
+          onContinue={() => setReviewed(true)}
+          onBack={onDone}
+        />
+      );
     }
     return (
       <AskPrompts
@@ -87,9 +97,30 @@ export function FlowScreen({
 
 const REVIEW_H = 18;
 
+/** The flow's step chain: `✓ Research → [▶ Plan] → Implement → Done`. */
+function FlowProgress({ stepTitles, current, allDone }: { stepTitles: string[]; current?: string; allDone?: boolean }) {
+  const currentIdx = current ? stepTitles.indexOf(current) : -1;
+  return (
+    <Box>
+      {stepTitles.map((title, i) => {
+        const done = allDone || (currentIdx >= 0 && i < currentIdx);
+        const isCurrent = !allDone && i === currentIdx;
+        const label = done ? `✓ ${title}` : isCurrent ? `[▶ ${title}]` : title;
+        const color = done ? SUCCESS : isCurrent ? PRIMARY : DIM;
+        return (
+          <Text key={title}>
+            {i > 0 ? <Text color={DIM}>{" → "}</Text> : null}
+            <Text color={color} bold={isCurrent}>{label}</Text>
+          </Text>
+        );
+      })}
+    </Box>
+  );
+}
+
 /** Scrollable read view of the last run's output, shown before a gate/ask so the human
  *  actually sees what they're approving. Enter/a continues; b/esc aborts the flow. */
-function FlowReview({ title, text, onContinue, onBack }: { title: string; text: string; onContinue: () => void; onBack: () => void }) {
+function FlowReview({ title, text, stepTitles, onContinue, onBack }: { title: string; text: string; stepTitles: string[]; onContinue: () => void; onBack: () => void }) {
   const wrapW = Math.max(40, (process.stdout.columns ?? 80) - 6);
   const lines = useMemo(() => cleanMarkdown(text).split("\n").flatMap((l) => (l.trim() ? wrap(l, wrapW) : [""])), [text, wrapW]);
   const maxOffset = Math.max(0, lines.length - REVIEW_H);
@@ -107,29 +138,32 @@ function FlowReview({ title, text, onContinue, onBack }: { title: string; text: 
   const visible = lines.slice(offset, offset + REVIEW_H);
   const scroll = lines.length > REVIEW_H ? `  [${offset + 1}-${Math.min(offset + REVIEW_H, lines.length)}/${lines.length}]` : "";
   return (
-    <Box flexDirection="column" paddingX={1}>
-      <Logo />
-      <Panel title={`Review  ·  ${title}${scroll}`} color="yellow">
-        <Box flexDirection="column" minHeight={REVIEW_H}>
-          {visible.map((l, i) => (
-            <Text key={offset + i}>{l || " "}</Text>
-          ))}
-        </Box>
-        <Text dimColor>  ↑↓ scroll · g/G top/bottom · enter continue to decision · b abort</Text>
-      </Panel>
-    </Box>
+    <AppFrame
+      breadcrumb={`review · ${title}${scroll}`}
+      hints={[{ key: "↑↓", label: "scroll" }, { key: "g/G", label: "top/bottom" }, { key: "enter", label: "decision" }, { key: "b", label: "abort" }]}
+    >
+      <FlowProgress stepTitles={stepTitles} current={title} />
+      <Box flexDirection="column" minHeight={REVIEW_H} marginTop={1}>
+        {visible.map((l, i) => (
+          <Text key={offset + i}>{l || " "}</Text>
+        ))}
+      </Box>
+    </AppFrame>
   );
 }
 
-function FlowDone({ aborted, onBack }: { aborted: boolean; onBack: () => void }) {
+function FlowDone({ aborted, stepTitles, onBack }: { aborted: boolean; stepTitles: string[]; onBack: () => void }) {
   useInput(() => onBack());
   return (
-    <Box flexDirection="column" paddingX={1}>
-      <Logo />
-      <Panel title="Flow complete" color={aborted ? "yellow" : "green"}>
-        <Text color={aborted ? "yellow" : "green"}>{aborted ? "◼ Flow stopped — you declined a gate." : "✓ Flow finished — all steps done."}</Text>
-        <Text dimColor>  any key — back to dashboard</Text>
-      </Panel>
-    </Box>
+    <AppFrame breadcrumb="flow · done" hints={[{ key: "any key", label: "back" }]}>
+      <FlowProgress stepTitles={stepTitles} allDone={!aborted} />
+      <Box marginTop={1}>
+        <Icon name={aborted ? "stop" : "pass"} color={aborted ? WARNING : SUCCESS} />
+        <Text color={aborted ? WARNING : SUCCESS}>
+          {aborted ? " Flow stopped — you declined a gate." : " Flow finished — all steps done."}
+        </Text>
+      </Box>
+      <Text dimColor>{`  ${stepTitles.length} steps · ${aborted ? "aborted" : "completed"}`}</Text>
+    </AppFrame>
   );
 }

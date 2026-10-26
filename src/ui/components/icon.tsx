@@ -17,6 +17,21 @@ export const ICONS = {
   checkOn: figures.checkboxOn,
   checkOff: figures.checkboxOff,
   ellipsis: figures.ellipsis,
+  // Cockpit-derived set (Phase 31): identity, actions and state glyphs shared TUI-wide.
+  gate: "◆",
+  run: "▶",
+  skill: "✦",
+  locked: "⊘",
+  unlocked: "◎",
+  diff: "±",
+  fork: "⎇",
+  eye: "⊙",
+  pass: "✓",
+  fail: "✗",
+  stop: "◼",
+  sep: "·",
+  tabOn: "▶",
+  tabOff: "·",
 } as const;
 
 export type IconName = keyof typeof ICONS;

@@ -5,9 +5,10 @@
 
 import { useState } from "react";
 import { Box, Text, useInput } from "ink";
-import { Logo, Panel, Icon } from "./components/index.js";
+import { Icon, AppFrame, TabBar, HINTS_BACK, HINTS_QUIT } from "./components/index.js";
 import { FileArtifactStore } from "../core/artifact-store/artifact-store.js";
 import { ConfigStore, type ConfigScope, type GatewrightConfig } from "../core/config/config-store.js";
+import { SUCCESS } from "./theme.js";
 
 const NONE = "(none)";
 
@@ -62,18 +63,25 @@ export function SettingsScreen({
   );
 
   return (
-    <Box flexDirection="column" paddingX={1}>
-      <Logo />
-      <Panel title="Settings · two config scopes" color="cyan">
-        <Text dimColor>Gate config applies everywhere; Project config overrides it for this folder.</Text>
-        {scopeLine("Gate (global)", gate, scope === "gate")}
-        {scopeLine("Project (this folder)", project, scope === "project")}
-        <Box marginTop={1}>
-          <Icon name="bullet" color="green" />
-          <Text>{` effective default engine: ${effective.defaultEngine ?? "(first installed)"}`}</Text>
-        </Box>
-        <Text dimColor>  tab switch scope · ←→ change default engine · b back · q quit</Text>
-      </Panel>
-    </Box>
+    <AppFrame
+      breadcrumb="settings"
+      hints={[{ key: "tab", label: "scope" }, { key: "←→", label: "engine" }, HINTS_BACK[0]!, ...HINTS_QUIT]}
+    >
+      <Text dimColor>Gate config applies everywhere; Project config overrides it for this folder.</Text>
+      <Box marginY={1}>
+        <TabBar
+          tabs={[{ id: "gate", label: "Gate" }, { id: "project", label: "Project (this folder)" }]}
+          active={scope}
+          onSwitch={(id) => setScope(id as ConfigScope)}
+          isActive={false}
+        />
+      </Box>
+      {scopeLine("Gate (global)", gate, scope === "gate")}
+      {scopeLine("Project (this folder)", project, scope === "project")}
+      <Box marginTop={1}>
+        <Icon name="bullet" color={SUCCESS} />
+        <Text>{` effective default engine: ${effective.defaultEngine ?? "(first installed)"}`}</Text>
+      </Box>
+    </AppFrame>
   );
 }
