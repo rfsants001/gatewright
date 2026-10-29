@@ -1,12 +1,38 @@
 {
   "name": "gatewright",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.1.0",
   "type": "module",
-  "description": "Open-source, headless guardrails/governance layer for AI code agents.",
+  "description": "Open-source AI control plane + MCP: centralize models, skills, commands, budget and config in one point, consumable by any tool via MCP — with governance and observability built in.",
+  "keywords": [
+    "ai",
+    "mcp",
+    "control-plane",
+    "ai-agents",
+    "guardrails",
+    "governance",
+    "cli",
+    "claude-code",
+    "codex",
+    "llm"
+  ],
+  "license": "MIT",
+  "homepage": "https://github.com/rfsants001/gatewright#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rfsants001/gatewright.git"
+  },
+  "bugs": {
+    "url": "https://github.com/rfsants001/gatewright/issues"
+  },
   "bin": {
     "gate": "./dist/cli/gate.js"
   },
+  "files": [
+    "dist",
+    "skills",
+    "README.md",
+    "LICENSE"
+  ],
   "engines": {
     "node": ">=22"
   },

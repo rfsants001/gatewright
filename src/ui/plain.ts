@@ -10,7 +10,7 @@ import { listMcpServers } from "../core/project/mcp.js";
 import { SkillCatalog } from "../core/skills/catalog.js";
 import { ConfigHistory } from "../core/history/config-history.js";
 import { rollbackRevision } from "../core/history/rollback.js";
-import type { CheckStatus } from "../core/env/types.js";
+import { requiredProblems, type CheckStatus } from "../core/env/types.js";
 
 const line = (s: string): void => void process.stdout.write(`${s}\n`);
 const short = (p: string): string => p.replace(homedir(), "~");
@@ -22,10 +22,18 @@ export async function textDoctor(): Promise<number> {
     line(group.title);
     for (const c of group.checks) {
       const fix = c.fix && c.status !== "ok" ? `  → ${c.fix}` : "";
-      line(`  ${MARK[c.status]} ${c.label}${c.detail ? ` — ${c.detail}` : ""}${fix}`);
+      const opt = c.required ? "" : "  (optional)";
+      line(`  ${MARK[c.status]} ${c.label}${c.detail ? ` — ${c.detail}` : ""}${opt}${fix}`);
     }
   }
-  return 0;
+  const blockers = requiredProblems(report);
+  line("");
+  if (blockers.length === 0) {
+    line("Required: all ok. Optional pieces (Jev, Ollama, Codex, LM Studio) are safe to skip.");
+    return 0;
+  }
+  line(`Required needs attention: ${blockers.map((c) => c.label).join(", ")}.`);
+  return 1;
 }
 
 export function textProjects(): number {
