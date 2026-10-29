@@ -236,7 +236,8 @@ A silent exit means *allow*; a `systemMessage` injects advice; a block decision 
 ### 2. Run the MCP server
 
 Expose the gate catalog and checks as MCP tools (`list_gates`, `check_gate`, `configure_jev`,
-`get_jev_config`) over stdio:
+`get_jev_config`), skills as **MCP prompts** (`gate.<name>`), and usage/config as **MCP resources**
+(`gate://usage`, `gate://config`) over stdio:
 
 ```sh
 gate serve
@@ -251,6 +252,27 @@ Register it with your agent (e.g. `.mcp.json`):
   }
 }
 ```
+
+#### Manual validation checklist (MCP provider — R1)
+
+> The in-process tests prove the mechanism. Run this checklist once against a real Claude Code
+> instance to confirm the full round-trip (NF-004).
+
+- [ ] Add the `gatewright` MCP server entry to `.mcp.json` (or `~/.claude/mcp.json` for global
+      access) as shown above, then restart Claude Code.
+- [ ] In Claude Code, open the **Prompts** panel (or run `/mcp`) and confirm at least one
+      `gate.*` prompt appears in the list (e.g. `gate.gate-code-review`).
+- [ ] Select a `gate.*` prompt and invoke it — the skill's markdown body should be injected as
+      a user message into the conversation.
+- [ ] In Claude Code, open the **Resources** panel and confirm `gate://usage` is listed.
+- [ ] Read `gate://usage` — the response should be valid JSON with `totalTokensIn`,
+      `byModel`, and `byRun` keys (all zeroes for a fresh project with no runs, populated
+      after any `gate run`).
+- [ ] Read `gate://config` — the response should show safe config fields (`defaultEngine`,
+      `verbosity`, `jev.enabled`, `jev.model`); endpoint / API key fields must appear as
+      `"[REDACTED]"`.
+- [ ] Run `gate serve` in a terminal and confirm the four original tools still respond:
+      `list_gates`, `check_gate`, `configure_jev`, `get_jev_config`.
 
 ### 3. Manage skills
 
