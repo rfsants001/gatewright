@@ -196,6 +196,20 @@ Per-project state lives in each repo's `.gatewright/` and `.specs/` — delete t
 remove Gatewright from a project. Hooks/MCP it wrote into a host (e.g. `.claude/settings.json`,
 `.mcp.json`) can be reverted with `gate rollback` or removed by hand.
 
+### Verify the minimal protected path (no Jev)
+
+Gatewright protects your agent out of the box — **no Jev, no local model, no network required**.
+The floor is deterministic: a gate refuses a risky action with a legible reason. For example,
+reading a secret file is blocked by `secret-guard`. This path is covered by a smoke test:
+
+```sh
+npx vitest run src/host/minimal-path.smoke.test.ts
+```
+
+It asserts that a `Read` of `.env` is denied with an explained reason, while an ordinary read
+(and `.env.example`) passes — the minimum any fresh install must clear before enabling optional
+pieces like Jev.
+
 ---
 
 ## Wire it into your agent
