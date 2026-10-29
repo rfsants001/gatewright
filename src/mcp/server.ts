@@ -1,4 +1,5 @@
-// MCP server — exposes the gate catalog and gate checks as read-only MCP tools.
+// MCP server — exposes the gate catalog and gate checks as read-only MCP tools,
+// and (R1) the gate's skills as MCP prompts + gate://usage + gate://config resources.
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -8,7 +9,10 @@ import type { GateRegistry } from "../core/gate/registry.js";
 import { defaultRegistry } from "../host/run-hook.js";
 import { FileArtifactStore } from "../core/artifact-store/artifact-store.js";
 import { JevConfigStore } from "../core/jev/config-store.js";
+import { loadGateSkills } from "../core/skills/gate-catalog.js";
 import { VERSION } from "../core/version.js";
+import { registerSkillPrompts } from "./prompts.js";
+import { registerUsageResource, registerConfigResource } from "./resources.js";
 
 const contextShape = {
   event: z.string(),
@@ -27,6 +31,7 @@ function text(payload: unknown) {
 export function createMcpServer(
   registry: GateRegistry = defaultRegistry(),
   jevConfig: JevConfigStore = new JevConfigStore(new FileArtifactStore()),
+  cwd: string = process.cwd(),
 ): McpServer {
   const server = new McpServer({ name: "gatewright", version: VERSION });
 
@@ -67,6 +72,14 @@ export function createMcpServer(
     { description: "Read the current Jev configuration (merged over defaults).", inputSchema: {} },
     () => text(jevConfig.read()),
   );
+
+  // R1: Skills as MCP prompts (gate.<name>) — zero-argument, body = skill markdown.
+  const catalog = loadGateSkills();
+  registerSkillPrompts(server, catalog);
+
+  // R1: gate://usage and gate://config resources (read-only, secrets redacted).
+  registerUsageResource(server, cwd);
+  registerConfigResource(server, cwd);
 
   return server;
 }
