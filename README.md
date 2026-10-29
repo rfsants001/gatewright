@@ -6,7 +6,8 @@
   <img alt="status" src="https://img.shields.io/badge/status-alpha-orange">
   <img alt="node" src="https://img.shields.io/badge/node-%E2%89%A522-339933?logo=node.js&logoColor=white">
   <img alt="typescript" src="https://img.shields.io/badge/TypeScript-strict%20ESM-3178c6?logo=typescript&logoColor=white">
-  <img alt="tests" src="https://img.shields.io/badge/tests-349%20passing-2ea043">
+  <img alt="ci" src="https://github.com/rfsants001/gatewright/actions/workflows/ci.yml/badge.svg">
+  <img alt="tests" src="https://img.shields.io/badge/tests-565%20passing-2ea043">
   <img alt="protocol" src="https://img.shields.io/badge/MCP-stdio-8957e5">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
 </p>
@@ -183,6 +184,17 @@ gate --help
 ```
 
 You can also run it directly (`node dist/cli/gate.js [command]`) or in watch mode (`npm run dev`).
+
+### Uninstall
+
+```sh
+npm unlink -g gatewright     # remove the global `gate` binary (if you linked it)
+rm -rf ~/.gatewright         # remove gate-wide config, sessions and runs
+```
+
+Per-project state lives in each repo's `.gatewright/` and `.specs/` — delete those folders to
+remove Gatewright from a project. Hooks/MCP it wrote into a host (e.g. `.claude/settings.json`,
+`.mcp.json`) can be reverted with `gate rollback` or removed by hand.
 
 ---
 
