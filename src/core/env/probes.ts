@@ -61,15 +61,15 @@ export function nodeCheck(): Check {
   const version = process.versions.node;
   const major = Number.parseInt(version.split(".")[0] ?? "0", 10);
   return major >= 22
-    ? { label: "Node", status: "ok", detail: `v${version}` }
-    : { label: "Node", status: "warn", detail: `v${version} (need ≥22)`, fix: "upgrade Node to 22+" };
+    ? { label: "Node", status: "ok", detail: `v${version}`, required: true }
+    : { label: "Node", status: "warn", detail: `v${version} (need ≥22)`, fix: "upgrade Node to 22+", required: true };
 }
 
 export function gitCheck(ctx: ProbeContext): Check {
   const out = ctx.commandProbe("git", ["--version"]);
   return out
-    ? { label: "git", status: "ok", detail: out.replace(/^git version /, "") }
-    : { label: "git", status: "warn", detail: "not found", fix: "install git (worktrees/proportion need it)" };
+    ? { label: "git", status: "ok", detail: out.replace(/^git version /, ""), required: true }
+    : { label: "git", status: "warn", detail: "not found", fix: "install git (worktrees/proportion need it)", required: true };
 }
 
 // ── Hosts ───────────────────────────────────────────────────────────────────
@@ -81,8 +81,8 @@ function claudeSettingsPath(ctx: ProbeContext): string | null {
 
 export function claudeCodeCheck(ctx: ProbeContext): Check {
   const path = claudeSettingsPath(ctx);
-  if (!path) return { label: "Claude Code", status: "missing", detail: "no settings.json found", fix: "gate init" };
-  return { label: "Claude Code", status: "ok", detail: path };
+  if (!path) return { label: "Claude Code", status: "missing", detail: "no settings.json found", fix: "gate init", required: true };
+  return { label: "Claude Code", status: "ok", detail: path, required: true };
 }
 
 export function hooksCheck(ctx: ProbeContext): Check {

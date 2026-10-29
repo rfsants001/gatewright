@@ -10,6 +10,12 @@ export interface Check {
   detail?: string;
   /** How to resolve a warn/missing check (e.g. "gate init"). */
   fix?: string;
+  /**
+   * Whether this check is a hard requirement. Required checks that aren't `ok` block
+   * (Node/git/Claude Code). Optional checks (Jev, Ollama, Codex, LM Studio) may warn or be
+   * missing without it being an error — they gate optional capabilities, not the core.
+   */
+  required?: boolean;
 }
 
 export interface CheckGroup {
@@ -34,4 +40,18 @@ export function summarize(report: EnvironmentReport): Tally {
     for (const check of group.checks) tally[check.status] += 1;
   }
   return tally;
+}
+
+/**
+ * Required checks that are not `ok` — the real blockers. Optional checks never appear here,
+ * so an unconfigured Jev or an offline Ollama is not treated as an error.
+ */
+export function requiredProblems(report: EnvironmentReport): Check[] {
+  const out: Check[] = [];
+  for (const group of report.groups) {
+    for (const check of group.checks) {
+      if (check.required && check.status !== "ok") out.push(check);
+    }
+  }
+  return out;
 }
