@@ -51,13 +51,12 @@ describe("TUI app (dashboard SPA)", () => {
 
   it("navigates into the agent detail on enter and back", async () => {
     const { lastFrame, stdin, unmount } = render(<App onExit={() => {}} />);
-    await delay(60);
+    await vi.waitFor(() => expect(lastFrame()).toContain("AI agents"));
+    await new Promise<void>((resolve) => setImmediate(resolve));
     stdin.write("\r"); // enter → open selected agent (Claude Code) detail
-    await delay(20);
-    expect(lastFrame()).toContain("Claude Code · detail");
+    await vi.waitFor(() => expect(lastFrame()).toContain("Claude Code · detail"));
     stdin.write("b"); // back
-    await delay(20);
-    expect(lastFrame()).toContain("AI agents");
+    await vi.waitFor(() => expect(lastFrame()).toContain("AI agents"));
     unmount();
   });
 });

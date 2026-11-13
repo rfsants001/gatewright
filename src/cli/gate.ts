@@ -2,7 +2,7 @@
 // gate — Gatewright CLI entrypoint.
 
 import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { SkillCatalog } from "../core/skills/catalog.js";
 import { scaffoldSkill } from "../core/skills/scaffold.js";
 import { SkillError } from "../core/skills/types.js";
@@ -77,12 +77,13 @@ function main(argv: string[]): number {
         [
           "gate — Gatewright (headless guardrails for AI code agents)",
           "",
-          "Run `gate` with no arguments for the interactive home screen.",
+          "Run `gate` with no arguments for the desktop on graphical Linux. Use `gate dashboard` for the TUI.",
           "",
           "Usage: gate [command] [options]",
           "",
           "Interactive screens:",
-          "  (none)        dashboard — machine overview + actions",
+          "  desktop       open the desktop app (Linux)",
+          "  dashboard     terminal dashboard",
           "  doctor        diagnose the setup (status board)",
           "  init          self-configure this project (wizard)",
           "  fix           configure only selected pending items",
@@ -124,11 +125,19 @@ async function runAsyncCommand(argv: string[]): Promise<number | null> {
         raw = "";
       }
       const { runHookWithJev } = await import("../host/run-hook-jev.js");
-      const out = await runHookWithJev(raw);
+      const host = argv[1] === "gemini" ? (await import("../host/gemini.js")).geminiHookAdapter : undefined;
+      const out = await runHookWithJev(raw, host);
       if (out.stdout) process.stdout.write(`${out.stdout}\n`);
       return out.exitCode;
     }
     // Interactive, mutating flows → the Ink app, opened at the right screen.
+    case "complete":
+      return (await import("../app/providers.js")).runCompletion();
+    case "desktop":
+      return (await import("../desktop/launch.js")).launchDesktop(argv.slice(1));
+    case "bridge":
+      await (await import("../desktop/bridge.js")).serveDesktop();
+      return 0;
     case "dashboard":
       return app();
     case "init":
@@ -153,7 +162,11 @@ async function runAsyncCommand(argv: string[]): Promise<number | null> {
     case "skills":
       return (await plain()).textSkills();
     case undefined:
-      return process.stdin.isTTY && process.stdout.isTTY ? app() : null;
+      if (!process.stdin.isTTY || !process.stdout.isTTY) return null;
+      if (process.platform === "linux" && (process.env.WAYLAND_DISPLAY || process.env.DISPLAY)) {
+        return (await import("../desktop/launch.js")).launchDesktop([]);
+      }
+      return app();
     default:
       return null;
   }
@@ -164,7 +177,8 @@ async function runAsyncCommand(argv: string[]): Promise<number | null> {
 async function cli(argv: string[]): Promise<void> {
   if (argv[0] === "serve") {
     const { serveStdio } = await import("../mcp/server.js");
-    const server = await serveStdio();
+    const server = await serveStdio(undefined, undefined, argv[1] ? resolve(argv[1]) : undefined);
+    process.stdin.resume();
     const shutdown = (): void => {
       void server.close().finally(() => process.exit(0));
     };
@@ -174,7 +188,7 @@ async function cli(argv: string[]): Promise<void> {
   }
 
   const code = await runAsyncCommand(argv);
-  process.exit(code ?? main(argv));
+  process.exitCode = code ?? main(argv);
 }
 
 void cli(process.argv.slice(2));

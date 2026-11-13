@@ -11,13 +11,13 @@ export function gateScript(): string {
 }
 
 /** Shell command string for a lifecycle hook (PreToolUse, etc.). */
-export function gateHookCommand(): string {
-  return `${JSON.stringify(process.execPath)} ${JSON.stringify(gateScript())} hook`;
+export function gateHookCommand(host?: string): string {
+  return `${JSON.stringify(process.execPath)} ${JSON.stringify(gateScript())} hook${host ? ` ${host}` : ""}`;
 }
 
 /** command/args form for an MCP server entry (.mcp.json). */
-export function gateServeInvocation(): { command: string; args: string[] } {
-  return { command: process.execPath, args: [gateScript(), "serve"] };
+export function gateServeInvocation(cwd?: string): { command: string; args: string[] } {
+  return { command: process.execPath, args: [gateScript(), "serve", ...(cwd ? [cwd] : [])] };
 }
 
 /** Whether a hook command string is one of ours (bare `gate hook` or absolute form). */

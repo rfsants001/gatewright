@@ -36,7 +36,7 @@ function makeCwdWithUsage(runs: Array<{ slug: string; tokensIn: number; tokensOu
     mkdirSync(dir, { recursive: true });
     writeFileSync(
       join(dir, "journal.json"),
-      makeJournalEntries([{ tokensIn: run.tokensIn, tokensOut: run.tokensOut, cacheRead: 0, model: run.model }]),
+      makeJournalEntries([{ tokensIn: run.tokensIn, tokensOut: run.tokensOut, cacheRead: 0, ...(run.model === undefined ? {} : { model: run.model }) }]),
     );
   }
   return cwd;

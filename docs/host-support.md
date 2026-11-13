@@ -1,5 +1,10 @@
 # Host Support Matrix
 
+See the [current desktop and terminal compatibility matrix](DESKTOP.md#compatibilidade-do-piloto). Adapter implementation, config generation, an accepted MCP handshake, a successful paid execution and enforced hook behavior are separate evidence.
+
+The following matrix describes the historical R0.5 scope.
+
+
 > **R0.5 artefact** — honest capability map per host. Claude Code is the only
 > fully-supported host today. Codex CLI and OpenCode are stubs: the adapter
 > skeleton exists or is planned, but no hook integration is live.

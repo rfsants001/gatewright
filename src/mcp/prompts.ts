@@ -15,8 +15,9 @@ function isSystemSkill(skill: Skill): boolean {
  * Register every public skill in `catalog` as a zero-argument MCP prompt on
  * `server`. Must be called before the server is connected to a transport.
  */
-export function registerSkillPrompts(server: McpServer, catalog: SkillCatalog): void {
-  for (const skill of catalog.list()) {
+export function registerSkillPrompts(server: McpServer, catalog: SkillCatalog, project?: SkillCatalog): void {
+  const skills = new Map([...catalog.list(), ...(project?.list() ?? [])].map((skill) => [skill.frontmatter.name, skill]));
+  for (const skill of skills.values()) {
     if (isSystemSkill(skill)) continue;
 
     const promptName = `gate.${skill.frontmatter.name}`;

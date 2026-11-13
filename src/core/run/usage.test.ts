@@ -3,7 +3,8 @@ import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { aggregateUsage } from "./usage.js";
-import { ENGINE_EVENT_TYPE } from "../engine/run-journal.js";
+import { createClaudeCodeAdapter } from "../engine/adapters/claude-code.js";
+import { appendEngineEvent, openRunJournal, ENGINE_EVENT_TYPE } from "../engine/run-journal.js";
 import type { EngineEvent } from "../engine/types.js";
 
 /** Build a minimal journal JSON array with usage engine events. */
@@ -48,6 +49,23 @@ function makeCwd(runs: Array<{ slug: string; events: Array<{ kind: EngineEvent["
 }
 
 describe("aggregateUsage", () => {
+  it("uses Claude's cumulative result once and retains the model and reported cost", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "gw-usage-cumulative-"));
+    const journal = openRunJournal(cwd, "example").journal;
+    const adapter = createClaudeCodeAdapter();
+    const usage = { input_tokens: 100, output_tokens: 20 };
+    for (const item of [
+      { type: "assistant", message: { model: "claude-sonnet", usage } },
+      { type: "result", usage, total_cost_usd: 0.012 },
+    ]) {
+      const result = adapter.parseStreamLine(JSON.stringify(item));
+      for (const event of Array.isArray(result) ? result : result ? [result] : []) appendEngineEvent(journal, event);
+    }
+    expect(aggregateUsage(cwd)).toMatchObject({
+      totalTokensIn: 100, totalTokensOut: 20, totalCostBrl: 0.06, byModel: [{ model: "claude-sonnet" }],
+    });
+  });
+
   it("returns empty snapshot when no runs exist", () => {
     const cwd = mkdtempSync(join(tmpdir(), "usage-empty-"));
     const snap = aggregateUsage(cwd);

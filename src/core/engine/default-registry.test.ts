@@ -1,17 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { defaultEngineRegistry } from "./default-registry.js";
-import { EngineNotSupportedError } from "./types.js";
 
 describe("defaultEngineRegistry", () => {
-  it("registers the three known engines", () => {
-    expect(defaultEngineRegistry().list().map((a) => a.id)).toEqual(["claude-code", "codex", "opencode"]);
+  it("registers the four terminal engines", () => {
+    expect(defaultEngineRegistry().list().map((a) => a.id)).toEqual(["claude-code", "codex", "gemini", "opencode"]);
   });
 
-  it("stub engines throw EngineNotSupportedError on build", () => {
+  it("builds a streaming command for each terminal engine", () => {
     const reg = defaultEngineRegistry();
     const opts = { prompt: "x", cwd: "/tmp", mcpConfigPath: "/tmp/m.json" };
-    expect(() => reg.get("codex").buildHeadlessCommand(opts)).toThrow(EngineNotSupportedError);
-    expect(() => reg.get("opencode").buildHeadlessCommand(opts)).toThrow(EngineNotSupportedError);
+    expect(reg.get("codex").buildHeadlessCommand(opts).args).toContain("--json");
+    expect(reg.get("gemini").buildHeadlessCommand(opts).args).toContain("stream-json");
+    expect(reg.get("opencode").buildHeadlessCommand(opts).args).toContain("json");
   });
 
   it("claude-code builds a real command", () => {

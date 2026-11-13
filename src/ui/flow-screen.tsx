@@ -17,7 +17,7 @@ import type { ControlState } from "../core/control/control-state.js";
 
 /** Runs one engine step; streams events and resolves with the run's text output. */
 export type RunEngine = (prompt: string, handlers: { onEvent: (e: EngineEvent) => void; onState: (s: ControlState) => void }) => {
-  done: Promise<string>;
+  done: Promise<string | { output: string; succeeded: boolean }>;
   cancel: () => void;
 };
 
@@ -48,8 +48,10 @@ export function FlowScreen({
     let stale = false;
     const h = runEngine(directive.prompt, { onEvent: (e) => setEvents((p) => [...p, e]), onState: setRunState });
     cancelRef.current = h.cancel;
-    void h.done.then((output) => {
+    void h.done.then((result) => {
       if (stale) return;
+      if (typeof result !== "string" && !result.succeeded) return;
+      const output = typeof result === "string" ? result : result.output;
       setLastOutput(output);
       setReviewed(false);
       setDirective(engineRef.current.submitRun(output));

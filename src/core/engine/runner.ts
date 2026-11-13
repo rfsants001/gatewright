@@ -4,6 +4,8 @@
 // the #1 artifact), and surfaces stderr as error events. spawn is injectable so
 // tests never touch a real process.
 
+import { randomUUID } from "node:crypto";
+import { StringDecoder } from "node:string_decoder";
 import { spawn as nodeSpawn } from "node:child_process";
 import { ControlStateMachine } from "../control/control-state-machine.js";
 import { canTransition, type ControlState } from "../control/control-state.js";
@@ -45,7 +47,7 @@ export interface RunHandlers {
 
 export interface RunDeps {
   spawn?: SpawnFn;
-  /** Run slug for the journal path; defaults to the session or "run". */
+  /** Run slug for the journal path; defaults to a fresh identifier. */
   slug?: string;
   /** Override the run journal (tests inject an in-memory store). */
   runJournal?: RunJournal;
@@ -58,6 +60,7 @@ export interface RunDeps {
 }
 
 export interface RunHandle {
+  id: string;
   done: Promise<RunResult>;
   /** Request cancellation: SIGTERM now, SIGKILL after the grace period; ends CANCELLED. */
   cancel: () => void;
@@ -66,9 +69,10 @@ export interface RunHandle {
 /** Split a byte/char stream into lines, feeding each to `onLine`; flush the tail at close. */
 function makeLineSplitter(onLine: (line: string) => void): { feed: (chunk: Buffer | string) => void; flush: () => void } {
   let buf = "";
+  const decoder = new StringDecoder("utf8");
   return {
     feed(chunk) {
-      buf += chunk.toString();
+      buf += typeof chunk === "string" ? chunk : decoder.write(chunk);
       let idx: number;
       while ((idx = buf.indexOf("\n")) >= 0) {
         onLine(buf.slice(0, idx));
@@ -76,6 +80,7 @@ function makeLineSplitter(onLine: (line: string) => void): { feed: (chunk: Buffe
       }
     },
     flush() {
+      buf += decoder.end();
       if (buf.length) {
         onLine(buf);
         buf = "";
@@ -87,9 +92,10 @@ function makeLineSplitter(onLine: (line: string) => void): { feed: (chunk: Buffe
 export function startRun(adapter: EngineAdapter, opts: EngineRunOptions, handlers: RunHandlers = {}, deps: RunDeps = {}): RunHandle {
   const spawn = deps.spawn ?? defaultSpawn;
   const now = deps.now ?? (() => new Date().toISOString());
-  const slug = sanitizeSlug(deps.slug ?? "run");
+  const slug = sanitizeSlug(deps.slug ?? `run-${randomUUID()}`);
   const rj = deps.runJournal ?? openRunJournal(opts.cwd, slug);
   const control = new ControlStateMachine(rj.journal);
+  if (control.current() !== "IDLE") throw new Error(`run already exists: ${slug}`);
 
   const emit = (ev: EngineEvent): void => {
     appendEngineEvent(rj.journal, ev, now());
@@ -110,7 +116,16 @@ export function startRun(adapter: EngineAdapter, opts: EngineRunOptions, handler
     });
   }
   setState("RUNNING");
-  const child = spawn(cmd, opts.cwd);
+  let child: ChildLike;
+  try {
+    child = spawn(cmd, opts.cwd);
+  } catch (error) {
+    emit({ kind: "error", text: `spawn failed: ${String(error)}` });
+    setState("FAILED");
+    const result: RunResult = { exitCode: null, state: "FAILED" };
+    handlers.onClose?.(result);
+    return { id: slug, done: Promise.resolve(result), cancel: () => {} };
+  }
 
   const outSplitter = makeLineSplitter((line) => {
     const ev = adapter.parseStreamLine(line);
@@ -154,5 +169,5 @@ export function startRun(adapter: EngineAdapter, opts: EngineRunOptions, handler
     killTimer.unref?.();
   };
 
-  return { done, cancel };
+  return { id: slug, done, cancel };
 }

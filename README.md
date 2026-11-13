@@ -27,6 +27,12 @@
 
 ---
 
+## Desktop and terminal
+
+Gatewright Desktop is a local Linux workspace for projects, agent runs, review, usage and configuration. Launch with `npm run desktop` after building. Claude Code, Codex, Gemini CLI and OpenCode use their own binaries. Ollama and compatible external APIs and proxies can run text completions through a project provider profile.
+
+The terminal remains a supported surface. Connect each project's MCP and supported hooks from the desktop, then restart the host. See the [desktop guide and compatibility matrix](docs/DESKTOP.md).
+
 ## The problem
 
 Leave a coding agent alone and it drifts. Scope creeps past what you asked for. Diffs balloon.
@@ -55,7 +61,7 @@ interactive TUI sits on top for when you'd rather drive it by hand.
 
 ## What you get
 
-- 🚦 **Seven shipped gates** covering scope, verification, proportion, secrets, errors, completion, and handoffs.
+- 🚦 **Four default hook gates** for secrets, edit checks, shell errors and proportion. Scope, completion and handoff gates exist as core modules.
 - 🧭 **Guided end-to-end flows** — run a whole SDD cycle (plan → *you review* → implement → PR) with human gates between steps.
 - 🧠 **Jev, a local-AI advisor** — optional, budget-aware, local-first judgment for the fuzzy calls a rule can't settle. It *advises*; it never hard-blocks.
 - 🔌 **Local MCP server** — exposes the gate catalog and checks as MCP tools your agent can call.
@@ -122,7 +128,7 @@ AI's answer rendered in full. You can leave any screen and return to the dashboa
 **Jev** is an optional judgment layer for the fuzzy cases a deterministic rule can't settle — the
 real proportion of a diff, the quality of a handoff, scope disambiguation. It is:
 
-- **Local-first** — talks to Ollama or LM Studio over HTTP. Nothing leaves your machine.
+- **Local-first** — talks to Ollama or LM Studio over HTTP. The default Jev endpoint is local. Remote providers and external MCP servers receive the data needed for their calls.
 - **Budget-aware** — a per-feature quota caps how much it's consulted.
 - **Advisory only** — every verdict is `approve` / `discard` / `abstain`, never a hard block, and all of it is logged to the journal.
 - **Zero-install** — Jev installs nothing. Helper scripts detect an already-running local endpoint and write the config Gatewright reads.
@@ -141,7 +147,7 @@ model to respond rather than always abstaining.)
 
 ## The TUI
 
-Run `gate` with no arguments and you get an interactive home screen — no subcommands to memorize.
+Run `gate dashboard` to open the interactive terminal home screen — no subcommands to memorize.
 From the dashboard you can:
 
 | Action | What it does |
@@ -172,7 +178,8 @@ git clone https://github.com/rfsants001/gatewright.git
 cd gatewright
 npm install
 npm run build
-npm start        # launches the interactive home screen
+npm run desktop # opens the Linux desktop
+npm start -- dashboard # opens the terminal interface
 ```
 
 Expose the `gate` binary on your PATH (optional):
@@ -267,7 +274,7 @@ Register it with your agent (e.g. `.mcp.json`):
 - [ ] In Claude Code, open the **Resources** panel and confirm `gate://usage` is listed.
 - [ ] Read `gate://usage` — the response should be valid JSON with `totalTokensIn`,
       `byModel`, and `byRun` keys (all zeroes for a fresh project with no runs, populated
-      after any `gate run`).
+      after a run launched through the Gatewright UI).
 - [ ] Read `gate://config` — the response should show safe config fields (`defaultEngine`,
       `verbosity`, `jev.enabled`, `jev.model`); endpoint / API key fields must appear as
       `"[REDACTED]"`.

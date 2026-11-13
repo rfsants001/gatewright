@@ -48,6 +48,8 @@ export interface EngineUsage {
   cacheRead: number;
   /** Total cost in USD, when the engine reports it (final result only). */
   costUsd?: number;
+  model?: string;
+  cumulative?: boolean;
 }
 
 /** A normalized event parsed from an engine's output stream. */

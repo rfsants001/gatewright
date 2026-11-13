@@ -41,14 +41,14 @@ describe("e2e hook layer: Stop (proportion-gate in defaultRegistry)", () => {
     expect(silentAllow(out)).toBe(true);
   });
 
-  it("Stop with no cwd → allow (proportion-gate: empty diff)", () => {
+  it("Stop with no cwd uses the process workspace", () => {
     const out = runHook(
       JSON.stringify({
         hook_event_name: "Stop",
         session_id: "e2e-stop-2",
       }),
     );
-    expect(silentAllow(out)).toBe(true);
+    expect(out).toEqual(runHook(JSON.stringify({ hook_event_name: "Stop", session_id: "e2e-stop-2", cwd: process.cwd() })));
   });
 
   it("Stop: proportion-gate is present in defaultRegistry and responds on 'stop'", () => {

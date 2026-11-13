@@ -98,7 +98,7 @@ function parseLine(line: string): EngineEvent | EngineEvent[] | null {
 
   switch (rec["type"]) {
     case "assistant": {
-      const message = (rec["message"] as { content?: unknown; usage?: unknown }) ?? {};
+      const message = (rec["message"] as { content?: unknown; usage?: unknown; model?: unknown }) ?? {};
       const blocks = Array.isArray(message.content) ? (message.content as Record<string, unknown>[]) : [];
       const events: EngineEvent[] = [];
 
@@ -123,7 +123,7 @@ function parseLine(line: string): EngineEvent | EngineEvent[] | null {
       }
 
       const usage = extractUsage(message.usage);
-      if (usage) events.push({ kind: "usage", usage, raw: obj });
+      if (usage) events.push({ kind: "usage", usage: { ...usage, ...(typeof message.model === "string" ? { model: message.model } : {}) }, raw: obj });
 
       // An assistant turn with no renderable block still surfaces as raw.
       return events.length ? one(events) : { kind: "assistant", text: "", raw: obj };
@@ -141,7 +141,7 @@ function parseLine(line: string): EngineEvent | EngineEvent[] | null {
     case "result": {
       const resultEv: EngineEvent = { kind: "result", text: String(rec["result"] ?? rec["subtype"] ?? ""), raw: obj };
       const usage = extractUsage(rec["usage"], rec["total_cost_usd"]);
-      return usage ? [resultEv, { kind: "usage", usage, raw: obj }] : resultEv;
+      return usage ? [resultEv, { kind: "usage", usage: { ...usage, cumulative: true }, raw: obj }] : resultEv;
     }
     case "system":
       return { kind: "system", text: String(rec["subtype"] ?? "system"), raw: obj };

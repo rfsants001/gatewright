@@ -9,7 +9,7 @@ import type { ArtifactStore } from "../artifact-store/types.js";
 import { Journal } from "../journal/journal.js";
 import { ENGINE_EVENT_TYPE } from "../engine/run-journal.js";
 import type { EngineEvent, EngineUsage } from "../engine/types.js";
-import { estimateCost, formatBRL } from "./pricing.js";
+import { estimateCost, formatBRL, PRICING } from "./pricing.js";
 
 /** Per-model aggregated usage. */
 export interface ModelUsage {
@@ -74,7 +74,17 @@ function readUsageEvents(journalPath: string, store: ArtifactStore): Array<{ usa
     if (e.type !== ENGINE_EVENT_TYPE) continue;
     const payload = e.payload as EngineEvent;
     if (payload.kind !== "usage" || !payload.usage) continue;
-    out.push({ usage: payload.usage, model: payload.raw !== undefined ? extractModel(payload.raw) : undefined });
+    const raw = payload.raw as { type?: string; message?: { model?: unknown }; modelUsage?: Record<string, unknown> } | undefined;
+    const models = Object.keys(raw?.modelUsage ?? {});
+    const model = payload.usage.model ?? (models.length === 1 ? models[0] : undefined)
+      ?? extractModel(raw) ?? extractModel(raw?.message);
+    if (payload.usage.cumulative || raw?.type === "result") {
+      const partialModels = new Set(out.map((entry) => entry.model).filter(Boolean));
+      const inferred = partialModels.size === 1 ? [...partialModels][0] : undefined;
+      out.splice(0, out.length, { usage: payload.usage, model: model ?? inferred });
+    } else {
+      out.push({ usage: payload.usage, model });
+    }
   }
   return out;
 }
@@ -101,7 +111,7 @@ export function aggregateUsage(cwd: string, store: ArtifactStore = new FileArtif
   let grandIn = 0;
   let grandOut = 0;
   let grandCache = 0;
-  let grandCost: number | undefined = 0;
+  let grandCost: number | undefined;
 
   for (const slug of slugs) {
     const journalPath = join(runsDir(cwd), slug, "journal.json");
@@ -115,7 +125,7 @@ export function aggregateUsage(cwd: string, store: ArtifactStore = new FileArtif
     let runIn = 0;
     let runOut = 0;
     let runCache = 0;
-    let runCost: number | undefined = 0;
+    let runCost: number | undefined;
     let runCount = 0;
 
     for (const { usage, model } of events) {
@@ -129,9 +139,11 @@ export function aggregateUsage(cwd: string, store: ArtifactStore = new FileArtif
 
       const modelKey = model ?? "unknown";
       const existing = modelMap.get(modelKey);
-      const costBrl = model
-        ? estimateCost(model, tokensIn, tokensOut, tokensIn > 0 ? cacheRead / tokensIn : 0)
-        : undefined;
+      const costBrl = usage.costUsd !== undefined
+        ? usage.costUsd * PRICING.usdToBrl
+        : model
+          ? estimateCost(model, tokensIn + cacheRead, tokensOut, cacheRead / (tokensIn + cacheRead || 1))
+          : undefined;
 
       if (existing) {
         existing.totalTokensIn += tokensIn;
@@ -185,7 +197,7 @@ export function aggregateUsage(cwd: string, store: ArtifactStore = new FileArtif
     totalTokensIn: grandIn,
     totalTokensOut: grandOut,
     totalCacheRead: grandCache,
-    totalCostBrl: grandCost,
+    totalCostBrl: runList.length ? grandCost : 0,
   };
 }
 

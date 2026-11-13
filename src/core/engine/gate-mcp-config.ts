@@ -1,7 +1,6 @@
 // Gate-only MCP config for headless runs. We point the engine at THIS file via
 // --strict-mcp-config so the run sees exactly one MCP server — the gate — and
-// none of the engine's own MCPs. That's what forces every tool call through the
-// gates + Jev. The invocation is absolute (reused from gate-bin), so it works
+// none of the engine's own MCPs. Enforcement is provided by the host hooks. The invocation is absolute (reused from gate-bin), so it works
 // without `gate` on PATH.
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -11,8 +10,8 @@ import { gateServeInvocation } from "../init/gate-bin.js";
 export const GATE_MCP_CONFIG_RELPATH = join(".gatewright", "gate.mcp.json");
 
 /** The canonical gate-only MCP config content. */
-export function gateMcpConfig(): { mcpServers: { gatewright: { command: string; args: string[] } } } {
-  return { mcpServers: { gatewright: gateServeInvocation() } };
+export function gateMcpConfig(cwd?: string): { mcpServers: { gatewright: { command: string; args: string[] } } } {
+  return { mcpServers: { gatewright: gateServeInvocation(cwd) } };
 }
 
 function serialize(value: unknown): string {
@@ -25,7 +24,7 @@ function serialize(value: unknown): string {
  */
 export function ensureGateMcpConfig(cwd: string): string {
   const path = join(cwd, GATE_MCP_CONFIG_RELPATH);
-  const next = serialize(gateMcpConfig());
+  const next = serialize(gateMcpConfig(cwd));
   const current = existsSync(path) ? readFileSync(path, "utf8") : null;
   if (current !== next) {
     mkdirSync(dirname(path), { recursive: true });

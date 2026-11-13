@@ -392,7 +392,7 @@ function FlowPage({ onDone }: { onDone: () => void }) {
         onState: handlers.onState,
       },
     );
-    return { done: h.done.then(() => text), cancel: () => h.cancel() };
+    return { done: h.done.then((result) => ({ output: text, succeeded: result.state === "PASSED" })), cancel: () => h.cancel() };
   };
 
   return <FlowScreen goal={goal} runEngine={runEngine} onDone={onDone} />;

@@ -2,7 +2,7 @@
   "name": "gatewright",
   "version": "0.1.0",
   "type": "module",
-  "description": "Open-source AI control plane + MCP: centralize models, skills, commands, budget and config in one point, consumable by any tool via MCP — with governance and observability built in.",
+  "description": "Open-source AI control plane + MCP: centralize models, skills, commands, budget and config in one point, consumable by any tool via MCP \u2014 with governance and observability built in.",
   "keywords": [
     "ai",
     "mcp",
@@ -31,7 +31,11 @@
     "dist",
     "skills",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "desktop/gatewright.py",
+    "CHANGELOG.md",
+    "scripts/jev",
+    "desktop/install-launcher.mjs"
   ],
   "engines": {
     "node": ">=22"
@@ -43,7 +47,9 @@
     "gate": "node dist/cli/gate.js",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "desktop": "node dist/cli/gate.js desktop",
+    "desktop:install": "node desktop/install-launcher.mjs"
   },
   "devDependencies": {
     "@types/figlet": "^1.7.0",
@@ -55,7 +61,7 @@
     "vitest": "^2.1.0"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.32.1",
+    "@modelcontextprotocol/sdk": "1.32.1",
     "figlet": "^1.12.0",
     "figures": "^6.1.0",
     "ink": "^8.0.0",

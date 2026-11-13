@@ -1,3 +1,6 @@
+import { mkdtempSync, rmSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 import { describe, expect, it } from "vitest";
 import { Journal } from "../journal/journal.js";
 import type { ArtifactStore } from "../artifact-store/types.js";
@@ -59,6 +62,23 @@ const opts = { prompt: "x", cwd: "/tmp/p", mcpConfigPath: "/tmp/p/.gatewright/ga
 const line = (o: unknown) => `${JSON.stringify(o)}\n`;
 
 describe("startRun — streaming + logs", () => {
+  it("preserves independent results for sequential runs in the same project", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "gw-unique-runs-"));
+    try {
+      const first = fakeSpawn();
+      const one = startRun(adapter, { ...opts, cwd }, {}, { spawn: first.spawn });
+      first.close(0);
+      expect((await one.done).state).toBe("PASSED");
+      const second = fakeSpawn();
+      const two = startRun(adapter, { ...opts, cwd }, {}, { spawn: second.spawn });
+      second.close(1);
+      expect((await two.done).state).toBe("FAILED");
+      expect(one.id).not.toBe(two.id);
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
   it("emits one event per stream line and persists each to the journal", async () => {
     const fake = fakeSpawn();
     const rj = memRunJournal();

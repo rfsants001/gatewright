@@ -3,6 +3,7 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { join } from "node:path";
 import { z } from "zod";
 import type { GateContext, GateDecision } from "../core/gate/types.js";
 import type { GateRegistry } from "../core/gate/registry.js";
@@ -75,7 +76,7 @@ export function createMcpServer(
 
   // R1: Skills as MCP prompts (gate.<name>) — zero-argument, body = skill markdown.
   const catalog = loadGateSkills();
-  registerSkillPrompts(server, catalog);
+  registerSkillPrompts(server, catalog, loadGateSkills(join(cwd, ".gatewright", "skills")));
 
   // R1: gate://usage and gate://config resources (read-only, secrets redacted).
   registerUsageResource(server, cwd);
@@ -84,8 +85,8 @@ export function createMcpServer(
   return server;
 }
 
-export async function serveStdio(registry?: GateRegistry, jevConfig?: JevConfigStore): Promise<McpServer> {
-  const server = createMcpServer(registry, jevConfig);
+export async function serveStdio(registry?: GateRegistry, jevConfig?: JevConfigStore, cwd?: string): Promise<McpServer> {
+  const server = createMcpServer(registry, jevConfig, cwd);
   await server.connect(new StdioServerTransport());
   return server;
 }

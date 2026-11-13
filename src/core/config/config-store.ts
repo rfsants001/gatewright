@@ -6,6 +6,7 @@
 
 import { homedir } from "node:os";
 import { join } from "node:path";
+import type { Provider } from "../../app/providers.js";
 import type { ArtifactStore } from "../artifact-store/types.js";
 
 export type ConfigScope = "gate" | "project";
@@ -27,6 +28,8 @@ export interface GatewrightConfig {
   jev?: { enabled?: boolean; model?: string; endpoint?: string };
   /** Tools the provisioner has set up at this scope. */
   packages?: PackageRecord[];
+  providers?: Provider[];
+  linkedProjects?: string[];
 }
 
 /** A patch; a key set to `undefined` clears it from the scope. */
@@ -59,6 +62,8 @@ export function mergeConfig(base: GatewrightConfig, over: ConfigPatch): Gatewrig
     else merged.verbosity = over.verbosity;
   }
   if (base.jev || over.jev) merged.jev = { ...base.jev, ...over.jev };
+  if (over.providers) merged.providers = [...new Map([...(base.providers ?? []), ...over.providers].map((provider) => [provider.id, provider])).values()];
+  if (over.linkedProjects) merged.linkedProjects = over.linkedProjects;
   const pkgs = mergePackages(base.packages, over.packages);
   if (pkgs) merged.packages = pkgs;
   return merged;
