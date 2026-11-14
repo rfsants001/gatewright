@@ -23,8 +23,10 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      - name: Test
-        run: npm test
-
+      # Build before Test: the desktop bridge e2e spawns the compiled CLI
+      # (dist/cli/gate.js); without dist/ its requests hang until timeout.
       - name: Build
         run: npm run build
+
+      - name: Test
+        run: npm test
