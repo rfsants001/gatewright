@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { applyPlan, planHooks, planMcp, type WritePlan } from "../core/init/config-writers.js";
-import { gateHookCommand, gateServeInvocation } from "../core/init/gate-bin.js";
+import { gateHookCommand, gateScript, gateServeInvocation } from "../core/init/gate-bin.js";
 
 export const terminalHosts = ["claude-code", "codex", "gemini", "opencode"] as const;
 export type TerminalHost = typeof terminalHosts[number];
@@ -25,6 +25,46 @@ function writePlan(path: string, nextContent: string, summary: string): WritePla
   const exists = existsSync(path);
   const action = !exists ? "create" : readFileSync(path, "utf8") === nextContent ? "noop" : "merge";
   return { path, nextContent, action, summary, preview: [summary] };
+}
+
+// OpenCode has no shell-command hook block (hooks are JS/TS plugins that block by throwing).
+// So we ship a managed plugin that shells out to `gate hook opencode` and throws on a deny.
+// Auto-loaded from `.opencode/plugin/`; fully owned by us → re-running is idempotent by content.
+function opencodePluginSource(): string {
+  const gate = JSON.stringify([process.execPath, gateScript(), "hook", "opencode"]);
+  return `// BEGIN GATEWRIGHT — managed plugin. Do not edit; re-run the Gatewright config to update.
+// Bridges OpenCode tool events to the Gatewright gates via \`gate hook opencode\`.
+import { spawnSync } from "node:child_process";
+
+const GATE = ${gate};
+
+function decide(hook_event_name, tool_name, payload) {
+  let decision;
+  try {
+    const res = spawnSync(GATE[0], GATE.slice(1), {
+      input: JSON.stringify({ hook_event_name, tool_name, cwd: process.cwd(), ...payload }),
+      encoding: "utf8",
+    });
+    const out = (res.stdout || "").trim();
+    decision = out ? JSON.parse(out) : null;
+  } catch {
+    return; // spawn/parse failure → fail-open (allow), never break the host
+  }
+  if (decision && decision.decision === "deny") {
+    throw new Error(decision.reason || "Gatewright bloqueou esta ação.");
+  }
+}
+
+export const gatewright = async () => ({
+  "tool.execute.before": async (input, output) => {
+    decide("execute.before", input?.tool, { tool_input: output?.args ?? null });
+  },
+  "tool.execute.after": async (input, output) => {
+    decide("execute.after", input?.tool, { tool_response: output?.output ?? output?.metadata ?? null });
+  },
+});
+// END GATEWRIGHT
+`;
 }
 
 export function planTerminal(cwd: string, host: TerminalHost): WritePlan[] {
@@ -55,7 +95,11 @@ export function planTerminal(cwd: string, host: TerminalHost): WritePlan[] {
     if (existsSync(join(cwd, "opencode.jsonc"))) throw new Error("O projeto usa opencode.jsonc. Revise a configuração MCP existente no OpenCode.");
     const config = readObject(path);
     const mcp = mergeEntry(config.mcp, { gatewright: { type: "local", command: [invocation.command, ...invocation.args], enabled: true } });
-    return [writePlan(path, JSON.stringify({ ...config, mcp }, null, 2) + "\n", "Registrar o MCP no OpenCode.")];
+    return [
+      writePlan(path, JSON.stringify({ ...config, mcp }, null, 2) + "\n", "Registrar o MCP no OpenCode."),
+      writePlan(join(cwd, ".opencode", "plugin", "gatewright.js"), opencodePluginSource(),
+        "Instalar o plugin de hooks do OpenCode (governa eventos de ferramenta via gate)."),
+    ];
   }
   const path = join(cwd, ".gemini", "settings.json");
   const config = readObject(path);

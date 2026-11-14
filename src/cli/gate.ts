@@ -125,7 +125,9 @@ async function runAsyncCommand(argv: string[]): Promise<number | null> {
         raw = "";
       }
       const { runHookWithJev } = await import("../host/run-hook-jev.js");
-      const host = argv[1] === "gemini" ? (await import("../host/gemini.js")).geminiHookAdapter : undefined;
+      const host = argv[1] === "gemini" ? (await import("../host/gemini.js")).geminiHookAdapter
+        : argv[1] === "opencode" ? (await import("../host/opencode.js")).opencodeHookAdapter
+        : undefined;
       const out = await runHookWithJev(raw, host);
       if (out.stdout) process.stdout.write(`${out.stdout}\n`);
       return out.exitCode;

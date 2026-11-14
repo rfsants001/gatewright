@@ -26,6 +26,21 @@ describe("terminal onboarding", () => {
     expect(() => applyTerminal(cwd, "gemini", revision)).toThrow();
   });
 
+  it("ships the OpenCode plugin alongside the MCP block", () => {
+    const plans = planTerminal(cwd, "opencode");
+    const plugin = plans.find((p) => p.path.endsWith(join(".opencode", "plugin", "gatewright.js")));
+    const mcp = plans.find((p) => p.path.endsWith("opencode.json"));
+    expect(mcp).toBeDefined();
+    expect(plugin).toBeDefined();
+    expect(plugin!.nextContent).toContain("tool.execute.before");
+    expect(plugin!.nextContent).toContain("hook");
+    expect(plugin!.nextContent).toContain("opencode");
+    applyTerminal(cwd, "opencode", planRevision(plans));
+    expect(readFileSync(plugin!.path, "utf8")).toContain("tool.execute.before");
+    // idempotent: both files re-plan as noop
+    expect(planTerminal(cwd, "opencode").every((p) => p.action === "noop")).toBe(true);
+  });
+
   it("translates a Gemini native read to the existing secret guard", () => {
     const out = runHook(JSON.stringify({
       hook_event_name: "BeforeTool", tool_name: "read_file", cwd, tool_input: { file_path: ".env" },

@@ -145,7 +145,7 @@ export async function serveDesktop(): Promise<void> {
         providers: providers(cwd),
         hosts: (await registry.detectAll()).map(({ adapter, availability }) => ({
           id: adapter.id, name: adapter.name, installed: availability.installed, version: availability.version,
-          hooks: adapter.id !== "opencode",
+          hooks: true,
         })),
       };
       case "terminal.preview": {
