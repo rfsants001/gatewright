@@ -459,6 +459,17 @@ function App() {
     }
   }
 
+  const execNotice = (() => {
+    if (starting) return { text: inFlow ? "Iniciando fluxo SDD…" : "Iniciando execução…", tone: "neutral" };
+    if (state === "RUNNING") return { text: "Execução em andamento.", tone: "neutral" };
+    if (state === "PAUSED") return { text: "Execução pausada.", tone: "neutral" };
+    if (state === "PASSED") return { text: "Execução concluída.", tone: "success" };
+    if (state === "FAILED") return { text: "A execução falhou. Consulte o registro.", tone: "error" };
+    if (state === "CANCELLED") return { text: "Execução cancelada.", tone: "neutral" };
+    return null;
+  })();
+  const footerNotice = execNotice ?? notice;
+
   return <div className="app-shell">
     <aside className="sidebar">
       <Brand />
@@ -481,7 +492,7 @@ function App() {
             canReview: !!runId && !busy, log, start, cancel, review,
           }} /> : page === "usage" ? <Usage usage={data.usage} heading={<PageHeading title="Consumo">Custos e tokens das execuções registradas neste projeto.</PageHeading>} /> : <Settings key={cwd} {...{ data, saveProvider, propose }} />}
       </div></main>
-      <footer className={`statusbar ${notice.tone}`} role="status">{notice.tone === "success" ? <CircleCheck size={13} aria-hidden="true" /> : <span aria-hidden="true" />}{notice.text}</footer>
+      <footer className={`statusbar ${footerNotice.tone}`} role="status">{footerNotice.tone === "success" ? <CircleCheck size={13} aria-hidden="true" /> : <span aria-hidden="true" />}{footerNotice.text}</footer>
     </div>
     {modal && <Modal modal={modal} notice={notice} onClose={() => setModal(null)} />}
     {questions && <FlowQuestions key={questions.token} data={questions} notice={notice} onAnswer={answer} onStop={cancel} />}

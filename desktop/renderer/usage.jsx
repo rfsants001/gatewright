@@ -134,10 +134,11 @@ export function Usage({ usage, heading }) {
     <section className="section table-panel surface">
       <header className="panel-heading"><div><h2>Execuções recentes</h2><p>Execuções com tokens ou custo registrados</p></div></header>
       {runs.length ? <div className="table-wrap"><table>
-        <thead><tr><th scope="col">Execução</th><th scope="col">Registrada em</th><th scope="col">Entrada</th><th scope="col">Saída</th><th scope="col">Cache</th><th scope="col">Custo</th></tr></thead>
+        <thead><tr><th scope="col">Execução</th><th scope="col">Registrada em</th><th scope="col">Modelo</th><th scope="col">Entrada</th><th scope="col">Saída</th><th scope="col">Cache</th><th scope="col">Custo</th></tr></thead>
         <tbody>{runs.slice(0, 10).map((run) => <tr key={run.runSlug}>
           <th scope="row"><code title={run.runSlug}>{run.runSlug.length > 18 ? `${run.runSlug.slice(0, 16)}…` : run.runSlug}</code></th>
           <td>{run.recordedAt ? dateTime.format(new Date(run.recordedAt)) : "—"}</td>
+          <td>{run.model ? <span title={run.model}>{modelName(run.model)}</span> : <span className="run-model-none">—</span>}</td>
           <td>{number.format(run.totalTokensIn)}</td><td>{number.format(run.totalTokensOut)}</td><td>{number.format(run.totalCacheRead)}</td>
           <td>{formatCost(run.totalCostBrl)}{run.totalCostBrl != null && run.pricedCount < run.count && <small> parcial</small>}</td>
         </tr>)}</tbody>
