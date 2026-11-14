@@ -66,6 +66,29 @@ describe("aggregateUsage", () => {
     });
   });
 
+  it("dates measured runs and keeps costs on the day they were recorded", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "gw-usage-timeline-"));
+    function record(run: string, at: string, costUsd?: number) {
+      appendEngineEvent(openRunJournal(cwd, run).journal, {
+        kind: "usage", usage: { tokensIn: 3, tokensOut: 2, cacheRead: 0, ...(costUsd === undefined ? {} : { costUsd }) },
+      }, at);
+    }
+    const onDay = (day: number) => new Date(2026, 9, day, 10).toISOString();
+    record("run-z", onDay(14), 0);
+    record("run-a", onDay(15), 0.02);
+    record("run-a", onDay(16));
+    const snapshot = aggregateUsage(cwd);
+    expect(snapshot.byRun).toEqual(expect.arrayContaining([
+      expect.objectContaining({ runSlug: "run-a", recordedAt: onDay(16), totalCostBrl: 0.1, pricedCount: 1, count: 2 }),
+      expect.objectContaining({ runSlug: "run-z", recordedAt: onDay(14), totalCostBrl: 0, pricedCount: 1, count: 1 }),
+    ]));
+    expect(snapshot.byDay).toEqual(expect.arrayContaining([
+      { day: "2026-10-14", totalCostBrl: 0, pricedCount: 1, count: 1 },
+      { day: "2026-10-15", totalCostBrl: 0.1, pricedCount: 1, count: 1 },
+      { day: "2026-10-16", totalCostBrl: undefined, pricedCount: 0, count: 1 },
+    ]));
+  });
+
   it("returns empty snapshot when no runs exist", () => {
     const cwd = mkdtempSync(join(tmpdir(), "usage-empty-"));
     const snap = aggregateUsage(cwd);

@@ -21,8 +21,11 @@ export function registerUsageResource(server: McpServer, cwd: string = process.c
     USAGE_URI,
     { description: "Aggregated token usage for this project, grouped by model and run.", mimeType: "application/json" },
     (_uri) => {
-      const snapshot = aggregateUsage(cwd);
-      const safe = redact(snapshot);
+      const { byDay: _byDay, ...snapshot } = aggregateUsage(cwd);
+      const safe = redact({
+        ...snapshot,
+        byRun: snapshot.byRun.map(({ recordedAt: _recordedAt, pricedCount: _pricedCount, ...run }) => run),
+      });
       return {
         contents: [
           {

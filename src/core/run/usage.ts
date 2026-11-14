@@ -26,10 +26,22 @@ export interface ModelUsage {
 /** Per-run aggregated usage (across all models in that run). */
 export interface RunUsage {
   runSlug: string;
+  /** Timestamp of the latest usage event with a valid date in this run. */
+  recordedAt?: string;
+  /** Number of events whose cost could be determined. */
+  pricedCount: number;
   totalTokensIn: number;
   totalTokensOut: number;
   totalCacheRead: number;
   totalCostBrl: number | undefined;
+  count: number;
+}
+
+/** Cost of the usage events recorded on a calendar day in the local time zone. */
+export interface DailyUsage {
+  day: string;
+  totalCostBrl: number | undefined;
+  pricedCount: number;
   count: number;
 }
 
@@ -40,6 +52,7 @@ export interface UsageSnapshot {
   byModel: ModelUsage[];
   /** Aggregate per run slug. */
   byRun: RunUsage[];
+  byDay: DailyUsage[];
   /** Grand totals. */
   totalTokensIn: number;
   totalTokensOut: number;
@@ -66,10 +79,10 @@ function listRunSlugs(cwd: string): string[] {
 }
 
 /** Extract all usage events from a run journal file. */
-function readUsageEvents(journalPath: string, store: ArtifactStore): Array<{ usage: EngineUsage; model: string | undefined }> {
+function readUsageEvents(journalPath: string, store: ArtifactStore): Array<{ usage: EngineUsage; model: string | undefined; at: string }> {
   const journal = new Journal(store, journalPath);
   const events = journal.read();
-  const out: Array<{ usage: EngineUsage; model: string | undefined }> = [];
+  const out: Array<{ usage: EngineUsage; model: string | undefined; at: string }> = [];
   for (const e of events) {
     if (e.type !== ENGINE_EVENT_TYPE) continue;
     const payload = e.payload as EngineEvent;
@@ -81,9 +94,9 @@ function readUsageEvents(journalPath: string, store: ArtifactStore): Array<{ usa
     if (payload.usage.cumulative || raw?.type === "result") {
       const partialModels = new Set(out.map((entry) => entry.model).filter(Boolean));
       const inferred = partialModels.size === 1 ? [...partialModels][0] : undefined;
-      out.splice(0, out.length, { usage: payload.usage, model: model ?? inferred });
+      out.splice(0, out.length, { usage: payload.usage, model: model ?? inferred, at: e.at });
     } else {
-      out.push({ usage: payload.usage, model });
+      out.push({ usage: payload.usage, model, at: e.at });
     }
   }
   return out;
@@ -107,6 +120,7 @@ export function aggregateUsage(cwd: string, store: ArtifactStore = new FileArtif
 
   const modelMap = new Map<string, ModelUsage>();
   const runList: RunUsage[] = [];
+  const dayMap = new Map<string, DailyUsage>();
 
   let grandIn = 0;
   let grandOut = 0;
@@ -115,7 +129,7 @@ export function aggregateUsage(cwd: string, store: ArtifactStore = new FileArtif
 
   for (const slug of slugs) {
     const journalPath = join(runsDir(cwd), slug, "journal.json");
-    let events: Array<{ usage: EngineUsage; model: string | undefined }>;
+    let events: Array<{ usage: EngineUsage; model: string | undefined; at: string }>;
     try {
       events = readUsageEvents(journalPath, store);
     } catch {
@@ -127,8 +141,11 @@ export function aggregateUsage(cwd: string, store: ArtifactStore = new FileArtif
     let runCache = 0;
     let runCost: number | undefined;
     let runCount = 0;
+    let pricedCount = 0;
+    let latest = -Infinity;
 
-    for (const { usage, model } of events) {
+    for (const { usage, model, at } of events) {
+      const time = Date.parse(at);
       const tokensIn = usage.tokensIn ?? 0;
       const tokensOut = usage.tokensOut ?? 0;
       const cacheRead = usage.cacheRead ?? 0;
@@ -144,6 +161,19 @@ export function aggregateUsage(cwd: string, store: ArtifactStore = new FileArtif
         : model
           ? estimateCost(model, tokensIn + cacheRead, tokensOut, cacheRead / (tokensIn + cacheRead || 1))
           : undefined;
+
+      if (Number.isFinite(time)) {
+        latest = Math.max(latest, time);
+        const date = new Date(time);
+        const day = [date.getFullYear(), date.getMonth() + 1, date.getDate()].join("-");
+        const daily = dayMap.get(day) ?? { day, totalCostBrl: undefined, pricedCount: 0, count: 0 };
+        daily.count++;
+        if (costBrl !== undefined) {
+          daily.totalCostBrl = (daily.totalCostBrl ?? 0) + costBrl;
+          daily.pricedCount++;
+        }
+        dayMap.set(day, daily);
+      }
 
       if (existing) {
         existing.totalTokensIn += tokensIn;
@@ -166,6 +196,7 @@ export function aggregateUsage(cwd: string, store: ArtifactStore = new FileArtif
 
       if (costBrl !== undefined) {
         runCost = (runCost ?? 0) + costBrl;
+        pricedCount++;
       }
 
       grandIn += tokensIn;
@@ -181,6 +212,8 @@ export function aggregateUsage(cwd: string, store: ArtifactStore = new FileArtif
     if (runCount > 0) {
       runList.push({
         runSlug: slug,
+        ...(Number.isFinite(latest) ? { recordedAt: new Date(latest).toISOString() } : {}),
+        pricedCount,
         totalTokensIn: runIn,
         totalTokensOut: runOut,
         totalCacheRead: runCache,
@@ -194,6 +227,7 @@ export function aggregateUsage(cwd: string, store: ArtifactStore = new FileArtif
     cwd,
     byModel: [...modelMap.values()],
     byRun: runList,
+    byDay: [...dayMap.values()],
     totalTokensIn: grandIn,
     totalTokensOut: grandOut,
     totalCacheRead: grandCache,
