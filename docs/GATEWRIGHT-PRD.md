@@ -12,7 +12,7 @@
 | D4 | Orquestrar e revisar | Aprovação referenciada pelo snapshot; falha bloqueia a próxima etapa; arquivos e diff visíveis. |
 | D5 | Exibir consumo | Tokens registrados, custo observado ou estimado e dados indisponíveis diferenciados. |
 | D6 | Configurar por IA | Propostas de provedor, projeto, skill e MCP com preview. Expandir para plugins executáveis, política, workflows e reversão rastreável. |
-| D7 | Interface de ferramenta de trabalho | Vocabulário de tarefa, rótulos acessíveis, foco previsível, contraste e feedback sem depender de cor. |
+| D7 | Interface de ferramenta de trabalho | Tema escuro por padrão, vocabulário de tarefa, rótulos acessíveis, foco visível e feedback que combina texto e cor. |
 
 
 ## Histórico de planejamento — 28/10/2026

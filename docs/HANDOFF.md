@@ -5,13 +5,13 @@ Leia [DESKTOP.md](DESKTOP.md), [PRD](GATEWRIGHT-PRD.md) e [TRD](GATEWRIGHT-TRD.m
 ## Pontos de entrada
 
 - `src/cli/gate.ts` — terminal, hooks, MCP, desktop e subprocesso de completion.
-- `desktop/gatewright.py` — GTK 4 e interface. `src/desktop/bridge.ts` — ações e eventos sobre stdin/stdout.
+- `desktop/main.mjs` e `preload.cjs` — janela, seleção de pasta e IPC. `desktop/renderer/` — React e tema escuro. `src/desktop/bridge.ts` — ações e eventos sobre stdin/stdout.
 - `src/app/terminal.ts` — configuração de hosts por projeto. `providers.ts` — endpoints e chaves por referência. `customize.ts` — propostas tipadas com revisão.
 - `src/core/engine/`, `src/host/`, `src/mcp/` — harness e integrações compartilhados.
 
 ## Próximos aceites
 
-1. Abrir o desktop no ambiente gráfico Linux e testar teclado, foco, contraste e feedback de erro. Exercitar seleção de pasta, tarefa, cancelamento, revisão e troca de projeto.
+1. Repetir o aceite gráfico e de teclado em instalações limpas, incluindo macOS e Windows antes de anunciar suporte. Exercitar seleção de pasta, tarefa, cancelamento, revisão e troca de projeto.
 2. Em repositório descartável, testar com as versões instaladas de Claude Code, Codex, Gemini e OpenCode. Registrar separadamente login, descoberta de MCP, prompts/resources, hooks e telemetria. O Claude Code 2.1.172 confirmou a conexão MCP em configuração temporária. Invocação interativa de skill e execução autenticada ainda exigem dogfood.
 3. Adicionar integração do harness no OpenCode e métricas de sessões externas que os hosts disponibilizem. Manter a matriz de compatibilidade atualizada por capacidade.
 4. Persistir Flow e decisões de configuração com retomada, reversão e auditabilidade. Evoluir plugins de registro MCP para instalações revisáveis com contrato tipado. Validar a política de roteamento e budgets quando houver dados confiáveis.

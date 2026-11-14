@@ -4,7 +4,7 @@
 >
 ## Proposta atual
 
-O público inicial é o dev que alterna entre agentes e provedores e quer reduzir setup repetido, entender o consumo e revisar ações a partir de um projeto. Sucesso significa abrir o mesmo repo no desktop e em hosts suportados, reaproveitar uma skill, identificar a proteção disponível e verificar o resultado de uma execução. Assinaturas, créditos e faturamento ficam sob o contrato do provedor. Validar separadamente adoção, retenção, tempo até o primeiro valor e portabilidade.
+O piloto usa Electron para compartilhar a mesma interface nas futuras distribuições desktop. O público inicial é o dev que alterna entre agentes e provedores e quer reduzir setup repetido, entender o consumo e revisar ações a partir de um projeto. Sucesso significa abrir o mesmo repo no desktop e em hosts suportados, reaproveitar uma skill, identificar a proteção disponível e verificar o resultado de uma execução. Assinaturas, créditos e faturamento ficam sob o contrato do provedor. Validar separadamente adoção, retenção, tempo até o primeiro valor e portabilidade.
 
 
 ## Histórico de planejamento — 28/10/2026

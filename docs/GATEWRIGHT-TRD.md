@@ -4,7 +4,7 @@
 >
 ## Arquitetura atual do piloto
 
-GTK 4/PyGObject controla a janela e a ponte Node usa JSONL por stdin/stdout. O serviço recebe o projeto explicitamente e reusa registry, adapters, FlowEngine, runner, journals, MCP e hooks. IDs de execução são únicos. Uma aprovação referencia HEAD, diff e journal. O MCP por stdio é um processo independente e pode receber o projeto explicitamente. O instalador de atalho depende do caminho atual do checkout e do Node. Execução local com Git e autenticação do próprio CLI ou API. Projetar empacotamento, migração de invocações absolutas, retomada do Flow e cobertura adicional de hooks como próximas entregas.
+Electron controla a janela e a interface React usa IPC restrito para falar com a ponte Node por JSONL em stdin/stdout. O renderer carrega apenas conteúdo local e roda em sandbox com isolamento de contexto e sem Node. O serviço recebe o projeto explicitamente e reusa registry, adapters, FlowEngine, runner, journals, MCP e hooks. IDs de execução são únicos. Uma aprovação referencia HEAD, diff e journal. O MCP por stdio é um processo independente e pode receber o projeto explicitamente. O instalador de atalho depende do caminho atual do checkout e do Node. Execução local com Git e autenticação do próprio CLI ou API. Projetar empacotamento, migração de invocações absolutas, retomada do Flow e cobertura adicional de hooks como próximas entregas.
 
 
 ## Histórico de planejamento — 28/10/2026

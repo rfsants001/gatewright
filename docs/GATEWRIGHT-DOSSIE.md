@@ -4,7 +4,7 @@
 >
 ## Estado atual do produto
 
-O desktop GTK adiciona projeto, execução e Flow SDD, revisão, consumo e configuração por IA. A arquitetura e as telas TUI descritas no histórico abaixo correspondem às fases anteriores. Sete gates existem como módulos. Quatro estão no registro padrão. R0 e R0.5 foram integradas. A R1 está nesta linha de trabalho, com prompts e resources no servidor e validação de clientes reais em aberto. O diretório .specs continua local.
+O desktop Electron e React adiciona projeto, execução e Flow SDD, revisão, consumo e configuração por IA. A arquitetura e as telas TUI descritas no histórico abaixo correspondem às fases anteriores. Sete gates existem como módulos. Quatro estão no registro padrão. R0 e R0.5 foram integradas. A R1 está nesta linha de trabalho, com prompts e resources no servidor e validação de clientes reais em aberto. O diretório .specs continua local.
 
 
 ## Histórico de planejamento — 28/10/2026

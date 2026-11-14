@@ -4,7 +4,7 @@
 >
 ## Direção aprovada — desktop local e terminal conectado
 
-Configure o projeto uma vez e leve skills e políticas para os hosts que você já usa. O desktop concentra execução, revisão, consumo e configuração. O terminal continua sendo uma superfície de trabalho, com MCP e hooks nas integrações que os suportam. Assinaturas ficam no login oficial do host. APIs externas, proxies e modelos locais entram por perfis de endpoint e referências de credencial. A configuração pode ser solicitada em linguagem natural, com proposta tipada, preview, aprovação e aplicação auditável como objetivo.
+Configure o projeto uma vez e leve skills e políticas para os hosts que você já usa. O desktop em Electron concentra execução, revisão, consumo e configuração. A primeira versão usa tema escuro por padrão. O terminal continua sendo uma superfície de trabalho, com MCP e hooks nas integrações que os suportam. Assinaturas ficam no login oficial do host. APIs externas, proxies e modelos locais entram por perfis de endpoint e referências de credencial. A configuração pode ser solicitada em linguagem natural, com proposta tipada, preview, aprovação e aplicação auditável como objetivo.
 
 
 ## Histórico de planejamento — 28/10/2026

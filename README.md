@@ -29,7 +29,7 @@
 
 ## Desktop and terminal
 
-Gatewright Desktop is a local Linux workspace for projects, agent runs, review, usage and configuration. Launch with `npm run desktop` after building. Claude Code, Codex, Gemini CLI and OpenCode use their own binaries. Ollama and compatible external APIs and proxies can run text completions through a project provider profile.
+Gatewright Desktop is a local workspace built with Electron and React, with a dark theme by default and Linux as the first tested platform. It brings together projects, agent runs, review, usage and configuration. Launch with `npm run desktop` after building. Claude Code, Codex, Gemini CLI and OpenCode use their own binaries. Ollama and compatible external APIs and proxies can run text completions through a project provider profile.
 
 The terminal remains a supported surface. Connect each project's MCP and supported hooks from the desktop, then restart the host. See the [desktop guide and compatibility matrix](docs/DESKTOP.md).
 

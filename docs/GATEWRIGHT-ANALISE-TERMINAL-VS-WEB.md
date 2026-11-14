@@ -4,7 +4,7 @@
 >
 ## Decisão posterior
 
-Desktop local é a interface escolhida para o piloto. A TUI continua como transição e o runtime de terminal é parte do produto. A interface web local avaliada no parecer original ficou como alternativa histórica. A decisão agora inclui vários hosts, APIs externas, proxies, Ollama e personalização assistida.
+Desktop local em Electron e React é a interface escolhida após o piloto inicial em GTK. A TUI continua como transição e o runtime de terminal é parte do produto. A interface web local avaliada no parecer original ficou como alternativa histórica. A decisão agora inclui vários hosts, APIs externas, proxies, Ollama e personalização assistida.
 
 
 ## Histórico de planejamento — 28/10/2026
