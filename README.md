@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/banner.svg" alt="Gatewright — headless guardrails for AI code agents" width="100%">
+  <img src="docs/banner.svg" alt="Gatewright: guardrails for AI coding agents on desktop and terminal, with MCP. The secret-guard rule blocks a read of .env." width="100%">
 </p>
 
 <p align="center">
