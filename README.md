@@ -7,7 +7,7 @@
   <img alt="node" src="https://img.shields.io/badge/node-%E2%89%A522-339933?logo=node.js&logoColor=white">
   <img alt="typescript" src="https://img.shields.io/badge/TypeScript-strict%20ESM-3178c6?logo=typescript&logoColor=white">
   <img alt="ci" src="https://github.com/rfsants001/gatewright/actions/workflows/ci.yml/badge.svg">
-  <img alt="tests" src="https://img.shields.io/badge/tests-565%20passing-2ea043">
+  <img alt="tests" src="https://img.shields.io/badge/tests-817%20passing-2ea043">
   <img alt="protocol" src="https://img.shields.io/badge/MCP-stdio-8957e5">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
 </p>
@@ -62,12 +62,13 @@ interactive TUI sits on top for when you'd rather drive it by hand.
 ## What you get
 
 - 🚦 **Four default hook gates** for secrets, edit checks, shell errors and proportion. Scope, completion and handoff gates exist as core modules.
-- 🧭 **Guided end-to-end flows** — run a whole SDD cycle (plan → *you review* → implement → PR) with human gates between steps.
-- 🧠 **Jev, a local-AI advisor** — optional, budget-aware, local-first judgment for the fuzzy calls a rule can't settle. It *advises*; it never hard-blocks.
+- 🖥️ **Desktop (Electron + React)** — a local dark-themed workspace for projects, runs, review, usage and configuration; Linux first. Governs four hosts: Claude Code, Codex, Gemini CLI and **OpenCode** (the latter via a shipped plugin).
+- 🧭 **Guided end-to-end flows** — run a whole SDD cycle (plan → *you review* → implement → PR) with human gates between steps. **Durable:** close the window mid-flow and reopen to resume where you left off.
+- 🧩 **Pluggable modules** — Jev, advisors, savers, models and MCP are swappable `ModuleState`s. Disable a built-in or plug an external one through config — **no compiled adapter**.
+- 🧠 **Jev, a local-AI advisor** — optional, budget-aware, local-first judgment for the fuzzy calls a rule can't settle. It *advises*; it never hard-blocks. Jev is one implementation of a pluggable **Advisor** port.
 - 🔌 **Local MCP server** — exposes the gate catalog and checks as MCP tools your agent can call.
-- 📼 **Event-sourced core** — hash-chained journal, portable artifact store, run-binding, crash recovery, replay.
+- 📼 **Event-sourced core** — hash-chained journal, portable artifact store, run-binding, crash recovery, replay. Usage is aggregated into a **daily cost chart** in the desktop.
 - 🗂️ **31 curated skills** — reusable SKILL.md playbooks (SDD, code review, debugging, refactors, …) injected into runs.
-- 🖥️ **Interactive TUI** — configure, provision, run, review history, and roll back without memorizing a single subcommand.
 - 🌳 **Worktree-per-run isolation**, session leases with fencing, and native reconciliation of the agent's own tool calls.
 
 ---
@@ -121,6 +122,11 @@ approving instead of rubber-stamping it. Decline a gate and the flow stops clean
 The live run view is OpenCode-style: a scrollable viewport, tool targets, cleaned markdown, and the
 AI's answer rendered in full. You can leave any screen and return to the dashboard at any time.
 
+Flows are **durable**: every input the flow consumes (run outputs, your answers) is appended to a
+per-project flow-journal, so closing the desktop mid-cycle and reopening the project **replays the
+flow to where you left off** — a pending review is re-presented, and an interrupted run waits for an
+explicit resume rather than re-running on its own.
+
 ---
 
 ## Jev — local-AI advisory
@@ -132,6 +138,7 @@ real proportion of a diff, the quality of a handoff, scope disambiguation. It is
 - **Budget-aware** — a per-feature quota caps how much it's consulted.
 - **Advisory only** — every verdict is `approve` / `discard` / `abstain`, never a hard block, and all of it is logged to the journal.
 - **Zero-install** — Jev installs nothing. Helper scripts detect an already-running local endpoint and write the config Gatewright reads.
+- **Swappable** — Jev sits behind an **Advisor** port. Disable it (`set_module_enabled("jev", false)`) and the gate consults no one; or plug an external advisor through config — the gates resolve whichever advisor is active, no code change.
 
 ```sh
 python3 scripts/jev/detect.py                       # probe Ollama / LM Studio
@@ -398,11 +405,14 @@ src/
     validators/     atomic validators + step/workflow registries
     goal/           finding-ledger · evidence · goal-verifier
     skills/         SKILL.md · catalog · scaffold
-    flow/           flow engine + SDD flow + <gate-ask> questions
+    flow/           flow engine + SDD flow + <gate-ask> questions + durable flow-journal
+    integrations/   pluggable ModuleState registry + IntegrationSpec
     worktree/       run → git worktree
   gates/      the shipped gates
-  host/       host-contract + Claude Code adapter
+  host/       host-contract + Claude Code / Codex / Gemini / OpenCode adapters
+  desktop/    Electron bridge + launch (runtime assets live in top-level desktop/)
   mcp/        MCP server
+desktop/      Electron main + preload + React renderer (dark theme, cost chart)
 skills/       31 curated SKILL.md playbooks
 scripts/jev/  local-endpoint detection & configuration (Python)
 ```
@@ -413,7 +423,7 @@ scripts/jev/  local-endpoint detection & configuration (Python)
 
 ```sh
 npm run typecheck     # tsc --noEmit (strict, NodeNext ESM)
-npm test              # vitest — 349 tests
+npm test              # vitest — 817 tests
 npm run build         # emit dist/
 ```
 
