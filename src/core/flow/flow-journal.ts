@@ -23,6 +23,8 @@ export const FLOW_TERMINAL_TYPE = "FLOW_TERMINAL" as const;
 export interface FlowStartPayload {
   goal: string;
   flowKind: string;
+  engineId: string;
+  model?: string;
 }
 
 export interface FlowRunPayload {

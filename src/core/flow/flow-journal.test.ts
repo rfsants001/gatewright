@@ -38,12 +38,12 @@ describe("flow-journal", () => {
 
   it("round-trips a FLOW_START entry", () => {
     const journal = openFlowJournal(dir);
-    appendStart(journal, { goal: "build it", flowKind: "sdd" }, "2026-01-01T00:00:00Z");
+    appendStart(journal, { goal: "build it", flowKind: "sdd", engineId: "claude-code" }, "2026-01-01T00:00:00Z");
     const entries = readEntries(journal);
     expect(entries).toHaveLength(1);
     const e = entries[0]!;
     expect(e.type).toBe(FLOW_START_TYPE);
-    expect(e.payload).toEqual({ goal: "build it", flowKind: "sdd" });
+    expect(e.payload).toEqual({ goal: "build it", flowKind: "sdd", engineId: "claude-code" });
     expect(e.at).toBe("2026-01-01T00:00:00Z");
   });
 
@@ -113,7 +113,7 @@ describe("flow-journal", () => {
 
   it("preserves insertion order across multiple appends", () => {
     const journal = openFlowJournal(dir);
-    appendStart(journal, { goal: "g", flowKind: "sdd" }, "2026-01-01T00:00:00Z");
+    appendStart(journal, { goal: "g", flowKind: "sdd", engineId: "claude-code" }, "2026-01-01T00:00:00Z");
     appendRun(journal, { stepId: "s1", output: "out1" }, "2026-01-01T00:00:01Z");
     appendAnswers(journal, { stepId: "s1", answers: { q1: "a" } }, "2026-01-01T00:00:02Z");
     appendRun(journal, { stepId: "s2", output: "out2" }, "2026-01-01T00:00:03Z");
@@ -131,7 +131,7 @@ describe("flow-journal", () => {
 
   it("readLastEntry returns the last appended entry", () => {
     const journal = openFlowJournal(dir);
-    appendStart(journal, { goal: "g", flowKind: "sdd" }, "2026-01-01T00:00:00Z");
+    appendStart(journal, { goal: "g", flowKind: "sdd", engineId: "claude-code" }, "2026-01-01T00:00:00Z");
     appendTerminal(journal, "aborted", "2026-01-01T00:00:01Z");
 
     const last = readLastEntry(journal);
@@ -142,7 +142,7 @@ describe("flow-journal", () => {
 
   it("journal hash-chain remains valid after multiple appends", () => {
     const journal = openFlowJournal(dir);
-    appendStart(journal, { goal: "g", flowKind: "sdd" });
+    appendStart(journal, { goal: "g", flowKind: "sdd", engineId: "claude-code" });
     appendRun(journal, { stepId: "s1", output: "o" });
     appendTerminal(journal, "done");
     expect(journal.verify().ok).toBe(true);
@@ -150,7 +150,7 @@ describe("flow-journal", () => {
 
   it("two Journal instances on the same path share the same state", () => {
     const j1 = openFlowJournal(dir);
-    appendStart(j1, { goal: "shared", flowKind: "sdd" }, "2026-01-01T00:00:00Z");
+    appendStart(j1, { goal: "shared", flowKind: "sdd", engineId: "claude-code" }, "2026-01-01T00:00:00Z");
 
     const j2 = openFlowJournal(dir);
     const entries = readEntries(j2);
