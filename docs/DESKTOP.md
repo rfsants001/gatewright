@@ -4,14 +4,14 @@ Gatewright é um painel local para projetos que usam agentes de código. A janel
 
 ## Executar
 
-Use Linux, macOS ou Windows com sessão gráfica, Node 22+ e Git. A primeira abertura pode baixar o binário oficial do Electron. Instale e autentique os hosts que pretende usar.
+Use Linux, macOS ou Windows com sessão gráfica, Node 22.12 ou superior e Git. A primeira abertura pode baixar o binário oficial do Electron. Instale e autentique os hosts que pretende usar.
 
 ```sh
 npm ci
 npm run desktop:dev -- /caminho/do/projeto
 ```
 
-O caminho do projeto é opcional. Coloque-o entre aspas se contiver espaços, como em `npm run desktop:dev -- "C:/Meus Projetos/app"`. Depois do build, `npm run desktop` abre a janela diretamente.
+O caminho do projeto é opcional. Coloque-o entre aspas se contiver espaços, como em `npm run desktop:dev -- "C:/Meus Projetos/app"`. Depois do build, `npm run desktop` abre a janela diretamente. No Linux, o Electron usa namespaces de usuário ou o helper de sandbox configurado pelo sistema.
 
 No Linux, rode `npm run desktop:install` para criar a entrada no menu. O atalho usa o checkout e o Node existentes. Se mover o checkout ou trocar o caminho do Node, reinstale o atalho e reaplique as conexões dos hosts. Com `gate` instalado no PATH, use `gate desktop` para abrir a janela e `gate dashboard` para usar a interface de terminal.
 

@@ -4,7 +4,7 @@
 
 <p align="center">
   <img alt="status" src="https://img.shields.io/badge/status-alpha-orange">
-  <img alt="node" src="https://img.shields.io/badge/node-%E2%89%A522-339933?logo=node.js&logoColor=white">
+  <img alt="node" src="https://img.shields.io/badge/node-%E2%89%A522.12-339933?logo=node.js&logoColor=white">
   <img alt="typescript" src="https://img.shields.io/badge/TypeScript-strict%20ESM-3178c6?logo=typescript&logoColor=white">
   <img alt="ci" src="https://github.com/rfsants001/gatewright/actions/workflows/ci.yml/badge.svg">
   <img alt="tests" src="https://img.shields.io/badge/tests-817%20passing-2ea043">
@@ -198,7 +198,7 @@ and the read-only ones print plain text so they're headless-friendly.
 
 > Gatewright is in **alpha** and runs from source — there's no published package yet.
 
-**Requirements:** Node ≥ 22 and git. (Jev additionally wants a local LLM endpoint — Ollama or
+**Requirements:** Node ≥ 22.12 and Git. (Jev additionally wants a local LLM endpoint — Ollama or
 LM Studio — but installs nothing itself.)
 
 ```sh

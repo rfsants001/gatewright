@@ -40,7 +40,11 @@ jobs:
       - run: npm ci
       - name: Open a project on Linux
         if: runner.os == 'Linux'
-        run: xvfb-run -a npm run test:desktop
+        run: |
+          node -e "require('electron')"
+          sudo chown root:root node_modules/electron/dist/chrome-sandbox
+          sudo chmod 4755 node_modules/electron/dist/chrome-sandbox
+          xvfb-run -a npm run test:desktop
       - name: Open a project on macOS or Windows
         if: runner.os != 'Linux'
         run: npm run test:desktop
