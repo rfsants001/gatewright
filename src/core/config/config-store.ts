@@ -8,6 +8,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import type { Provider } from "../../app/providers.js";
 import type { ArtifactStore } from "../artifact-store/types.js";
+import type { ModuleState } from "../integrations/modules.js";
 
 export type ConfigScope = "gate" | "project";
 
@@ -30,6 +31,8 @@ export interface GatewrightConfig {
   packages?: PackageRecord[];
   providers?: Provider[];
   linkedProjects?: string[];
+  /** Pluggable modules registered at this scope. */
+  modules?: ModuleState[];
 }
 
 /** A patch; a key set to `undefined` clears it from the scope. */
@@ -46,6 +49,14 @@ function mergePackages(base: PackageRecord[] | undefined, over: PackageRecord[] 
   const byId = new Map<string, PackageRecord>();
   for (const p of base ?? []) byId.set(p.id, p);
   for (const p of over ?? []) byId.set(p.id, p); // project record wins per id
+  return [...byId.values()];
+}
+
+function mergeModules(base: ModuleState[] | undefined, over: ModuleState[] | undefined): ModuleState[] | undefined {
+  if (!base && !over) return undefined;
+  const byId = new Map<string, ModuleState>();
+  for (const m of base ?? []) byId.set(m.id, m);
+  for (const m of over ?? []) byId.set(m.id, m); // project record wins per id
   return [...byId.values()];
 }
 
@@ -66,6 +77,8 @@ export function mergeConfig(base: GatewrightConfig, over: ConfigPatch): Gatewrig
   if (over.linkedProjects) merged.linkedProjects = over.linkedProjects;
   const pkgs = mergePackages(base.packages, over.packages);
   if (pkgs) merged.packages = pkgs;
+  const mods = mergeModules(base.modules, over.modules);
+  if (mods) merged.modules = mods;
   return merged;
 }
 
