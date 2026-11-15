@@ -483,7 +483,7 @@ function App() {
         <button className="icon-button" aria-label="Atualizar projeto" title="Atualizar projeto" onClick={() => refresh()} disabled={!cwd || loading}>
           <RefreshCw size={15} aria-hidden="true" />
         </button></div>
-      <main id="main" key={page} tabIndex={-1}><div className="content">
+      <main id="main" key={page} tabIndex={0}><div className="content">
         {page === "project" ? <Project {...{ cwd, data, loading, recents, busy, open, choose, connect, navigate: setPage }} />
           : !cwd ? <Empty title="Abra um projeto" action={<button className="primary" onClick={choose}>Abrir pasta…</button>}>
             Selecione um repositório para acessar {pages.find(([id]) => page === id)[1].toLowerCase()}.

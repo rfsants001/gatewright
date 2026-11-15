@@ -76,7 +76,13 @@ pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 svg { flex: none; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
-.app-shell { display: grid; grid-template-columns: 192px minmax(0, 1fr); height: 100vh; overflow: hidden; }
+.app-shell {
+  display: grid;
+  grid-template-columns: 192px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  height: 100vh;
+  overflow: hidden;
+}
 .sidebar { display: flex; flex-direction: column; background: var(--sidebar); border-right: 1px solid var(--line); padding: 17px 11px 11px; min-width: 0; }
 .brand { display: flex; align-items: center; gap: 9px; margin: 0 4px 26px; color: var(--text); font-size: 16px; font-weight: 690; letter-spacing: -.045em; white-space: nowrap; }
 .brand-mark {
@@ -120,6 +126,7 @@ nav button[aria-current="page"]::before { content: ""; position: absolute; inset
 .statusbar.error { color: var(--error); }
 
 main { min-height: 0; overflow: auto; scrollbar-gutter: stable; }
+main:focus-visible { outline-offset: -2px; }
 .content { max-width: 1420px; padding: 27px clamp(18px, 3vw, 36px) 30px; margin: auto; }
 .page-heading { display: flex; justify-content: space-between; align-items: center; gap: 15px; margin-bottom: 21px; }
 .page-heading p { margin-top: 5px; }
