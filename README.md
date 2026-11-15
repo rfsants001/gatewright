@@ -29,7 +29,7 @@
 
 ## Desktop and terminal
 
-Gatewright Desktop is a local workspace built with Electron and React, with a dark theme by default and Linux as the first tested platform. It brings together projects, agent runs, review, usage and configuration. Build and launch with `npm run desktop:dev`. Claude Code, Codex, Gemini CLI and OpenCode use their own binaries. Ollama and compatible external APIs and proxies can run text completions through a project provider profile.
+Gatewright Desktop is a local workspace built with Electron and React, with a dark theme by default. The desktop launcher supports Linux, macOS, and Windows. It brings together projects, agent runs, review, usage and configuration. Build and launch with `npm run desktop:dev`. Claude Code, Codex, Gemini CLI and OpenCode use their own binaries. Ollama and compatible external APIs and proxies can run text completions through a project provider profile.
 
 The terminal remains a supported surface. Connect each project's MCP and supported hooks from the desktop, then restart the host. See the [desktop guide and compatibility matrix](docs/DESKTOP.md).
 
@@ -83,7 +83,7 @@ interactive TUI sits on top for when you'd rather drive it by hand.
 ## What you get
 
 - 🚦 **Four default hook gates** for secrets, edit checks, shell errors and proportion. Scope, completion and handoff gates exist as core modules.
-- 🖥️ **Desktop (Electron + React)** — a local dark-themed workspace for projects, runs, review, usage and configuration; Linux first. Governs four hosts: Claude Code, Codex, Gemini CLI and **OpenCode** (the latter via a shipped plugin).
+- 🖥️ **Desktop (Electron + React)** — a local dark-themed workspace for projects, runs, review, usage and configuration. Governs four hosts: Claude Code, Codex, Gemini CLI and **OpenCode** (the latter via a shipped plugin).
 - 🧭 **Guided end-to-end flows** — run a whole SDD cycle (plan → *you review* → implement → PR) with human gates between steps. **Durable:** close the window mid-flow and reopen to resume where you left off.
 - 🧩 **Pluggable modules** — Jev, advisors, savers, models and MCP are swappable `ModuleState`s. Disable a built-in or plug an external one through config — **no compiled adapter**.
 - 🧠 **Jev, a local-AI advisor** — optional, budget-aware, local-first judgment for the fuzzy calls a rule can't settle. It *advises*; it never hard-blocks. Jev is one implementation of a pluggable **Advisor** port.
@@ -205,7 +205,7 @@ LM Studio — but installs nothing itself.)
 git clone https://github.com/rfsants001/gatewright.git
 cd gatewright
 npm ci
-npm run desktop:dev # builds and opens the Linux desktop
+npm run desktop:dev # builds and opens the desktop on Linux, macOS, or Windows
 npm start -- dashboard # opens the terminal interface after the build
 ```
 

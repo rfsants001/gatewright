@@ -1,19 +1,19 @@
 # Gatewright Desktop
 
-Gatewright é um painel local para projetos que usam agentes de código. A janela usa Electron e React, com tema escuro por padrão. O piloto foi validado no Linux. O runtime continua em TypeScript/Node e é compartilhado com o terminal.
+Gatewright é um painel local para projetos que usam agentes de código. A janela usa Electron e React, com tema escuro por padrão. O runtime continua em TypeScript/Node e é compartilhado com o terminal.
 
 ## Executar
 
-Requisitos do piloto: Linux com sessão gráfica, Node 22+ e Git. A instalação das dependências inclui Electron e a primeira abertura pode baixar o binário oficial. Instale e autentique os hosts que pretende usar.
+Use Linux, macOS ou Windows com sessão gráfica, Node 22+ e Git. A primeira abertura pode baixar o binário oficial do Electron. Instale e autentique os hosts que pretende usar.
 
 ```sh
 npm ci
 npm run desktop:dev -- /caminho/do/projeto
 ```
 
-Se o projeto já estiver compilado, use `npm run desktop -- /caminho/do/projeto` para abrir a janela.
+O caminho do projeto é opcional. Coloque-o entre aspas se contiver espaços, como em `npm run desktop:dev -- "C:/Meus Projetos/app"`. Depois do build, `npm run desktop` abre a janela diretamente.
 
-Para criar a entrada no menu, rode `npm run desktop:install`. O atalho usa o checkout e o Node existentes. Se mover o checkout ou trocar o caminho do Node, reinstale o atalho e reaplique as conexões dos hosts. Em sessão gráfica Linux, `gate` abre o desktop. Use `gate dashboard` para a TUI e `gate desktop` para abrir a janela explicitamente.
+No Linux, rode `npm run desktop:install` para criar a entrada no menu. O atalho usa o checkout e o Node existentes. Se mover o checkout ou trocar o caminho do Node, reinstale o atalho e reaplique as conexões dos hosts. Com `gate` instalado no PATH, use `gate desktop` para abrir a janela e `gate dashboard` para usar a interface de terminal.
 
 ## Usar
 

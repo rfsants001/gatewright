@@ -22,3 +22,25 @@ jobs:
 
       - name: Typecheck, build and test
         run: npm run check
+
+  desktop:
+    name: Desktop startup on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 8
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Open a project on Linux
+        if: runner.os == 'Linux'
+        run: xvfb-run -a npm run test:desktop
+      - name: Open a project on macOS or Windows
+        if: runner.os != 'Linux'
+        run: npm run test:desktop

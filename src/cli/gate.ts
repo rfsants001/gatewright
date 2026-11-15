@@ -77,12 +77,12 @@ function main(argv: string[]): number {
         [
           "gate — Gatewright (headless guardrails for AI code agents)",
           "",
-          "Run `gate` with no arguments for the desktop on graphical Linux. Use `gate dashboard` for the TUI.",
+          "Run `gate desktop` to open the desktop on Linux, macOS, or Windows. Use `gate dashboard` for the TUI.",
           "",
           "Usage: gate [command] [options]",
           "",
           "Interactive screens:",
-          "  desktop       open the desktop app (Linux)",
+          "  desktop       open the desktop app",
           "  dashboard     terminal dashboard",
           "  doctor        diagnose the setup (status board)",
           "  init          self-configure this project (wizard)",
@@ -165,7 +165,10 @@ async function runAsyncCommand(argv: string[]): Promise<number | null> {
       return (await plain()).textSkills();
     case undefined:
       if (!process.stdin.isTTY || !process.stdout.isTTY) return null;
-      if (process.platform === "linux" && (process.env.WAYLAND_DISPLAY || process.env.DISPLAY)) {
+      if (
+        (process.platform === "linux" && (process.env.WAYLAND_DISPLAY || process.env.DISPLAY))
+        || ((process.platform === "darwin" || process.platform === "win32") && !process.env.SSH_CONNECTION)
+      ) {
         return (await import("../desktop/launch.js")).launchDesktop([]);
       }
       return app();
