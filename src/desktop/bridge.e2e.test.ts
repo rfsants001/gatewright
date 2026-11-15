@@ -24,7 +24,7 @@ const GATE_CLI = new URL("../../dist/cli/gate.js", import.meta.url).pathname;
 /** Wire a `gate bridge` process and return a typed request/reply helper. */
 function startBridge(): { proc: ChildProcess; rpc: (method: string, params: Record<string, unknown>) => Promise<{ result?: unknown; error?: string }> } {
   if (!existsSync(GATE_CLI)) {
-    throw new Error(`Bridge e2e needs the compiled CLI at ${GATE_CLI}. Run \`npm run build\` before \`npm test\` (CI builds first).`);
+    throw new Error(`Bridge e2e needs the compiled CLI at ${GATE_CLI}. Run \`npm test\` to build automatically, or \`npm run build\` before running Vitest directly.`);
   }
   const proc = spawn(process.execPath, [GATE_CLI, "bridge"], {
     stdio: ["pipe", "pipe", "pipe"],

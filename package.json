@@ -45,9 +45,13 @@
     "start": "node dist/cli/gate.js",
     "gate": "node dist/cli/gate.js",
     "typecheck": "tsc --noEmit -p tsconfig.json",
+    "check": "npm run typecheck && npm test",
+    "pretest": "npm run build",
     "test": "vitest run",
+    "pretest:watch": "npm run build",
     "test:watch": "vitest",
     "desktop": "node dist/cli/gate.js desktop",
+    "desktop:dev": "npm run build && npm run desktop --",
     "desktop:install": "node desktop/install-launcher.mjs"
   },
   "devDependencies": {

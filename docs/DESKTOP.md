@@ -8,9 +8,10 @@ Requisitos do piloto: Linux com sessão gráfica, Node 22+ e Git. A instalação
 
 ```sh
 npm ci
-npm run build
-npm run desktop -- /caminho/do/projeto
+npm run desktop:dev -- /caminho/do/projeto
 ```
+
+Se o projeto já estiver compilado, use `npm run desktop -- /caminho/do/projeto` para abrir a janela.
 
 Para criar a entrada no menu, rode `npm run desktop:install`. O atalho usa o checkout e o Node existentes. Se mover o checkout ou trocar o caminho do Node, reinstale o atalho e reaplique as conexões dos hosts. Em sessão gráfica Linux, `gate` abre o desktop. Use `gate dashboard` para a TUI e `gate desktop` para abrir a janela explicitamente.
 

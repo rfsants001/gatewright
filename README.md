@@ -29,7 +29,7 @@
 
 ## Desktop and terminal
 
-Gatewright Desktop is a local workspace built with Electron and React, with a dark theme by default and Linux as the first tested platform. It brings together projects, agent runs, review, usage and configuration. Launch with `npm run desktop` after building. Claude Code, Codex, Gemini CLI and OpenCode use their own binaries. Ollama and compatible external APIs and proxies can run text completions through a project provider profile.
+Gatewright Desktop is a local workspace built with Electron and React, with a dark theme by default and Linux as the first tested platform. It brings together projects, agent runs, review, usage and configuration. Build and launch with `npm run desktop:dev`. Claude Code, Codex, Gemini CLI and OpenCode use their own binaries. Ollama and compatible external APIs and proxies can run text completions through a project provider profile.
 
 The terminal remains a supported surface. Connect each project's MCP and supported hooks from the desktop, then restart the host. See the [desktop guide and compatibility matrix](docs/DESKTOP.md).
 
@@ -204,10 +204,9 @@ LM Studio — but installs nothing itself.)
 ```sh
 git clone https://github.com/rfsants001/gatewright.git
 cd gatewright
-npm install
-npm run build
-npm run desktop # opens the Linux desktop
-npm start -- dashboard # opens the terminal interface
+npm ci
+npm run desktop:dev # builds and opens the Linux desktop
+npm start -- dashboard # opens the terminal interface after the build
 ```
 
 Expose the `gate` binary on your PATH (optional):
@@ -218,7 +217,7 @@ gate --version   # gate 0.1.0
 gate --help
 ```
 
-You can also run it directly (`node dist/cli/gate.js [command]`) or in watch mode (`npm run dev`).
+Use `npm run dev -- <command>` to run the CLI from TypeScript sources.
 
 ### Uninstall
 
@@ -443,9 +442,10 @@ scripts/jev/  local-endpoint detection & configuration (Python)
 ## Development
 
 ```sh
-npm run typecheck     # tsc --noEmit (strict, NodeNext ESM)
-npm test              # vitest — 817 tests
-npm run build         # emit dist/
+npm run check      # typecheck, build, and run the test suite
+npm test           # build and run Vitest
+npm run test:watch # build once and keep Vitest open
+npm run build      # emit dist/
 ```
 
 TypeScript, ESM, Vitest. The suite is fast and hermetic — no external services (Jev is tested with a
