@@ -11,8 +11,15 @@ import { type EngineAdapter } from "../core/engine/types.js";
 import { openRunJournal } from "../core/engine/run-journal.js";
 import { startRun, type RunHandle } from "../core/engine/runner.js";
 import { aggregateUsage } from "../core/run/usage.js";
-import { FlowEngine } from "../core/flow/flow.js";
+import { FlowEngine, replayFlow, type FlowInput } from "../core/flow/flow.js";
 import { buildSddFlow } from "../core/flow/sdd-flow.js";
+import {
+  openFlowJournal, appendStart, appendRun, appendAnswers, appendTerminal,
+  readEntries,
+  FLOW_START_TYPE, FLOW_TERMINAL_TYPE, FLOW_RUN_TYPE, FLOW_ANSWERS_TYPE,
+  type FlowStartEntry,
+} from "../core/flow/flow-journal.js";
+import type { Journal } from "../core/journal/journal.js";
 import { stripQuestions } from "../core/flow/questions.js";
 import { buildSkillsSystemPrompt, loadGateSkills } from "../core/skills/gate-catalog.js";
 import { ConfigStore } from "../core/config/config-store.js";
@@ -35,6 +42,7 @@ export async function serveDesktop(): Promise<void> {
   let selected: string | undefined;
   let flow: {
     cwd: string; adapter: EngineAdapter; model?: string; engine: FlowEngine;
+    journal: Journal;
     pending?: { token: string; text: string; runId: string; revision: string };
   } | undefined;
   const send = (value: unknown) => process.stdout.write(JSON.stringify(value) + "\n");
@@ -85,6 +93,7 @@ export async function serveDesktop(): Promise<void> {
   function advance(current: NonNullable<typeof flow>, last?: { runId: string; text: string }): { runId?: string } {
     const directive = current.engine.peek();
     if (directive.type === "done") {
+      appendTerminal(current.journal, "done");
       flow = undefined;
       send({ event: "flow.done", cwd: current.cwd, data: null });
       return {};
@@ -101,20 +110,25 @@ export async function serveDesktop(): Promise<void> {
     void run.done.then((result) => {
       if (flow !== current) return;
       if (result.state !== "PASSED") {
+        appendTerminal(current.journal, "stopped");
         flow = undefined;
         send({ event: "flow.error", cwd: current.cwd, data: "A etapa falhou ou foi cancelada. O fluxo foi interrompido." });
         return;
       }
       try {
-        const journal = openRunJournal(current.cwd, run.id).journal;
-        const output = journal.read().flatMap((entry) => {
+        const runJournal = openRunJournal(current.cwd, run.id).journal;
+        const output = runJournal.read().flatMap((entry) => {
           const payload = entry.payload as { kind?: string; text?: string };
           return entry.type === "ENGINE_EVENT" && (payload.kind === "assistant" || payload.kind === "result") && payload.text ? [payload.text] : [];
         }).join("\n");
+        const runDirective = current.engine.peek();
+        const stepId = runDirective.type !== "done" ? runDirective.step.id : run.id;
         current.engine.submitRun(output);
+        appendRun(current.journal, { stepId, output, runId: run.id });
         const next = advance(current, { runId: run.id, text: output });
         if (next.runId) send({ event: "flow.run", cwd: current.cwd, data: next.runId });
       } catch (error) {
+        appendTerminal(current.journal, "stopped");
         flow = undefined;
         send({ event: "flow.error", cwd: current.cwd, data: error instanceof Error ? error.message : String(error) });
       }
@@ -134,7 +148,96 @@ export async function serveDesktop(): Promise<void> {
       if (!statSync(cwd).isDirectory()) throw new Error("Selecione uma pasta de projeto.");
       projects.register({ path: cwd, name: basename(cwd), configuredAt: new Date().toISOString() });
       selected = cwd;
-      return { cwd };
+
+      // ── FDR-004: attempt durable resume ───────────────────────────────────
+      let resumableFlow: { title: string; atKind: "ask" | "run"; pendingAsk?: boolean } | undefined;
+      try {
+        const flowJournal = openFlowJournal(cwd);
+        const entries = readEntries(flowJournal);
+
+        // Find the index of the LAST FLOW_START entry.
+        let startIdx = -1;
+        for (let i = entries.length - 1; i >= 0; i--) {
+          const e = entries[i]!;
+          if (e.type === FLOW_START_TYPE) { startIdx = i; break; }
+        }
+
+        if (startIdx !== -1) {
+          const segment = entries.slice(startIdx);
+          // If the segment contains a FLOW_TERMINAL → no resume.
+          const hasTerminal = segment.some((e) => e.type === FLOW_TERMINAL_TYPE);
+          if (!hasTerminal) {
+            const startEntry = segment[0] as FlowStartEntry;
+            const goal = startEntry.payload.goal;
+            const engineId = startEntry.payload.engineId;
+            const savedModel = startEntry.payload.model;
+
+            // Build FlowInput[] from FLOW_RUN and FLOW_ANSWERS entries in order.
+            const inputs: FlowInput[] = [];
+            for (const e of segment.slice(1)) {
+              if (e.type === FLOW_RUN_TYPE) {
+                inputs.push({ kind: "run", stepId: e.payload.stepId, output: e.payload.output });
+              } else if (e.type === FLOW_ANSWERS_TYPE) {
+                inputs.push({ kind: "answers", stepId: e.payload.stepId, answers: e.payload.answers });
+              }
+            }
+
+            const steps = buildSddFlow().filter((s) => s.id !== "confirm-ship" && s.id !== "ship");
+            const res = replayFlow(steps, goal, inputs);
+
+            if ("drift" in res) {
+              appendTerminal(flowJournal, "version-mismatch");
+            } else {
+              const adapter = registry.get(engineId);
+              const current: { cwd: string; adapter: EngineAdapter; model?: string; engine: FlowEngine; journal: Journal; pending?: { token: string; text: string; runId: string; revision: string } } = { cwd, adapter, engine: res.engine, journal: flowJournal };
+              if (savedModel !== undefined) current.model = savedModel;
+              flow = current;
+
+              const directive = current.engine.peek();
+              if (directive.type === "done") {
+                // Nothing to resume.
+                flow = undefined;
+              } else if (directive.type === "run") {
+                resumableFlow = { title: directive.step.title, atKind: "run" };
+              } else {
+                // directive.type === "ask": recompute pending from the last FLOW_RUN in segment.
+                let lastRunId: string | undefined;
+                let lastRunOutput: string | undefined;
+                for (let i = segment.length - 1; i >= 0; i--) {
+                  const se = segment[i]!;
+                  if (se.type === FLOW_RUN_TYPE) {
+                    lastRunId = se.payload.runId;
+                    lastRunOutput = se.payload.output;
+                    break;
+                  }
+                }
+
+                if (lastRunId && lastRunOutput !== undefined) {
+                  try {
+                    const snapshot = review(cwd, lastRunId);
+                    const token = createHash("sha256")
+                      .update(JSON.stringify([snapshot.revision, directive.step.id, directive.questions]))
+                      .digest("hex");
+                    current.pending = { token, text: lastRunOutput, runId: lastRunId, revision: snapshot.revision };
+                    send({ event: "flow.ask", cwd, data: { token, title: directive.step.title, questions: directive.questions, output: stripQuestions(lastRunOutput), diff: snapshot.diff } });
+                    resumableFlow = { title: directive.step.title, atKind: "ask", pendingAsk: true };
+                  } catch {
+                    // review() failed (repo changed/unreadable) — resume without pending ask.
+                    resumableFlow = { title: directive.step.title, atKind: "ask", pendingAsk: false };
+                  }
+                } else {
+                  // No runId available — can't revalidate; resume without pending ask.
+                  resumableFlow = { title: directive.step.title, atKind: "ask", pendingAsk: false };
+                }
+              }
+            }
+          }
+        }
+      } catch (err) {
+        process.stderr.write(`[gatewright] flow resume error: ${err instanceof Error ? err.message : String(err)}\n`);
+      }
+
+      return resumableFlow !== undefined ? { cwd, resumableFlow } : { cwd };
     }
     const cwd = assertProject(params);
     switch (method) {
@@ -224,8 +327,11 @@ export async function serveDesktop(): Promise<void> {
           type: "DESKTOP_FLOW_DECISION", at: new Date().toISOString(), payload: { token, answers },
         });
         delete current.pending;
+        const askStepId = directive.step.id;
         const next = current.engine.submitAnswers(answers);
+        appendAnswers(current.journal, { stepId: askStepId, answers });
         if (next.type === "done" && next.aborted) {
+          appendTerminal(current.journal, "aborted");
           flow = undefined;
           send({ event: "flow.done", cwd, data: "Revisão recusada. O fluxo foi encerrado." });
           return {};
@@ -234,6 +340,7 @@ export async function serveDesktop(): Promise<void> {
       }
       case "flow.stop":
         if (flow?.cwd === cwd) {
+          appendTerminal(flow.journal, "stopped");
           flow = undefined;
           for (const handle of active.values()) handle.cancel();
           send({ event: "flow.done", cwd, data: "Fluxo encerrado." });
@@ -248,10 +355,21 @@ export async function serveDesktop(): Promise<void> {
         if (method === "run") return { runId: start(cwd, adapter, prompt, model).id };
         if (provider) throw new Error("Escolha um agente de terminal para executar o fluxo com ferramentas.");
         const steps = buildSddFlow().filter((step) => step.id !== "confirm-ship" && step.id !== "ship");
-        const current = { cwd, adapter, ...(model ? { model } : {}), engine: new FlowEngine(steps, prompt) };
+        const flowJournal = openFlowJournal(cwd);
+        const current = { cwd, adapter, ...(model ? { model } : {}), engine: new FlowEngine(steps, prompt), journal: flowJournal };
         flow = current;
+        appendStart(flowJournal, { goal: prompt, flowKind: "sdd", engineId: engine, ...(model !== undefined ? { model } : {}) });
         try { return advance(current); }
         catch (error) { flow = undefined; throw error; }
+      }
+      case "flow.resume": {
+        const current = flow;
+        if (!current || current.cwd !== cwd) throw new Error("Nenhum fluxo para retomar.");
+        const directive = current.engine.peek();
+        if (directive.type !== "run") throw new Error("Nenhum fluxo para retomar.");
+        const next = advance(current);
+        if (next.runId) send({ event: "flow.run", cwd, data: next.runId });
+        return next;
       }
       default: throw new Error("Ação desconhecida.");
     }
