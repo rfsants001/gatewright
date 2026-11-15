@@ -33,6 +33,27 @@ Gatewright Desktop is a local workspace built with Electron and React, with a da
 
 The terminal remains a supported surface. Connect each project's MCP and supported hooks from the desktop, then restart the host. See the [desktop guide and compatibility matrix](docs/DESKTOP.md).
 
+### Desktop screenshots
+
+Captured on Linux with a demo repository and sample usage data.
+
+**Project overview** shows the detected terminal hosts, the MCP and hook capabilities they support, and a seven-day cost summary.
+
+![Gatewright project overview showing Claude Code, Codex, Gemini CLI, and OpenCode alongside a seven-day cost chart](docs/screenshots/desktop-overview.webp)
+
+<details>
+<summary>View usage and execution</summary>
+
+**Usage** shows daily costs over 7 or 30 days, costs by model, and token counts for recent runs. Missing prices are flagged.
+
+![Gatewright usage panel showing token totals, cost by day and model, and recent runs](docs/screenshots/desktop-usage.webp)
+
+**Execution** shows the selected agent, task, live log, and the action to review the diff.
+
+![Gatewright execution panel showing a completed Gemini CLI task and the action to review changes](docs/screenshots/desktop-execution.webp)
+
+</details>
+
 ## The problem
 
 Leave a coding agent alone and it drifts. Scope creeps past what you asked for. Diffs balloon.
