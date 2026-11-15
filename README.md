@@ -205,11 +205,24 @@ LM Studio — but installs nothing itself.)
 git clone https://github.com/rfsants001/gatewright.git
 cd gatewright
 npm ci
-npm run desktop:dev # builds and opens the desktop on Linux, macOS, or Windows
-npm start -- dashboard # opens the terminal interface after the build
 ```
 
-Expose the `gate` binary on your PATH (optional):
+Build and open the desktop on Linux, macOS, or Windows.
+
+```sh
+npm run desktop:dev
+```
+
+To open a specific project, run `npm run desktop:dev -- "path/to/project"`. If you already built the project, use `npm run desktop` to launch it directly.
+
+To use the terminal dashboard, run these commands from the checkout.
+
+```sh
+npm run build
+npm start -- dashboard
+```
+
+To expose the `gate` binary on your PATH, run these commands after building.
 
 ```sh
 npm link         # now `gate` is available globally
@@ -217,7 +230,7 @@ gate --version   # gate 0.1.0
 gate --help
 ```
 
-Use `npm run dev -- <command>` to run the CLI from TypeScript sources.
+To run the CLI from TypeScript sources, try `npm run dev -- --help`.
 
 ### Uninstall
 
@@ -237,7 +250,7 @@ The floor is deterministic: a gate refuses a risky action with a legible reason.
 reading a secret file is blocked by `secret-guard`. This path is covered by a smoke test:
 
 ```sh
-npx vitest run src/host/minimal-path.smoke.test.ts
+npm test -- src/host/minimal-path.smoke.test.ts
 ```
 
 It asserts that a `Read` of `.env` is denied with an explained reason, while an ordinary read
@@ -442,13 +455,17 @@ scripts/jev/  local-endpoint detection & configuration (Python)
 ## Development
 
 ```sh
-npm run check      # typecheck, build, and run the test suite
-npm test           # build and run Vitest
-npm run test:watch # build once and keep Vitest open
-npm run build      # emit dist/
+npm run check         # typecheck, build, and run the test suite
+npm run typecheck     # typecheck TypeScript without building
+npm run build         # build the CLI and desktop renderer
+npm test              # build and run Vitest
+npm run test:watch    # build once and keep Vitest open
+npm run test:desktop  # build and open Electron with a temporary project
 ```
 
-TypeScript, ESM, Vitest. The suite is fast and hermetic — no external services (Jev is tested with a
+Run `npm run test:desktop` in a graphical session. On headless Linux, the CI runs it under Xvfb.
+
+TypeScript, ESM, Vitest. The main test suite is hermetic — no external services (Jev is tested with a
 deterministic stub and a mocked fetch; git-dependent features use a throwaway repo).
 
 Workflow: spec-driven development (specs under `.specs/`, local to the repo) + GitHub Flow —
