@@ -10,6 +10,10 @@
 
 import { parseQuestions, type Answers, type Question } from "./questions.js";
 
+export type FlowInput =
+  | { kind: "run"; stepId: string; output: string }
+  | { kind: "answers"; stepId: string; answers: Answers };
+
 export type StepKind = "run" | "ask" | "gate";
 
 export interface FlowStep {
@@ -103,4 +107,43 @@ export class FlowEngine {
     }
     return this.peek();
   }
+}
+
+/**
+ * Reconstruct a FlowEngine by replaying a recorded sequence of inputs.
+ *
+ * For each entry the function calls `engine.peek()`, validates that the current
+ * directive's step id matches `entry.stepId` (detecting a version drift), and then
+ * drives the engine forward via the public API only (`submitRun` / `submitAnswers`).
+ *
+ * Returns `{ engine }` when all entries are consumed successfully, or
+ * `{ drift: true; atIndex; expected; got }` on the first step-id mismatch.
+ */
+export function replayFlow(
+  steps: FlowStep[],
+  goal: string,
+  entries: FlowInput[],
+):
+  | { engine: FlowEngine }
+  | { drift: true; atIndex: number; expected: string; got: string } {
+  const engine = new FlowEngine(steps, goal);
+
+  for (let i = 0; i < entries.length; i++) {
+    const entry = entries[i]!;
+    const directive = engine.peek();
+
+    const got = directive.type === "done" ? "done" : directive.step.id;
+
+    if (directive.type === "done" || got !== entry.stepId) {
+      return { drift: true, atIndex: i, expected: entry.stepId, got };
+    }
+
+    if (entry.kind === "run") {
+      engine.submitRun(entry.output);
+    } else {
+      engine.submitAnswers(entry.answers);
+    }
+  }
+
+  return { engine };
 }
