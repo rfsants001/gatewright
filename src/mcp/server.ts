@@ -11,6 +11,7 @@ import { defaultRegistry } from "../host/run-hook.js";
 import { FileArtifactStore } from "../core/artifact-store/artifact-store.js";
 import { JevConfigStore } from "../core/jev/config-store.js";
 import { loadGateSkills } from "../core/skills/gate-catalog.js";
+import { composeAgent, projectAgents } from "../core/skills/agents.js";
 import { VERSION } from "../core/version.js";
 import { registerSkillPrompts } from "./prompts.js";
 import { registerUsageResource, registerConfigResource } from "./resources.js";
@@ -77,6 +78,12 @@ export function createMcpServer(
   // R1: Skills as MCP prompts (gate.<name>) — zero-argument, body = skill markdown.
   const catalog = loadGateSkills();
   registerSkillPrompts(server, catalog, loadGateSkills(join(cwd, ".gatewright", "skills")));
+
+  for (const agent of projectAgents(cwd)) {
+    server.registerPrompt(`gate.agent.${agent.id}`, { description: agent.name }, () => ({
+      messages: [{ role: "user", content: { type: "text", text: composeAgent(cwd, agent) } }],
+    }));
+  }
 
   // R1: gate://usage and gate://config resources (read-only, secrets redacted).
   registerUsageResource(server, cwd);

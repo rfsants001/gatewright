@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { applyPlan, planHooks, planMcp, type WritePlan } from "../core/init/config-writers.js";
+import { managedMcpServers, mcpEntry } from "../core/integrations/managed-mcp.js";
 import { gateHookCommand, gateScript, gateServeInvocation } from "../core/init/gate-bin.js";
 
 export const terminalHosts = ["claude-code", "codex", "gemini", "opencode"] as const;
@@ -19,6 +20,16 @@ function mergeEntry(value: unknown, entry: Record<string, unknown>): Record<stri
     throw new Error("Existing configuration has an unexpected format.");
   }
   return { ...value as Record<string, unknown>, ...entry };
+}
+
+function mergeManagedEntries(value: unknown, entries: Record<string, unknown>): Record<string, unknown> {
+  const current = mergeEntry(value, {});
+  for (const [name, entry] of Object.entries(entries)) {
+    if (Object.hasOwn(current, name) && JSON.stringify(current[name]) !== JSON.stringify(entry)) {
+      throw new Error(`Já existe uma configuração MCP diferente para "${name}".`);
+    }
+  }
+  return { ...current, ...entries };
 }
 
 function writePlan(path: string, nextContent: string, summary: string): WritePlan {
@@ -69,8 +80,9 @@ export const gatewright = async () => ({
 
 export function planTerminal(cwd: string, host: TerminalHost): WritePlan[] {
   const invocation = gateServeInvocation(cwd);
+  const servers = Object.entries(managedMcpServers(cwd));
   if (host === "claude-code") {
-    return [planHooks(join(cwd, ".claude", "settings.json")), planMcp(join(cwd, ".mcp.json"), false, cwd)];
+    return [planHooks(join(cwd, ".claude", "settings.json")), planMcp(join(cwd, ".mcp.json"), false, cwd, Object.fromEntries(servers.map(([name, server]) => [name, mcpEntry(server)])))];
   }
   if (host === "codex") {
     const path = join(cwd, ".codex", "config.toml");
@@ -80,12 +92,21 @@ export function planTerminal(cwd: string, host: TerminalHost): WritePlan[] {
     const hook = JSON.stringify(gateHookCommand());
     const hookTables = ["PreToolUse", "PostToolUse", "Stop", "SubagentStop"].map((event) =>
       `[[hooks.${event}]]\n[[hooks.${event}.hooks]]\ntype = "command"\ncommand = ${hook}\n`).join("\n");
-    const managed = `${start}\n[mcp_servers.gatewright]\ncommand = ${JSON.stringify(invocation.command)}\nargs = ${JSON.stringify(invocation.args)}\n\n${hookTables}${end}\n`;
+    const serverTables = servers.map(([name, server]) => {
+      const attributes = server.type === "http" ? `url = ${JSON.stringify(server.url)}`
+        : `command = ${JSON.stringify(server.command)}\nargs = ${JSON.stringify(server.args)}`;
+      return `[mcp_servers.${name}]\n${attributes}\n\n`;
+    }).join("");
+    const managed = `${start}\n[mcp_servers.gatewright]\ncommand = ${JSON.stringify(invocation.command)}\nargs = ${JSON.stringify(invocation.args)}\n\n${serverTables}${hookTables}${end}\n`;
     const block = /# BEGIN GATEWRIGHT MCP\n[\s\S]*?\n# END GATEWRIGHT MCP\n?/;
     const unmanaged = source.replace(block, "");
     if (/^\s*\[+\s*mcp_servers\s*\.\s*["']?gatewright\b/m.test(unmanaged) ||
         /\bgatewright\b\s*=/.test(unmanaged) || /^\s*mcp_servers\s*=/m.test(unmanaged)) {
       throw new Error("Codex já tem uma definição MCP que precisa ser revisada manualmente.");
+    }
+    for (const [name] of servers) {
+      const declared = new RegExp(String.raw`^\s*\[+\s*mcp_servers\s*\.\s*["']?${name}(?=["'\s\]])`, "m");
+      if (declared.test(unmanaged)) throw new Error(`Codex já tem um MCP chamado "${name}" fora do bloco gerenciado.`);
     }
     const next = block.test(source) ? source.replace(block, managed) : `${source.trimEnd()}${source.trim() ? "\n\n" : ""}${managed}`;
     return [writePlan(path, next, "Registrar MCP e hooks no Codex. Revise a confiança do projeto e dos hooks no Codex.")];
@@ -94,7 +115,10 @@ export function planTerminal(cwd: string, host: TerminalHost): WritePlan[] {
     const path = join(cwd, "opencode.json");
     if (existsSync(join(cwd, "opencode.jsonc"))) throw new Error("O projeto usa opencode.jsonc. Revise a configuração MCP existente no OpenCode.");
     const config = readObject(path);
-    const mcp = mergeEntry(config.mcp, { gatewright: { type: "local", command: [invocation.command, ...invocation.args], enabled: true } });
+    const extra = Object.fromEntries(servers.map(([name, server]) => [name, server.type === "http"
+      ? { type: "remote", url: server.url, enabled: true }
+      : { type: "local", command: [server.command, ...server.args], enabled: true }]));
+    const mcp = mergeEntry(mergeManagedEntries(config.mcp, extra), { gatewright: { type: "local", command: [invocation.command, ...invocation.args], enabled: true } });
     return [
       writePlan(path, JSON.stringify({ ...config, mcp }, null, 2) + "\n", "Registrar o MCP no OpenCode."),
       writePlan(join(cwd, ".opencode", "plugin", "gatewright.js"), opencodePluginSource(),
@@ -103,7 +127,9 @@ export function planTerminal(cwd: string, host: TerminalHost): WritePlan[] {
   }
   const path = join(cwd, ".gemini", "settings.json");
   const config = readObject(path);
-  const mcpServers = mergeEntry(config.mcpServers, { gatewright: invocation });
+  const extra = Object.fromEntries(servers.map(([name, server]) => [name, server.type === "http"
+    ? { httpUrl: server.url } : mcpEntry(server)]));
+  const mcpServers = mergeEntry(mergeManagedEntries(config.mcpServers, extra), { gatewright: invocation });
   const hooks = mergeEntry(config.hooks, {});
   const command = gateHookCommand("gemini");
   for (const event of ["BeforeTool", "AfterTool", "AfterAgent"]) {
@@ -125,8 +151,19 @@ export function planRevision(plans: WritePlan[]): string {
   })))).digest("hex");
 }
 
+export function terminalConfigStatus(cwd: string, host: TerminalHost): "configured" | "pending" | "review" {
+  try {
+    const plans = planTerminal(cwd, host);
+    if (plans.some(({ blocked }) => blocked)) return "review";
+    return plans.every(({ action }) => action === "noop") ? "configured" : "pending";
+  } catch {
+    return "review";
+  }
+}
+
 export function applyTerminal(cwd: string, host: TerminalHost, revision: string): void {
   const plans = planTerminal(cwd, host);
+  if (plans.some(({ blocked }) => blocked)) throw new Error("Há configuração inválida. Revise os arquivos do host antes de aplicar.");
   if (planRevision(plans) !== revision) throw new Error("A configuração mudou. Revise a nova proposta antes de aplicar.");
   for (const plan of plans) applyPlan(plan);
 }

@@ -19,14 +19,17 @@ import {
   FLOW_START_TYPE, FLOW_TERMINAL_TYPE, FLOW_RUN_TYPE, FLOW_ANSWERS_TYPE,
   type FlowStartEntry,
 } from "../core/flow/flow-journal.js";
-import type { Journal } from "../core/journal/journal.js";
+import { Journal } from "../core/journal/journal.js";
 import { stripQuestions } from "../core/flow/questions.js";
-import { buildSkillsSystemPrompt, loadGateSkills } from "../core/skills/gate-catalog.js";
+import { buildSkillsSystemPrompt } from "../core/skills/gate-catalog.js";
+import { agentSchema, composeAgent, projectAgents, projectSkills, saveAgent } from "../core/skills/agents.js";
+import { integrationName, managedMcpReady, managedMcpServers } from "../core/integrations/managed-mcp.js";
 import { ConfigStore } from "../core/config/config-store.js";
 import { FileArtifactStore } from "../core/artifact-store/artifact-store.js";
-import { applyTerminal, planRevision, planTerminal, terminalHosts } from "../app/terminal.js";
+import { applyTerminal, planRevision, planTerminal, terminalConfigStatus, terminalHosts } from "../app/terminal.js";
+import { testGatewrightMcp, testManagedMcp } from "../app/integration-diagnostics.js";
 import { complete, providerAdapter, providers, providerSchema, saveProvider } from "../app/providers.js";
-import { applyChange, changeRevision, customizationPrompt, parseChange, type Change } from "../app/customize.js";
+import { applyChange, changeRevision, checkProposalSources, customizationPrompt, describeChange, parseChange, skillChangeSchema, type Change } from "../app/customize.js";
 
 const requestSchema = z.object({ id: z.number(), method: z.string(), params: z.unknown().optional() });
 const projectPath = z.object({ cwd: z.string().min(1) });
@@ -40,8 +43,9 @@ export async function serveDesktop(): Promise<void> {
   const proposals = new Map<string, { cwd: string; change: Change }>();
   const reviews = new Map<string, { cwd: string; runId: string }>();
   let selected: string | undefined;
+  let applying = false;
   let flow: {
-    cwd: string; adapter: EngineAdapter; model?: string; engine: FlowEngine;
+    cwd: string; adapter: EngineAdapter; model?: string; agentPrompt?: string; engine: FlowEngine;
     journal: Journal;
     pending?: { token: string; text: string; runId: string; revision: string };
   } | undefined;
@@ -75,8 +79,7 @@ export async function serveDesktop(): Promise<void> {
     return { revision, head, status, diff };
   }
 
-  function start(cwd: string, adapter: EngineAdapter, prompt: string, model?: string, includeSkills = false) {
-    const systemPrompt = includeSkills ? buildSkillsSystemPrompt([...loadGateSkills().list(), ...loadGateSkills(join(cwd, ".gatewright", "skills")).list()]) : undefined;
+  function start(cwd: string, adapter: EngineAdapter, prompt: string, model?: string, systemPrompt?: string) {
     const handle = startRun(adapter, {
       prompt, cwd, mcpConfigPath: adapter.id === "claude-code" ? ensureGateMcpConfig(cwd) : "",
       ...(model ? { model } : {}), ...(systemPrompt ? { systemPrompt } : {}),
@@ -106,7 +109,8 @@ export async function serveDesktop(): Promise<void> {
       send({ event: "flow.ask", cwd: current.cwd, data: { token, title: directive.step.title, questions: directive.questions, output: stripQuestions(last.text), diff: snapshot.diff } });
       return {};
     }
-    const run = start(current.cwd, current.adapter, directive.prompt, current.model, true);
+    const run = start(current.cwd, current.adapter, directive.prompt, current.model,
+      current.agentPrompt ?? buildSkillsSystemPrompt([...projectSkills(current.cwd).values()]));
     void run.done.then((result) => {
       if (flow !== current) return;
       if (result.state !== "PASSED") {
@@ -142,6 +146,7 @@ export async function serveDesktop(): Promise<void> {
       active.get(z.object({ runId: z.string() }).parse(params).runId)?.cancel();
       return null;
     }
+    if (applying) throw new Error("Aguarde a aplicação da integração.");
     if (method === "open") {
       if (active.size || flow) throw new Error("Encerre o trabalho atual antes de abrir outro projeto.");
       const cwd = realpathSync(projectPath.parse(params).cwd);
@@ -189,8 +194,9 @@ export async function serveDesktop(): Promise<void> {
               appendTerminal(flowJournal, "version-mismatch");
             } else {
               const adapter = registry.get(engineId);
-              const current: { cwd: string; adapter: EngineAdapter; model?: string; engine: FlowEngine; journal: Journal; pending?: { token: string; text: string; runId: string; revision: string } } = { cwd, adapter, engine: res.engine, journal: flowJournal };
+              const current: { cwd: string; adapter: EngineAdapter; model?: string; agentPrompt?: string; engine: FlowEngine; journal: Journal; pending?: { token: string; text: string; runId: string; revision: string } } = { cwd, adapter, engine: res.engine, journal: flowJournal };
               if (savedModel !== undefined) current.model = savedModel;
+              if (typeof startEntry.payload.agentPrompt === "string") current.agentPrompt = startEntry.payload.agentPrompt;
               flow = current;
 
               const directive = current.engine.peek();
@@ -241,20 +247,34 @@ export async function serveDesktop(): Promise<void> {
     }
     const cwd = assertProject(params);
     switch (method) {
-      case "snapshot": return {
+      case "snapshot": {
+        const catalog = projectSkills(cwd);
+        const project = config.resolve(cwd);
+        return {
         usage: aggregateUsage(cwd),
-        linkedProjects: config.resolve(cwd).linkedProjects ?? [],
-        skills: [...new Set([loadGateSkills(), loadGateSkills(join(cwd, ".gatewright", "skills"))].flatMap((catalog) => catalog.list().map((skill) => skill.frontmatter.name)))].sort(),
+        linkedProjects: project.linkedProjects ?? [],
+        skills: [...catalog.keys()].sort(),
+        skillDetails: [...catalog.values()].map(({ frontmatter: { name, description } }) => ({ name, description })),
+        agents: projectAgents(cwd),
+        integrations: {
+          mcp: Object.entries(managedMcpServers(cwd, false)).map(([name, server]) => ({
+            name, type: server.type, ready: managedMcpReady(cwd, name, server),
+            ...(server.type === "http" ? { url: server.url } : {}),
+          })),
+          packages: project.packages ?? [], jev: project.jev?.enabled === true,
+        },
         providers: providers(cwd),
         hosts: (await registry.detectAll()).map(({ adapter, availability }) => ({
           id: adapter.id, name: adapter.name, installed: availability.installed, version: availability.version,
           hooks: true,
+          configuration: terminalConfigStatus(cwd, z.enum(terminalHosts).parse(adapter.id)),
         })),
-      };
+        };
+      }
       case "terminal.preview": {
         const { host } = hostRequest.parse(params);
         const plans = planTerminal(cwd, host);
-        return { revision: planRevision(plans), changes: plans.map(({ path, action, summary }) => ({ path, action, summary })) };
+        return { revision: planRevision(plans), changes: plans.map(({ path, action, summary, blocked }) => ({ path, action, summary, blocked })) };
       }
       case "terminal.apply": {
         const { host, revision } = hostRequest.extend({ revision: z.string() }).parse(params);
@@ -266,28 +286,63 @@ export async function serveDesktop(): Promise<void> {
         saveProvider(cwd, provider);
         return null;
       }
+      case "integration.test": {
+        const { name } = projectPath.extend({ name: z.union([z.literal("gatewright"), integrationName]) }).parse(params);
+        return name === "gatewright" ? testGatewrightMcp(cwd) : testManagedMcp(cwd, name);
+      }
+      case "skill.save": {
+        const { skill } = projectPath.extend({ skill: skillChangeSchema }).parse(params);
+        if (projectSkills(cwd).has(skill.name)) throw new Error("Já existe uma skill com esse nome.");
+        await applyChange(cwd, skill, changeRevision(cwd, skill));
+        return null;
+      }
+      case "agent.preview":
+      case "agent.save": {
+        const { agent } = projectPath.extend({ agent: agentSchema }).parse(params);
+        if (method === "agent.preview") return { instructions: composeAgent(cwd, agent) };
+        saveAgent(cwd, agent);
+        return null;
+      }
       case "customize.propose": {
-        const { providerId, model, prompt } = projectPath.extend({
+        const { providerId, model, prompt, reference } = projectPath.extend({
           providerId: z.string(), model: z.string().optional(), prompt: z.string().trim().min(1).max(4000),
+          reference: z.string().trim().max(12_000).optional(),
         }).parse(params);
         const provider = providers(cwd).find((entry) => entry.id === providerId);
         if (!provider) throw new Error("Selecione um provedor configurado.");
-        const result = await complete(providerSchema.parse({ ...provider, model: model || provider.model }), prompt, AbortSignal.timeout(60_000), customizationPrompt);
+        const input = reference ? `${prompt}\n\nDocumentação fornecida:\n${reference}` : prompt;
+        const result = await complete(providerSchema.parse({ ...provider, model: model || provider.model }), input, AbortSignal.timeout(60_000), customizationPrompt());
         let change: Change;
         try { change = parseChange(result.text); }
         catch { return { message: result.text.slice(0, 1000) }; }
+        checkProposalSources(change, input);
         const revision = changeRevision(cwd, change);
         if (proposals.size >= 20) proposals.clear();
         proposals.set(revision, { cwd, change });
-        return { revision, change };
+        return { revision, change, plan: describeChange(cwd, change) };
       }
       case "customize.apply": {
         const { revision } = projectPath.extend({ revision: z.string() }).parse(params);
         const proposal = proposals.get(revision);
         if (!proposal || proposal.cwd !== cwd) throw new Error("A proposta expirou. Gere uma nova proposta.");
-        applyChange(cwd, proposal.change, revision);
-        proposals.delete(revision);
-        return null;
+        if (active.size || flow) throw new Error("Encerre a tarefa antes de aplicar uma integração.");
+        applying = true;
+        const journal = new Journal(new FileArtifactStore(), join(cwd, ".gatewright", "integrations.json"));
+        const record = (type: string) => journal.append({ type, at: new Date().toISOString(), payload: { revision, kind: proposal.change.kind } });
+        try {
+          record("PROPOSAL_CONFIRMED");
+          try { await applyChange(cwd, proposal.change, revision); }
+          catch (error) {
+            record("PROPOSAL_FAILED");
+            throw error;
+          }
+          proposals.delete(revision);
+          try { record("PROPOSAL_APPLIED"); }
+          catch { return { warning: "Mudança aplicada. O registro final da integração não pôde ser gravado." }; }
+          return null;
+        } finally {
+          applying = false;
+        }
       }
       case "review": {
         const { runId } = projectPath.extend({ runId: z.uuid().or(z.string().regex(/^run-[a-f0-9-]{36}$/)) }).parse(params);
@@ -348,17 +403,23 @@ export async function serveDesktop(): Promise<void> {
         return null;
       case "run":
       case "flow.start": {
-        const { engine, model, prompt } = projectPath.extend({ engine: z.string(), model: z.string().optional(), prompt: z.string().trim().min(1).max(48_000) }).parse(params);
+        const { engine, model, prompt, agentId } = projectPath.extend({
+          engine: z.string(), model: z.string().optional(), prompt: z.string().trim().min(1).max(48_000), agentId: z.string().optional(),
+        }).parse(params);
         if (active.size || flow) throw new Error("Aguarde ou encerre o trabalho atual antes de iniciar outro.");
         const provider = providers(cwd).find((entry) => `provider:${entry.id}` === engine);
         const adapter = provider ? providerAdapter(provider) : registry.get(engine);
-        if (method === "run") return { runId: start(cwd, adapter, prompt, model).id };
+        const agent = agentId ? projectAgents(cwd).find((item) => item.id === agentId) : undefined;
+        if (agentId && !agent) throw new Error("O agente não está disponível neste projeto.");
+        const agentPrompt = agent ? composeAgent(cwd, agent) : undefined;
+        if (method === "run") return { runId: start(cwd, adapter, prompt, model, agentPrompt).id };
         if (provider) throw new Error("Escolha um agente de terminal para executar o fluxo com ferramentas.");
         const steps = buildSddFlow().filter((step) => step.id !== "confirm-ship" && step.id !== "ship");
         const flowJournal = openFlowJournal(cwd);
-        const current = { cwd, adapter, ...(model ? { model } : {}), engine: new FlowEngine(steps, prompt), journal: flowJournal };
+        const payload = { ...(model ? { model } : {}), ...(agentPrompt ? { agentPrompt } : {}) };
+        const current = { cwd, adapter, ...payload, engine: new FlowEngine(steps, prompt), journal: flowJournal };
         flow = current;
-        appendStart(flowJournal, { goal: prompt, flowKind: "sdd", engineId: engine, ...(model !== undefined ? { model } : {}) });
+        appendStart(flowJournal, { goal: prompt, flowKind: "sdd", engineId: engine, ...payload });
         try { return advance(current); }
         catch (error) { flow = undefined; throw error; }
       }

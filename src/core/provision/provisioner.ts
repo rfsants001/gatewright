@@ -9,9 +9,9 @@ import type { Executor, ProvisionResult, ProvisionTool, StepOutcome } from "./ty
 
 export const defaultExecutor: Executor = (step) =>
   new Promise((resolve) => {
-    execFile(step.command, step.args, { timeout: 300_000, maxBuffer: 10 * 1024 * 1024 }, (err, stdout, stderr) => {
+    execFile(step.command, step.args, { cwd: step.cwd, timeout: 300_000, maxBuffer: 10 * 1024 * 1024 }, (err, stdout, stderr) => {
       const output = `${stdout ?? ""}${stderr ?? ""}`.trim();
-      resolve({ ok: !err, output: output || (err ? err.message : "") });
+      resolve({ ok: !err, output: output || (err ? err.message : ""), stdout: stdout.trim() });
     });
   });
 

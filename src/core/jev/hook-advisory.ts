@@ -6,14 +6,14 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { FileArtifactStore } from "../artifact-store/artifact-store.js";
 import { Journal } from "../journal/journal.js";
-import { JevConfigStore } from "./config-store.js";
+import { JevConfigStore, type JevConfig } from "./config-store.js";
 import { OllamaAdapter } from "./adapters/ollama-adapter.js";
 import { BudgetLedger } from "./budget.js";
 import { JevDecisionEngine } from "./jev-engine.js";
 import type { ActionCard } from "./types.js";
 
-export async function jevAdvise(feature: string, summary: string): Promise<ActionCard | null> {
-  const cfg = new JevConfigStore(new FileArtifactStore()).read();
+export async function jevAdvise(feature: string, summary: string, override?: Partial<JevConfig>): Promise<ActionCard | null> {
+  const cfg = { ...new JevConfigStore(new FileArtifactStore()).read(), ...override };
   if (!cfg.enabled) return null;
 
   const journal = new Journal(new FileArtifactStore(), join(homedir(), ".gatewright", "jev-journal.json"));

@@ -103,15 +103,17 @@ export function resolveAdvisor(cwd: string, store: ConfigStore = new ConfigStore
     return new ExternalAdvisor(externalAdvisor.config ?? {});
   }
 
+  const localAdvisor = () => new JevAdvisor((feature, summary) => jevAdvise(feature, summary, cfg.jev));
+
   // 2. Look for an explicit jev module record.
   const jevModule = modules.find((m) => m.id === "jev");
   if (jevModule) {
     // Present: respect its enabled flag.
-    return jevModule.enabled ? new JevAdvisor() : null;
+    return jevModule.enabled ? localAdvisor() : null;
   }
 
   // 3. No jev module record → legacy fallback: return JevAdvisor.
   // jevAdvise() reads JevConfigStore and returns null when jev is disabled,
   // so the behavior for users with no module record is exactly as before.
-  return new JevAdvisor();
+  return localAdvisor();
 }

@@ -30,12 +30,14 @@ export class SkillCatalog {
       return;
     }
     for (const entry of readdirSync(this.#root).sort()) {
+      if (entry === "_system") continue;
       const dir = join(this.#root, entry);
       if (!statSync(dir).isDirectory()) continue;
       const file = join(dir, "SKILL.md");
       if (!existsSync(file)) continue;
       try {
-        this.#skills.push(parseSkill(readFileSync(file, "utf8")));
+        const skill = parseSkill(readFileSync(file, "utf8"));
+        if (!skill.frontmatter.name.startsWith("_system/")) this.#skills.push(skill);
       } catch (e) {
         this.#problems.push({ dir: entry, message: (e as Error).message });
       }

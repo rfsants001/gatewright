@@ -9,6 +9,7 @@ const renderer = fileURLToPath(new URL("./renderer/index.html", import.meta.url)
 const rendererUrl = pathToFileURL(renderer).href;
 const methods = new Set([
   "projects", "open", "snapshot", "terminal.preview", "terminal.apply", "provider.save",
+  "skill.save", "agent.preview", "agent.save", "integration.test",
   "customize.propose", "customize.apply", "run", "cancel", "review", "review.decide",
   "flow.start", "flow.answer", "flow.stop",
 ]);
@@ -57,7 +58,12 @@ class Bridge {
   }
 
   get busy() {
-    return this.#busy || this.#flow || [...this.#pending.values()].some(({ method }) => method === "run" || method === "flow.start");
+    return this.#busy || this.#flow || this.installing
+      || [...this.#pending.values()].some(({ method }) => method === "run" || method === "flow.start");
+  }
+
+  get installing() {
+    return [...this.#pending.values()].some(({ method }) => method === "customize.apply");
   }
 
   request(method, params) {
@@ -128,7 +134,10 @@ function createWindow() {
     event.preventDefault();
     if (closeDialog) return;
     closeDialog = true;
-    void dialog.showMessageBox(window, {
+    void dialog.showMessageBox(window, bridge.installing ? {
+      type: "info", title: "Integração em andamento", message: "Aguarde o fim da aplicação antes de fechar.",
+      buttons: ["Voltar à integração"],
+    } : {
       type: "info", title: "Execução em andamento", message: "Aguarde ou cancele a execução antes de fechar.",
       buttons: ["Voltar à execução"],
     }).finally(() => { closeDialog = false; });

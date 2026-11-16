@@ -11,6 +11,7 @@ export interface ProvisionStep {
   label: string;
   command: string;
   args: string[];
+  cwd?: string;
 }
 
 export interface ProvisionStatus {
@@ -48,4 +49,4 @@ export interface ProvisionResult {
 }
 
 /** Runs one step, returning its combined output. Injected; default shells out. */
-export type Executor = (step: ProvisionStep) => Promise<{ ok: boolean; output: string }>;
+export type Executor = (step: ProvisionStep) => Promise<{ ok: boolean; output: string; stdout?: string }>;

@@ -25,6 +25,7 @@ export interface FlowStartPayload {
   flowKind: string;
   engineId: string;
   model?: string;
+  agentPrompt?: string;
 }
 
 export interface FlowRunPayload {

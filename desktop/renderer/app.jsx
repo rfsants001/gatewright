@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
-  Activity, ArrowRight, ChartNoAxesColumnIncreasing, ChevronRight, CircleCheck, Clock3,
-  FolderGit2, FolderOpen, GitCompareArrows, Play, Plus, RefreshCw, Settings2, Square, Terminal,
+  ArrowRight, ChartNoAxesColumnIncreasing, ChevronRight, CircleCheck, ClipboardList, Clock3,
+  FileText, FolderGit2, FolderOpen, GitCompareArrows, Layers, Play, Plus, Plug, RefreshCw, Square, Terminal,
 } from "lucide-react";
+import { AgentsPage, SkillsPage } from "./library.jsx";
 import { CostTimeline, Usage } from "./usage.jsx";
 
 const gate = window.gatewright;
@@ -11,11 +12,12 @@ const states = {
   RUNNING: "Em execução", PAUSED: "Pausada", PASSED: "Concluída", FAILED: "Falhou", CANCELLED: "Cancelada", IDLE: "Pronta",
 };
 const pages = [
-  ["project", "Projeto", FolderGit2], ["execution", "Execução", Activity],
-  ["usage", "Consumo", ChartNoAxesColumnIncreasing], ["settings", "Configuração", Settings2],
+  ["project", "Projeto", FolderGit2], ["execution", "Tarefas", ClipboardList],
+  ["usage", "Custos", ChartNoAxesColumnIncreasing], ["settings", "Integrações", Plug],
+  ["agents", "Agentes", Layers], ["skills", "Skills", FileText],
 ];
 const leaf = (path) => path.split(/[\\/]/).filter(Boolean).at(-1) || path;
-const empty = { hosts: [], providers: [], skills: [], linkedProjects: [] };
+const empty = { hosts: [], providers: [], skills: [], skillDetails: [], agents: [], linkedProjects: [], integrations: { jev: false, mcp: [], packages: [] } };
 
 function Brand() {
   return <div className="brand"><span className="brand-mark" aria-hidden="true"><i /><i /></span><span>Gatewright</span></div>;
@@ -32,7 +34,7 @@ function PageHeading({ title, children, actions }) {
 }
 
 function Empty({ title, children, action }) {
-  return <section className="empty surface"><h2>{title}</h2><p>{children}</p>{action}</section>;
+  return <section className="empty surface"><h1>{title}</h1><p>{children}</p>{action}</section>;
 }
 
 function Modal({ modal, notice, onClose }) {
@@ -56,7 +58,7 @@ function Modal({ modal, notice, onClose }) {
       {modal.reload && <button disabled={pending} onClick={() => decide(modal.reload)}><RefreshCw size={14} />Reabrir diff</button>}
       {modal.reject && <button className="danger" disabled={pending} onClick={() => decide(modal.reject)}>Recusar</button>}
       {modal.confirm && <button className="primary" disabled={pending} onClick={() => decide(modal.confirm)}>
-        {pending ? "Aguarde…" : modal.label}
+        {pending ? modal.pendingLabel ?? "Aguarde…" : modal.label}
       </button>}
     </footer>
   </dialog>;
@@ -101,25 +103,24 @@ function Project({ cwd, data, loading, recents, busy, open, choose, connect, nav
   const otherProjects = recents.filter((item) => item.path !== cwd);
   const detected = data.hosts.filter((host) => host.installed).length;
   return <>
-    <PageHeading title="Visão geral" actions={cwd && <button onClick={choose} disabled={busy}><FolderOpen size={15} aria-hidden="true" />Trocar pasta</button>}>
-      Gerencie as conexões, execuções e custos deste repositório.
-    </PageHeading>
-    {cwd ? <section className="project-summary surface">
-      <div className="project-icon"><FolderGit2 size={19} aria-hidden="true" /></div>
-      <div><h2>{leaf(cwd)}</h2><p className="path" title={cwd}>{cwd}</p></div>
-      <button className="primary" onClick={() => navigate("execution")}><Plus size={15} aria-hidden="true" />Nova execução</button>
-    </section> : <Empty title="Abra um projeto para começar" action={<button className="primary" onClick={choose}><FolderOpen size={15} aria-hidden="true" />Selecionar pasta</button>}>
-      Selecione o repositório que você usa com seus agentes.
+    {cwd ? <PageHeading title={leaf(cwd)} actions={
+      <button className="primary" onClick={() => navigate("execution")}><Plus size={15} aria-hidden="true" />Nova tarefa</button>
+    }>
+      <span className="project-path" title={cwd}>{cwd}</span>
+    </PageHeading> : <Empty title="Abra um projeto para começar" action={
+      <button className="primary" onClick={choose}><FolderOpen size={15} aria-hidden="true" />Abrir pasta…</button>
+    }>
+      Escolha a pasta do repositório que você quer usar.
     </Empty>}
     {cwd && <div className="dashboard-grid">
       <section className="surface table-panel">
         <header className="panel-heading">
-          <div><h2>Hosts do terminal</h2><p>Conexões disponíveis para este projeto</p></div>
+          <div><h2>Integrações com o terminal</h2><p>Confira o suporte a MCP e hooks antes de configurar.</p></div>
           {data.hosts.length > 0 && <span className="tag">{detected} de {data.hosts.length} detectados</span>}
         </header>
-        {loading && !data.hosts.length && <p className="table-empty" role="status">Detectando hosts…</p>}
+        {loading && !data.hosts.length && <p className="table-empty" role="status">Procurando ferramentas do terminal…</p>}
         {!!data.hosts.length && <div className="table-wrap"><table className="host-table">
-          <thead><tr><th scope="col">Host</th><th scope="col">Instalação</th><th scope="col">Suporte</th><th scope="col"><span className="sr-only">Ações</span></th></tr></thead>
+          <thead><tr><th scope="col">Ferramenta</th><th scope="col">Instalação</th><th scope="col">Recursos suportados</th><th scope="col"><span className="sr-only">Ações</span></th></tr></thead>
           <tbody>{data.hosts.map((host) => <tr key={host.id}>
             <th scope="row">
               <div className="host-name"><Terminal size={15} aria-hidden="true" /><div><strong>{host.name}</strong>
@@ -134,7 +135,7 @@ function Project({ cwd, data, loading, recents, busy, open, choose, connect, nav
         </table></div>}
       </section>
       <CostTimeline dailyUsage={data.usage?.byDay} compact controls={
-        <button className="icon-button" aria-label="Abrir consumo" title="Abrir consumo" onClick={() => navigate("usage")}><ArrowRight size={16} /></button>
+        <button className="icon-button" aria-label="Ver custos do projeto" title="Ver custos do projeto" onClick={() => navigate("usage")}><ArrowRight size={16} /></button>
       } />
     </div>}
     {!!otherProjects.length && <section className="section surface table-panel">
@@ -146,53 +147,76 @@ function Project({ cwd, data, loading, recents, busy, open, choose, connect, nav
   </>;
 }
 
-function Execution({ options, engine, setEngine, model, setModel, task, setTask, state, busy, running, canReview, log, start, cancel, review }) {
+function Execution({ options, engine, setEngine, agents, agent, setAgent, model, setModel, task, setTask, state, busy, running, canReview, log, start, cancel, review }) {
   const transcript = useRef(null);
   useEffect(() => {
     const panel = transcript.current;
     if (panel) panel.scrollTop = panel.scrollHeight;
   }, [log]);
   return <>
-    <PageHeading title="Execução">Acompanhe tarefas, etapas do fluxo e alterações no repositório.</PageHeading>
+    <PageHeading title="Tarefas">Execute um objetivo direto ou passe pela revisão de um plano SDD.</PageHeading>
     <div className="execution-grid">
       <section className="surface">
-        <header className="panel-heading"><h2>Nova tarefa</h2></header>
+        <header className="panel-heading"><h2>Definir tarefa</h2></header>
         <form className="form-panel" onSubmit={(event) => { event.preventDefault(); start(false); }}>
-        <div className="form-grid"><label>Agente ou provedor<select value={engine} onChange={(event) => setEngine(event.target.value)} disabled={busy}>
+        <div className="form-grid"><label>Ferramenta ou provedor<select value={engine} onChange={(event) => setEngine(event.target.value)} disabled={busy}>
           {!options.length && <option value="">Nenhum disponível</option>}
           {options.map(({ id, name }) => <option value={id} key={id}>{name}</option>)}
         </select></label>
         <label>Modelo<input value={model} onChange={(event) => setModel(event.target.value)} placeholder="Usar padrão" disabled={busy} /></label></div>
-        <label>Tarefa<textarea rows="4" value={task} onChange={(event) => setTask(event.target.value)} placeholder="Descreva o que você quer fazer neste projeto." maxLength={48000} disabled={busy} /></label>
+        {!!agents.length && <label>Agente<select value={agent} onChange={(event) => setAgent(event.target.value)} disabled={busy}>
+          <option value="">Sem agente</option>{agents.map(({ id, name }) => <option key={id} value={id}>{name}</option>)}
+        </select></label>}
+        <label>Objetivo<textarea rows="4" value={task} onChange={(event) => setTask(event.target.value)} placeholder="Ex.: revise as mudanças da API do catálogo." maxLength={48000} disabled={busy} /></label>
         <div className="actions">
-          <button className="primary" disabled={busy || !engine || !task.trim()}><Play size={14} aria-hidden="true" />Iniciar execução</button>
+          <button className="primary" disabled={busy || !engine || !task.trim()}><Play size={14} aria-hidden="true" />Executar tarefa</button>
           <button type="button" disabled={busy || !engine || engine.startsWith("provider:") || !task.trim()} onClick={() => start(true)}>Iniciar fluxo SDD</button>
           {busy && <button type="button" className="danger" disabled={state !== "RUNNING"} onClick={cancel}><Square size={13} aria-hidden="true" />Cancelar execução</button>}
         </div>
         </form>
       </section>
       <section className="surface execution-log">
-        <div className="panel-heading"><h2>Registro da execução</h2>
+        <div className="panel-heading"><h2>Registro da tarefa</h2>
           <Status tone={running || state === "PAUSED" ? "progress" : state === "PASSED" ? "success" : (state === "FAILED" || state === "CANCELLED") ? "error" : "neutral"}>{states[state] || state}</Status>
         </div>
-        <div ref={transcript} className="transcript" tabIndex={0} aria-label="Registro da execução">
-          {log ? <pre>{log}</pre> : <p>A saída do agente aparece aqui.</p>}
+        <div ref={transcript} className="transcript" tabIndex={0} aria-label="Registro da tarefa">
+          {log ? <pre>{log}</pre> : <p>A saída aparece quando a tarefa começa.</p>}
         </div>
-        <div className="panel-actions"><button disabled={!canReview} onClick={review}><GitCompareArrows size={14} aria-hidden="true" />Revisar diff</button></div>
+        <div className="panel-actions"><button disabled={!canReview} onClick={review}><GitCompareArrows size={14} aria-hidden="true" />Abrir diff</button></div>
       </section>
     </div>
   </>;
 }
 
-function Settings({ data, saveProvider, propose }) {
+function Settings({ data, saveProvider, propose, testIntegration, connect }) {
   const [providerId, setProvider] = useState("");
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [diagnostics, setDiagnostics] = useState({});
+  const configLabel = { configured: "Aplicada", pending: "Pendente", review: "Requer revisão" };
+
+  async function test(name) {
+    setDiagnostics((current) => ({ ...current, [name]: { pending: true } }));
+    const result = await testIntegration(name);
+    const diagnostic = result.ok
+      ? { message: `${result.data.name} ${result.data.version} respondeu.`, tone: "success" }
+      : { message: result.error, tone: "error" };
+    setDiagnostics((current) => ({ ...current, [name]: diagnostic }));
+  }
+
+  function connectionCheck(name, ready, label) {
+    const status = diagnostics[name];
+    return <div className="connection-check">
+      <button type="button" onClick={() => test(name)} disabled={!ready || status?.pending}
+        aria-label={`${label} ${name}`}>{status?.pending ? "Testando…" : label}</button>
+      {status?.message && <Status tone={status.tone}>{status.message}</Status>}
+    </div>;
+  }
   return <>
-    <PageHeading title="Configuração">Provedores, skills e integrações do projeto.</PageHeading>
+    <PageHeading title="Integrações">Conecte ferramentas, instale integrações e configure provedores para este projeto.</PageHeading>
     <div className="settings-grid">
       <section className="surface">
-        <header className="panel-heading"><div><h2>Adicionar provedor</h2><p>Endpoint compatível com a API de chat da OpenAI</p></div></header>
+        <header className="panel-heading"><div><h2>Provedor de modelos</h2><p>Use uma API ou proxy compatível com o Chat Completions da OpenAI.</p></div></header>
         <form className="form-panel" onSubmit={async (event) => {
           event.preventDefault();
           const form = event.currentTarget;
@@ -203,36 +227,67 @@ function Settings({ data, saveProvider, propose }) {
           try { if (await saveProvider(provider)) form.reset(); } finally { setSaving(false); }
         }}>
           <div className="form-grid">
-            <label>ID<input name="id" placeholder="meu-proxy" required /></label>
+            <label>ID do provedor<input name="id" placeholder="proxy-equipe" required /></label>
             <label>URL base<input name="endpoint" type="url" placeholder="https://exemplo.com/v1" required /></label>
             <label>Modelo<input name="model" required /></label>
-            <label>Variável da chave<input name="key" placeholder="OPENROUTER_API_KEY" /></label>
+            <label>Variável de ambiente da chave<input name="key" placeholder="OPENROUTER_API_KEY" /></label>
           </div>
           <div className="actions"><button disabled={saving}>{saving ? "Salvando…" : "Salvar provedor"}</button></div>
         </form>
       </section>
       <section className="surface">
-        <header className="panel-heading"><div><h2>Propor uma mudança com IA</h2><p>Revise a proposta antes de aplicar</p></div></header>
+        <header className="panel-heading"><div><h2>Instalar ou conectar com IA</h2><p>Descreva o que você quer integrar. Revise a origem e o que será aplicado.</p></div></header>
         <form className="form-panel" onSubmit={async (event) => {
           event.preventDefault();
           const form = new FormData(event.currentTarget);
           setGenerating(true);
-          try { await propose({ providerId: form.get("provider"), model: form.get("model").trim(), prompt: form.get("prompt").trim() }); }
+          try { await propose({ providerId: form.get("provider"), model: form.get("model").trim(), prompt: form.get("prompt").trim(), reference: form.get("reference").trim() }); }
           finally { setGenerating(false); }
         }}>
           <div className="form-grid"><label>Provedor<select name="provider" value={providerId || data.providers[0]?.id || ""} onChange={(event) => setProvider(event.target.value)}>
             {data.providers.map(({ id }) => <option key={id} value={id}>{id === "ollama" ? "Ollama" : id}</option>)}
           </select></label><label>Modelo<input name="model" placeholder="Informe o ID ao usar Ollama" /></label></div>
-          <label>Mudança<textarea name="prompt" rows="3" maxLength={4000} required placeholder="Ex.: crie uma skill para revisar os testes deste projeto." /></label>
+          <label>Mudança<textarea name="prompt" rows="3" maxLength={4000} required placeholder="Ex.: conecte o MCP em https://exemplo.com/mcp." /></label>
+          <p>Você pode indicar um pacote MCP do npm, uma imagem Docker, um repositório Git, Graphify ou Jev.</p>
+          <details><summary>Anexar instruções de instalação</summary>
+            <label>Trecho da documentação<textarea name="reference" rows="3" maxLength={12000} placeholder="Cole a fonte, os pré-requisitos e a versão." /></label>
+            <p>O provedor escolhido recebe o pedido e este trecho. Remova chaves e tokens antes de enviar.</p>
+          </details>
           <div className="actions"><button className="primary" disabled={generating || !data.providers.length}>{generating ? "Gerando proposta…" : "Gerar proposta"}</button></div>
         </form>
       </section>
     </div>
-    <section className="section surface"><header className="panel-heading"><h2>Recursos do projeto</h2></header>
-      <div className="form-panel"><details><summary>{data.skills.length} skills disponíveis</summary>
-        <ul className="asset-list">{data.skills.map((skill) => <li key={skill}>{skill}</li>)}</ul>
-      </details><p>Projetos vinculados {data.linkedProjects.length ? "" : "· Nenhum"}</p>
-      {!!data.linkedProjects.length && <ul className="asset-list">{data.linkedProjects.map((path) => <li key={path}>{path}</li>)}</ul>}</div>
+    <section className="section surface">
+      <header className="panel-heading"><div><h2>Diagnóstico da conexão</h2><p>Confira a instalação do host e os arquivos deste projeto. O teste MCP abre uma conexão local com o Gatewright.</p></div></header>
+      <div className="table-wrap"><table>
+        <thead><tr><th scope="col">Ferramenta</th><th scope="col">Instalação</th><th scope="col">Configuração</th><th scope="col">Ação</th></tr></thead>
+        <tbody>{data.hosts.map((host) => <tr key={host.id}>
+          <th scope="row">{host.name}</th>
+          <td>{host.installed ? <Status tone="success">{host.version || "Detectada"}</Status> : "Não detectada"}</td>
+          <td><Status tone={host.configuration === "configured" ? "success" : host.configuration === "review" ? "error" : "neutral"}>{configLabel[host.configuration]}</Status></td>
+          <td><button type="button" aria-label={`Revisar configuração do ${host.name}`} onClick={() => connect(host)}>Revisar</button></td>
+        </tr>)}</tbody>
+      </table></div>
+      <div className="form-panel">{connectionCheck("gatewright", true, "Testar MCP do Gatewright")}</div>
+    </section>
+    <section className="section surface"><header className="panel-heading"><h2>Integrações do projeto</h2></header>
+      <div className="form-panel">
+        <ul className="library-list">
+          <li><strong>Jev</strong><p>{data.integrations.jev ? "Configurado para este projeto" : "Sem configuração de projeto"}</p></li>
+          {data.integrations.mcp.map(({ name, ready, type, url }) => <li key={`mcp-${name}`}>
+            <strong>{name} · MCP {type === "stdio" ? "local" : "HTTP"}</strong>
+            <p>{ready ? (url || "Servidor registrado no projeto.") : "Aguardando graphify-out/graph.json."}</p>
+            {ready ? connectionCheck(name, true, type === "stdio" ? "Iniciar e testar MCP" : "Testar MCP")
+              : <p>Gere o grafo, atualize esta tela e revise a configuração do host.</p>}
+          </li>)}
+          {data.integrations.packages.map(({ id, version, containerId, via }) => <li key={`package-${id}`}>
+            <strong>{id}</strong><p>{containerId ? "Contêiner criado" : "Instalação registrada"}{version ? ` · ${version}` : ""}</p>
+            {via && <p>{via}</p>}
+          </li>)}
+        </ul>
+        <h2>Projetos vinculados</h2>
+        {data.linkedProjects.length ? <ul className="asset-list">{data.linkedProjects.map((path) => <li key={path}>{path}</li>)}</ul> : <p>Nenhum projeto vinculado.</p>}
+      </div>
     </section>
   </>;
 }
@@ -249,6 +304,7 @@ function App() {
   const [modal, setModal] = useState(null);
   const [questions, setQuestions] = useState(null);
   const [engine, setEngine] = useState("");
+  const [agentId, setAgentId] = useState("");
   const [model, setModel] = useState("");
   const [task, setTask] = useState("");
   const [state, setState] = useState("IDLE");
@@ -296,6 +352,7 @@ function App() {
     cwdRef.current = project;
     setCwd(project);
     setData(empty);
+    setAgentId("");
     setRunId("");
     setLog("");
     setState("IDLE");
@@ -364,7 +421,7 @@ function App() {
     setLog("");
     setRunId("");
     notify(flow ? "Iniciando fluxo SDD…" : "Iniciando execução…");
-    const result = await request(flow ? "flow.start" : "run", { cwd, engine: selectedEngine, model: model.trim(), prompt: task.trim() });
+    const result = await request(flow ? "flow.start" : "run", { cwd, engine: selectedEngine, model: model.trim(), prompt: task.trim(), ...(agentId ? { agentId } : {}) });
     setStarting(false);
     if (result.ok) setRunId(result.data.runId || "");
     else setInFlow(false);
@@ -383,19 +440,22 @@ function App() {
     if (!result.ok) return;
     const { revision, changes } = result.data;
     const hasChanges = changes.some(({ action }) => action !== "noop");
+    const blocked = changes.some((change) => change.blocked);
     notify("Conexão disponível para revisão.");
     setModal({
-      title: `Conectar ${host.name}`,
-      summary: hasChanges ? "Confira os arquivos antes de aplicar." : "A conexão já está registrada neste projeto.",
-      label: "Aplicar configuração",
-      body: <ul className="change-list">{changes.map(({ path, action, summary }) => <li key={path}><strong>
-        {action === "noop" ? "Sem alteração" : action === "create" ? "Criar arquivo" : "Atualizar arquivo"}</strong>
+      title: `Configurar ${host.name}`,
+      summary: blocked ? "Corrija a configuração indicada antes de aplicar." : hasChanges
+        ? "Confira os arquivos que o Gatewright vai alterar." : "A configuração deste projeto já está atualizada.",
+      label: "Gravar configuração",
+      body: <ul className="change-list">{changes.map(({ path, action, summary, blocked }) => <li key={path}><strong>
+        {blocked ? "Requer revisão" : action === "noop" ? "Sem alteração" : action === "create" ? "Criar arquivo" : "Atualizar arquivo"}</strong>
         <code>{path}</code><p>{summary}</p></li>)}</ul>,
-      confirm: hasChanges ? async () => {
+      confirm: hasChanges && !blocked ? async () => {
         const applied = await request("terminal.apply", { cwd, host: host.id, revision });
         if (applied.ok) {
           setModal(null);
           notify("Configuração gravada. Reinicie o host para verificar a conexão.", "success");
+          void refresh();
         }
       } : null,
     });
@@ -430,22 +490,44 @@ function App() {
     return result.ok;
   }
 
+  async function saveLibrary(method, key, value, message) {
+    const result = await request(method, { cwd, [key]: value });
+    if (result.ok && cwdRef.current === cwd) {
+      notify(message, "success");
+      await refresh();
+    }
+    return result.ok;
+  }
+
+  async function previewAgent(agent) {
+    const result = await request("agent.preview", { cwd, agent });
+    return result.ok ? result.data.instructions : "";
+  }
+
+  function testIntegration(name) {
+    return request("integration.test", { cwd, name });
+  }
+
   async function propose(input) {
     const result = await request("customize.propose", { cwd, ...input });
     if (!result.ok || cwdRef.current !== cwd) return;
-    const { revision, message, change } = result.data;
+    const { revision, message, change, plan } = result.data;
     notify(revision ? "Proposta disponível para revisão." : "Confira a resposta do provedor.");
     if (!revision) {
       setModal({ title: "Detalhes necessários", body: <p>{message || "O provedor não retornou uma proposta válida."}</p> });
       return;
     }
     setModal({
-      title: "Revisar proposta", label: "Aplicar mudança",
+      title: "Revisar proposta", label: "Aplicar mudança", pendingLabel: "Aplicando…",
       summary: change.kind === "opencode-plugin" ? "O OpenCode poderá baixar e executar este pacote ao iniciar." : "Confira os dados que serão gravados no projeto.",
-      body: <pre>{JSON.stringify(change, null, 2)}</pre>,
+      body: <>
+        {plan?.steps.length > 0 && <ol className="proposal-steps">{plan.steps.map((step) => <li key={step}>{step}</li>)}</ol>}
+        {plan?.target && <p className="proposal-target">Configuração: <code>{plan.target}</code></p>}
+        <pre>{JSON.stringify(change, null, 2)}</pre>
+      </>,
       confirm: async () => {
         const applied = await request("customize.apply", { cwd, revision });
-        if (applied.ok) { setModal(null); notify("Mudança aplicada ao projeto.", "success"); void refresh(); }
+        if (applied.ok) { setModal(null); notify(applied.data?.warning ?? "Mudança aplicada ao projeto.", applied.data?.warning ? "neutral" : "success"); void refresh(); }
       },
     });
   }
@@ -468,32 +550,43 @@ function App() {
     if (state === "CANCELLED") return { text: "Execução cancelada.", tone: "neutral" };
     return null;
   })();
-  const footerNotice = execNotice ?? notice;
+  const footerNotice = page === "execution" ? execNotice ?? notice : notice;
 
   return <div className="app-shell">
-    <aside className="sidebar">
-      <Brand />
-      <nav aria-label="Área de trabalho">{pages.map(([id, name, NavIcon]) => <button key={id}
-        aria-current={page === id ? "page" : undefined} onClick={() => setPage(id)}><NavIcon size={16} aria-hidden="true" />{name}</button>)}</nav>
-      <div className="rail-project"><FolderGit2 size={15} aria-hidden="true" /><span title={cwd || undefined}>{cwd ? leaf(cwd) : "Sem projeto aberto"}</span></div>
-    </aside>
-    <div className="workspace">
-      <div className="topbar"><div className="breadcrumb"><FolderGit2 size={15} aria-hidden="true" /><span>{cwd ? leaf(cwd) : "Área de trabalho"}</span>
-        <ChevronRight size={13} aria-hidden="true" /><strong>{pages.find(([id]) => page === id)[1]}</strong></div>
-        <button className="icon-button" aria-label="Atualizar projeto" title="Atualizar projeto" onClick={() => refresh()} disabled={!cwd || loading}>
-          <RefreshCw size={15} aria-hidden="true" />
-        </button></div>
-      <main id="main" key={page} tabIndex={0}><div className="content">
-        {page === "project" ? <Project {...{ cwd, data, loading, recents, busy, open, choose, connect, navigate: setPage }} />
-          : !cwd ? <Empty title="Abra um projeto" action={<button className="primary" onClick={choose}>Abrir pasta…</button>}>
-            Selecione um repositório para acessar {pages.find(([id]) => page === id)[1].toLowerCase()}.
-          </Empty> : page === "execution" ? <Execution {...{
-            options, engine: selectedEngine, setEngine, model, setModel, task, setTask, state, busy, running: state === "RUNNING",
-            canReview: !!runId && !busy, log, start, cancel, review,
-          }} /> : page === "usage" ? <Usage usage={data.usage} heading={<PageHeading title="Consumo">Custos e tokens das execuções registradas neste projeto.</PageHeading>} /> : <Settings key={cwd} {...{ data, saveProvider, propose }} />}
-      </div></main>
-      <footer className={`statusbar ${footerNotice.tone}`} role="status">{footerNotice.tone === "success" ? <CircleCheck size={13} aria-hidden="true" /> : <span aria-hidden="true" />}{footerNotice.text}</footer>
-    </div>
+    <header className="app-header">
+      <div className="header-inner">
+        <Brand />
+        <nav className="app-nav" aria-label="Área de trabalho">{pages.map(([id, name, NavIcon]) => (
+          <button key={id} aria-current={page === id ? "page" : undefined} onClick={() => setPage(id)}>
+            <NavIcon size={15} aria-hidden="true" />{name}
+          </button>
+        ))}</nav>
+        <div className="header-actions">
+          <button className="project-switch" onClick={choose} disabled={busy}
+            aria-label={cwd ? `Trocar de projeto. Projeto atual: ${leaf(cwd)}` : "Abrir projeto"}
+            title={cwd ? `Trocar de projeto · ${cwd}` : "Abrir projeto"}>
+            <FolderOpen size={15} aria-hidden="true" /><span>{cwd ? leaf(cwd) : "Abrir projeto"}</span>
+          </button>
+          <button className="icon-button" aria-label="Atualizar projeto" title="Atualizar projeto" onClick={() => refresh()} disabled={!cwd || loading}>
+            <RefreshCw size={15} aria-hidden="true" />
+          </button>
+        </div>
+      </div>
+    </header>
+    <main id="main" key={page} tabIndex={0}><div className="content">
+      {page === "project" ? <Project {...{ cwd, data, loading, recents, busy, open, choose, connect, navigate: setPage }} />
+        : !cwd ? <Empty title="Abra um projeto" action={<button className="primary" onClick={choose}>Abrir pasta…</button>}>
+          Escolha a pasta do repositório para continuar.
+        </Empty> : page === "execution" ? <Execution {...{
+          options, engine: selectedEngine, setEngine, agents: data.agents, agent: agentId, setAgent: setAgentId, model, setModel, task, setTask, state, busy, running: state === "RUNNING",
+          canReview: !!runId && !busy, log, start, cancel, review,
+        }} /> : page === "usage" ? <Usage usage={data.usage} heading={<PageHeading title="Custos do projeto">Veja os valores e tokens registrados pelo Gatewright.</PageHeading>} /> : page === "agents" ? <AgentsPage catalog={data.skillDetails} agents={data.agents} preview={previewAgent}
+          save={(agent) => saveLibrary("agent.save", "agent", agent, "Agente salvo no projeto.")}
+          useAgent={(id) => { setAgentId(id); setPage("execution"); }} openSkills={() => setPage("skills")} />
+          : page === "skills" ? <SkillsPage catalog={data.skillDetails} save={(skill) => saveLibrary("skill.save", "skill", skill, "Skill salva no projeto.")} />
+          : <Settings key={cwd} {...{ data, saveProvider, propose, testIntegration, connect }} />}
+    </div></main>
+    <footer className={`statusbar ${footerNotice.tone}`} role="status">{footerNotice.tone === "success" ? <CircleCheck size={13} aria-hidden="true" /> : <span aria-hidden="true" />}{footerNotice.text}</footer>
     {modal && <Modal modal={modal} notice={notice} onClose={() => setModal(null)} />}
     {questions && <FlowQuestions key={questions.token} data={questions} notice={notice} onAnswer={answer} onStop={cancel} />}
   </div>;

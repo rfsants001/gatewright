@@ -8,6 +8,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import type { Provider } from "../../app/providers.js";
 import type { ArtifactStore } from "../artifact-store/types.js";
+import type { AgentProfile } from "../skills/agents.js";
 import type { ModuleState } from "../integrations/modules.js";
 
 export type ConfigScope = "gate" | "project";
@@ -18,6 +19,7 @@ export interface PackageRecord {
   installedAt: string;
   version?: string;
   via?: string;
+  containerId?: string;
 }
 
 export interface GatewrightConfig {
@@ -31,6 +33,7 @@ export interface GatewrightConfig {
   packages?: PackageRecord[];
   providers?: Provider[];
   linkedProjects?: string[];
+  agents?: AgentProfile[];
   /** Pluggable modules registered at this scope. */
   modules?: ModuleState[];
 }
@@ -75,6 +78,7 @@ export function mergeConfig(base: GatewrightConfig, over: ConfigPatch): Gatewrig
   if (base.jev || over.jev) merged.jev = { ...base.jev, ...over.jev };
   if (over.providers) merged.providers = [...new Map([...(base.providers ?? []), ...over.providers].map((provider) => [provider.id, provider])).values()];
   if (over.linkedProjects) merged.linkedProjects = over.linkedProjects;
+  if (over.agents) merged.agents = over.agents;
   const pkgs = mergePackages(base.packages, over.packages);
   if (pkgs) merged.packages = pkgs;
   const mods = mergeModules(base.modules, over.modules);

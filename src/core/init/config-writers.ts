@@ -17,6 +17,7 @@ export interface WritePlan {
   preview: string[];
   /** Content to write when action !== "noop". */
   nextContent: string;
+  blocked?: boolean;
 }
 
 type Json = Record<string, unknown>;
@@ -35,7 +36,7 @@ function serialize(value: unknown): string {
 }
 
 function unparseableNoop(path: string, what: string): WritePlan {
-  return { path, action: "noop", summary: `${what}: existing file is not valid JSON — skipped`, preview: [`! ${path} left untouched (unparseable)`], nextContent: "" };
+  return { path, action: "noop", blocked: true, summary: `${what}: existing file is not valid JSON — skipped`, preview: [`! ${path} left untouched (unparseable)`], nextContent: "" };
 }
 
 const HOOK_EVENTS = ["PreToolUse", "PostToolUse", "Stop", "SubagentStop"] as const;
@@ -87,16 +88,24 @@ export function planHooks(settingsPath: string, force = false): WritePlan {
 }
 
 /** Ensure a `gatewright` MCP server (`gate serve`) exists in .mcp.json. */
-export function planMcp(mcpPath: string, force = false, cwd?: string): WritePlan {
+export function planMcp(mcpPath: string, force = false, cwd?: string, extra: Record<string, unknown> = {}): WritePlan {
   const read = readJson(mcpPath);
   if ("ok" in read && !read.ok) return unparseableNoop(mcpPath, "mcp");
 
   const base: Json = "value" in read ? read.value : {};
   const servers = { ...((base["mcpServers"] as Record<string, unknown>) ?? {}) };
+  let extraChanged = false;
+  for (const [name, entry] of Object.entries(extra)) {
+    if (Object.hasOwn(servers, name) && JSON.stringify(servers[name]) !== JSON.stringify(entry)) {
+      throw new Error(`Já existe uma configuração MCP diferente para "${name}" em ${mcpPath}.`);
+    }
+    if (!Object.hasOwn(servers, name)) extraChanged = true;
+    servers[name] = entry;
+  }
   const invocation = gateServeInvocation(cwd);
   const existing = servers["gatewright"] as { command?: unknown; args?: unknown } | undefined;
   const matches = existing?.command === invocation.command && JSON.stringify(existing.args) === JSON.stringify(invocation.args);
-  if (matches && !force) {
+  if (matches && !force && !extraChanged) {
     return { path: mcpPath, action: "noop", summary: "MCP server already registered", preview: ["✓ mcpServers.gatewright present"], nextContent: "" };
   }
   servers["gatewright"] = invocation;
@@ -109,7 +118,7 @@ export function planMcp(mcpPath: string, force = false, cwd?: string): WritePlan
     path: mcpPath,
     action,
     summary: `${action === "create" ? "create .mcp.json and register" : "register"} gatewright MCP server`,
-    preview: [`+ mcpServers.gatewright → ${invocation.command} … serve`],
+    preview: [`+ mcpServers.gatewright → ${invocation.command} … serve`, ...Object.keys(extra).map((name) => `+ mcpServers.${name}`)],
     nextContent: serialize(next),
   };
 }

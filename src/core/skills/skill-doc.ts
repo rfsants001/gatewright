@@ -15,7 +15,7 @@ function parseList(value: string): string[] {
 }
 
 export function parseSkill(md: string): Skill {
-  const m = md.match(FRONTMATTER);
+  const m = md.replace(/\r\n/g, "\n").match(FRONTMATTER);
   if (!m) throw new SkillError("NO_FRONTMATTER", "SKILL.md has no '---' frontmatter block");
 
   const fields: Record<string, string> = {};

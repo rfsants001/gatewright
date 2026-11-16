@@ -8,12 +8,15 @@ import { dirname, join } from "node:path";
 import { SkillCatalog } from "./catalog.js";
 import type { Skill } from "./types.js";
 
-/** Root of the bundled skills. Overridable via GATEWRIGHT_SKILLS_DIR. */
-export function gateSkillsRoot(): string {
-  if (process.env.GATEWRIGHT_SKILLS_DIR) return process.env.GATEWRIGHT_SKILLS_DIR;
+export function bundledGateSkillsRoot(): string {
   // <root>/dist/core/skills/gate-catalog.js (or src/… under vitest) → <root>/skills
   const here = dirname(fileURLToPath(import.meta.url));
   return join(here, "..", "..", "..", "skills");
+}
+
+/** Root of the public catalog. Overridable via GATEWRIGHT_SKILLS_DIR. */
+export function gateSkillsRoot(): string {
+  return process.env.GATEWRIGHT_SKILLS_DIR || bundledGateSkillsRoot();
 }
 
 export function loadGateSkills(root: string = gateSkillsRoot()): SkillCatalog {
