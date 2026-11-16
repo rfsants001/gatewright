@@ -1,37 +1,35 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="240" viewBox="0 0 1040 240" role="img" aria-labelledby="title desc">
-  <title id="title">Gatewright</title>
-  <desc id="desc">Guardrails for AI coding agents. Desktop, terminal and MCP. Example: secret-guard blocks a read of .env.</desc>
-  <rect x=".5" y=".5" width="1039" height="239" rx="16" fill="#101014" stroke="#2a2a34"/>
-
-  <g transform="translate(48 41) scale(2)">
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="226" viewBox="0 0 1040 226" role="img" aria-labelledby="title description">
+  <title id="title">Gatewright Desktop</title>
+  <desc id="description">Connect tools, compose agents, and review work in one project.</desc>
+  <defs>
+    <linearGradient id="canvas" x1="0" x2="1" y1="1" y2="0">
+      <stop stop-color="#101014"/>
+      <stop offset=".62" stop-color="#15141b"/>
+      <stop offset="1" stop-color="#291827"/>
+    </linearGradient>
+  </defs>
+  <rect x=".5" y=".5" width="1039" height="225" rx="14" fill="url(#canvas)" stroke="#493046"/>
+  <g transform="translate(44 43) scale(2.24)">
     <rect x=".5" y=".5" width="27" height="27" rx="7" fill="#2b1727" stroke="#63354f"/>
     <path d="M5.18 8.06h10.8l3.6 3.6H9.14v8.64l-3.96-3.42zM12.56 14.72H23v4.68L19.22 23v-4.5h-6.66z" fill="#fd82c6"/>
   </g>
-
-  <g font-family="Geist, system-ui, sans-serif">
-    <text x="121" y="87" font-size="56" font-weight="700" letter-spacing="-2.6" fill="#f5f2f7">Gatewright</text>
-    <text x="48" y="145" font-size="25" fill="#aaa6b6">Guardrails for AI coding agents</text>
+  <g font-family="Geist, 'Segoe UI', system-ui, sans-serif">
+    <text x="124" y="88" font-size="53" font-weight="700" letter-spacing="-2.4" fill="#f5f2f7">Gatewright</text>
+    <text x="45" y="148" font-size="22" font-weight="500" fill="#e8e1e9">Your workspace for AI coding agents</text>
+    <text x="45" y="184" font-size="14" font-weight="600" letter-spacing="1.25" fill="#fd82c6">DESKTOP  ·  TERMINAL  ·  MCP</text>
   </g>
-  <g font-family="ui-monospace, 'Liberation Mono', monospace" font-size="16" fill="#fd82c6">
-    <text x="48" y="196">Desktop</text>
-    <text x="154" y="196">Terminal</text>
-    <text x="270" y="196">MCP</text>
-    <path d="M132 183v16m115-16v16" stroke="#63354f" fill="none"/>
-  </g>
-
-  <g transform="translate(620 36)">
-    <rect x=".5" y=".5" width="371" height="167" rx="10" fill="#15151b" stroke="#2a2a34"/>
-    <path d="M1 43.5h370m-349 79h328" stroke="#2a2a34" fill="none"/>
-    <g font-family="Geist, system-ui, sans-serif">
-      <text x="22" y="27" font-size="15" font-weight="600" fill="#aaa6b6">Policy check</text>
-      <text x="22" y="148" font-size="14" fill="#aaa6b6">Rule</text>
-      <rect x="261" y="75" width="89" height="28" rx="5" fill="#2c1b2a" stroke="#63354f"/>
-      <circle cx="274" cy="89" r="2.5" fill="#fd82c6"/>
-      <text x="285" y="94" font-size="14" font-weight="600" fill="#fd82c6">Blocked</text>
+  <g transform="translate(616 38)">
+    <rect x=".5" y=".5" width="378" height="149" rx="9" fill="#141318" stroke="#493046"/>
+    <path d="M1 50.5h377M1 99.5h377" stroke="#342832"/>
+    <g fill="none" stroke="#fd82c6" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M22 25h6m-6 0v-4m0 4v4m6-9v10m6-5h4"/>
+      <path d="m21 73 8-5 8 5-8 5-8-5m0 5 8 5 8-5"/>
+      <path d="M21 112h16v19H21zM25 121l3 3 5-6"/>
     </g>
-    <g font-family="ui-monospace, 'Liberation Mono', monospace">
-      <text x="22" y="96" font-size="20" fill="#f5f2f7">Read .env</text>
-      <text x="350" y="148" text-anchor="end" font-size="14" fill="#aaa6b6">secret-guard</text>
+    <g font-family="Geist, 'Segoe UI', system-ui, sans-serif" font-size="17" font-weight="570" fill="#f5f2f7">
+      <text x="54" y="31">Connect project tools</text>
+      <text x="54" y="80">Compose agents from skills</text>
+      <text x="54" y="129">Review work and track costs</text>
     </g>
   </g>
 </svg>

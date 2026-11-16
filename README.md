@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/gatewright-desktop-banner.svg" alt="Gatewright: guardrails for AI coding agents on desktop and terminal, with MCP. The secret-guard rule blocks a read of .env." width="100%">
+  <img src="docs/gatewright-desktop-banner.svg" alt="Gatewright Desktop. Connect tools, compose agents, and review work in one project." width="100%">
 </p>
 
 <p align="center">
@@ -7,7 +7,6 @@
   <img alt="node" src="https://img.shields.io/badge/node-%E2%89%A522.12-339933?logo=node.js&logoColor=white">
   <img alt="typescript" src="https://img.shields.io/badge/TypeScript-strict%20ESM-3178c6?logo=typescript&logoColor=white">
   <img alt="ci" src="https://github.com/rfsants001/gatewright/actions/workflows/ci.yml/badge.svg">
-  <img alt="tests" src="https://img.shields.io/badge/tests-817%20passing-2ea043">
   <img alt="protocol" src="https://img.shields.io/badge/MCP-stdio-8957e5">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
 </p>
@@ -29,30 +28,50 @@
 
 ## Desktop and terminal
 
-Gatewright Desktop is a local workspace built with Electron and React, with a dark theme by default. The desktop launcher supports Linux, macOS, and Windows. It brings together projects, agent runs, review, usage and configuration. Build and launch with `npm run desktop:dev`. Claude Code, Codex, Gemini CLI and OpenCode use their own binaries. Ollama and compatible external APIs and proxies can run text completions through a project provider profile.
+Gatewright Desktop is an Electron workspace for Linux, macOS, and Windows. Run `npm run desktop:dev` to build and open it. Use Claude Code, Codex, Gemini CLI, or OpenCode through their own binaries. For text completions, set up Ollama or a compatible API or proxy in a project provider profile.
 
 The terminal remains a supported surface. Connect each project's MCP and supported hooks from the desktop, then restart the host. See the [desktop guide and compatibility matrix](docs/DESKTOP.md).
 
 ### Desktop screenshots
 
-Captured on Linux with a demo repository and sample usage data.
+The six banners show the current interface with a demo project. Connections, run output, and usage figures are sample data.
 
-**Project overview** shows the detected terminal hosts, the MCP and hook capabilities they support, and a seven-day cost summary.
+#### Project
 
-![Gatewright project overview showing Claude Code, Codex, Gemini CLI, and OpenCode alongside a seven-day cost chart](docs/screenshots/desktop-overview.webp)
+Open a repository, switch between recent projects, and review the MCP and hook configuration for each terminal host. The seven-day chart shows the project's recorded costs at a glance.
 
-<details>
-<summary>View usage and execution</summary>
+![Project workspace with four detected terminal hosts, a seven-day cost chart, and recent projects](docs/screenshots/gatewright-project.webp)
 
-**Usage** shows daily costs over 7 or 30 days, costs by model, and token counts for recent runs. Missing prices are flagged.
+#### Tasks
 
-![Gatewright usage panel showing token totals, cost by day and model, and recent runs](docs/screenshots/desktop-usage.webp)
+Choose a terminal tool or provider and, optionally, a saved agent. Run a task directly or start a guided SDD flow with a supported terminal host. Follow the log and open the diff when the task finishes.
 
-**Execution** shows the selected agent, task, live log, and the action to review the diff.
+![Tasks screen showing Gemini CLI and a saved API reviewer, with a completed run and the option to open its diff](docs/screenshots/gatewright-tasks.webp)
 
-![Gatewright execution panel showing a completed Gemini CLI task and the action to review changes](docs/screenshots/desktop-execution.webp)
+#### Costs
 
-</details>
+Compare daily costs over 7 or 30 days and see which models account for the most recorded spend. The recent runs table breaks out input, output, and cached tokens and flags partial or missing cost data.
+
+![Costs screen with token totals, daily and per-model charts, and a recent-runs table](docs/screenshots/gatewright-costs.webp)
+
+#### Integrations
+
+Set up a model provider or describe an integration in plain language. Review the proposed steps before applying supported recipes for MCP endpoints, versioned npm packages, local Docker services, Git checkouts, Graphify, or Jev. Use the diagnostics to check host configuration and test MCP connections.
+
+![Integrations screen showing provider setup, AI proposals, terminal configuration, and MCP connection checks](docs/screenshots/gatewright-integrations.webp)
+
+#### Agents
+
+Give an agent a name and objective, then select skills in the order it should follow them. Preview the combined instructions, save the profile, and select it in Tasks or access it through an MCP prompt.
+
+![Agent composer showing ordered skill selection, combined instructions, and saved agent profiles](docs/screenshots/gatewright-agents.webp)
+
+#### Skills
+
+Write a reusable playbook in Markdown and describe when to use it. Gatewright saves it as a project-local `SKILL.md` that you can use in the agent composer or expose as an MCP prompt.
+
+![Skills screen showing a Markdown playbook form next to the project catalog](docs/screenshots/gatewright-skills.webp)
+
 
 ## The problem
 
@@ -84,7 +103,7 @@ interactive TUI sits on top for when you'd rather drive it by hand.
 
 - 🚦 **Four default hook gates** for secrets, edit checks, shell errors and proportion. Scope, completion and handoff gates exist as core modules.
 - 🖥️ **Desktop (Electron + React)** — a local dark-themed workspace for projects, runs, review, usage and configuration. Governs four hosts: Claude Code, Codex, Gemini CLI and **OpenCode** (the latter via a shipped plugin).
-- 🧭 **Guided end-to-end flows** — run a whole SDD cycle (plan → *you review* → implement → PR) with human gates between steps. **Durable:** close the window mid-flow and reopen to resume where you left off.
+- 🧭 **Guided SDD flows** — plan, review, and implement with human approval between steps. The desktop also lets you review the final diff.
 - 🧩 **Pluggable modules** — Jev, advisors, savers, models and MCP are swappable `ModuleState`s. Disable a built-in or plug an external one through config — **no compiled adapter**.
 - 🧠 **Jev, a local-AI advisor** — optional, budget-aware, local-first judgment for the fuzzy calls a rule can't settle. It *advises*; it never hard-blocks. Jev is one implementation of a pluggable **Advisor** port.
 - 🔌 **Local MCP server** — exposes the gate catalog and checks as MCP tools your agent can call.
@@ -143,10 +162,9 @@ approving instead of rubber-stamping it. Decline a gate and the flow stops clean
 The live run view is OpenCode-style: a scrollable viewport, tool targets, cleaned markdown, and the
 AI's answer rendered in full. You can leave any screen and return to the dashboard at any time.
 
-Flows are **durable**: every input the flow consumes (run outputs, your answers) is appended to a
-per-project flow-journal, so closing the desktop mid-cycle and reopening the project **replays the
-flow to where you left off** — a pending review is re-presented, and an interrupted run waits for an
-explicit resume rather than re-running on its own.
+The desktop runtime records flow inputs (run outputs and your answers) in a per-project journal.
+The runtime can replay a flow from that journal. Resuming a recovered review or run from the
+desktop window is planned.
 
 ---
 
