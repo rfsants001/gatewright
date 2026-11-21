@@ -156,18 +156,91 @@ describe("JevAdvisor.advise — card → AdvisorVerdict mapping", () => {
 });
 
 // ---------------------------------------------------------------------------
-// ExternalAdvisor stub (R2-002)
+// ExternalAdvisor — HTTP transport (R2-005)
 // ---------------------------------------------------------------------------
 
-describe("ExternalAdvisor stub", () => {
-  it("returns null (abstain) for any input until R2-005 wires transport", async () => {
-    const a = new ExternalAdvisor({ endpoint: "http://example.com" });
-    expect(await a.advise("any-feature", "any summary")).toBeNull();
+describe("ExternalAdvisor.advise — HTTP transport", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("maps a valid verdict JSON response to AdvisorVerdict", async () => {
+    const body = { verdict: "approve", confidence: 0.95, rationale: "Looks good" };
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json(body)));
+    const a = new ExternalAdvisor({ endpoint: "https://advisor.example.com/advise" });
+    const result = await a.advise("proportion-gate", "diff ok?");
+    expect(result).not.toBeNull();
+    expect(result?.verdict).toBe("approve");
+    expect(result?.confidence).toBe(0.95);
+    expect(result?.rationale).toBe("Looks good");
   });
 
-  it("accepts an empty config without throwing", async () => {
+  it("sends feature, summary (and model if present) in POST body", async () => {
+    const fetchMock = vi.fn(async () => Response.json({ verdict: "abstain" }));
+    vi.stubGlobal("fetch", fetchMock);
+    const a = new ExternalAdvisor({ endpoint: "https://advisor.example.com/advise", model: "gpt-4o" });
+    await a.advise("my-feature", "my summary");
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe("https://advisor.example.com/advise");
+    expect(init.method).toBe("POST");
+    const sent = JSON.parse(String(init.body)) as Record<string, unknown>;
+    expect(sent["feature"]).toBe("my-feature");
+    expect(sent["summary"]).toBe("my summary");
+    expect(sent["model"]).toBe("gpt-4o");
+  });
+
+  it("omits model from body when not configured", async () => {
+    const fetchMock = vi.fn(async () => Response.json({ verdict: "abstain" }));
+    vi.stubGlobal("fetch", fetchMock);
+    const a = new ExternalAdvisor({ endpoint: "https://advisor.example.com/advise" });
+    await a.advise("f", "s");
+    const sent = JSON.parse(String((fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1].body)) as Record<string, unknown>;
+    expect(Object.hasOwn(sent, "model")).toBe(false);
+  });
+
+  it("returns null for a non-2xx response", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(null, { status: 500 })));
+    const a = new ExternalAdvisor({ endpoint: "https://advisor.example.com/advise" });
+    expect(await a.advise("f", "s")).toBeNull();
+  });
+
+  it("returns null when response body is not valid JSON", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("not-json", { status: 200, headers: { "content-type": "application/json" } })));
+    const a = new ExternalAdvisor({ endpoint: "https://advisor.example.com/advise" });
+    expect(await a.advise("f", "s")).toBeNull();
+  });
+
+  it("returns null when response JSON has an invalid verdict shape", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ verdict: "unknown-verdict" })));
+    const a = new ExternalAdvisor({ endpoint: "https://advisor.example.com/advise" });
+    expect(await a.advise("f", "s")).toBeNull();
+  });
+
+  it("returns null when fetch throws (network error / timeout)", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => { throw new TypeError("Failed to fetch"); }));
+    const a = new ExternalAdvisor({ endpoint: "https://advisor.example.com/advise" });
+    expect(await a.advise("f", "s")).toBeNull();
+  });
+
+  it("returns null when no endpoint is configured", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const a = new ExternalAdvisor({});
+    expect(await a.advise("f", "s")).toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("returns null when config is empty", async () => {
     const a = new ExternalAdvisor();
     expect(await a.advise("f", "s")).toBeNull();
+  });
+
+  it("omits confidence and rationale keys when not in response", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ verdict: "abstain" })));
+    const a = new ExternalAdvisor({ endpoint: "https://advisor.example.com/advise" });
+    const result = await a.advise("f", "s");
+    expect(result).not.toBeNull();
+    expect(result?.verdict).toBe("abstain");
+    expect(Object.hasOwn(result!, "confidence")).toBe(false);
+    expect(Object.hasOwn(result!, "rationale")).toBe(false);
   });
 });
 

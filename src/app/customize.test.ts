@@ -171,6 +171,36 @@ describe("configuração assistida do projeto", () => {
     expect(configs.read("project", cwd)).toEqual({ linkedProjects: [cwd] });
   });
 
+  it("registra um advisor externo com merge-by-id sem clobber", async () => {
+    // Pre-seed a disabled jev module so we can verify it survives the advisor apply.
+    configs.write("project", { modules: [{ id: "jev", kind: "jev", provider: "internal", enabled: false }] }, cwd);
+    const change = parseChange(JSON.stringify({ kind: "advisor", name: "my-advisor", endpoint: "https://ext.example.com/advise", model: "gpt-4o" }));
+    expect(change.kind).toBe("advisor");
+    expect(() => checkProposalSources(change, "https://ext.example.com/advise gpt-4o")).not.toThrow();
+    expect(() => checkProposalSources(change, "https://ext.example.com/advise")).toThrow("origem");
+    await apply(change);
+    const modules = configs.read("project", cwd).modules ?? [];
+    const advisor = modules.find((m) => m.id === "my-advisor");
+    expect(advisor?.kind).toBe("advisor");
+    expect(advisor?.provider).toBe("external");
+    expect(advisor?.enabled).toBe(true);
+    expect((advisor?.config as Record<string, unknown>)?.["endpoint"]).toBe("https://ext.example.com/advise");
+    expect((advisor?.config as Record<string, unknown>)?.["model"]).toBe("gpt-4o");
+    // jev module must still be present and unchanged (never clobber)
+    const jev = modules.find((m) => m.id === "jev");
+    expect(jev?.enabled).toBe(false);
+  });
+
+  it("registra um advisor externo sem model quando model não é fornecido", async () => {
+    const change = parseChange(JSON.stringify({ kind: "advisor", name: "bare-advisor", endpoint: "https://bare.example.com/advise" }));
+    if (change.kind !== "advisor") throw new Error("narrow");
+    expect(change.model).toBeUndefined();
+    await apply(change);
+    const module = configs.read("project", cwd).modules?.find((m) => m.id === "bare-advisor");
+    expect(module).toBeDefined();
+    expect(Object.hasOwn(module?.config ?? {}, "model")).toBe(false);
+  });
+
   it("usa a configuração Jev do projeto quando o hook resolve o advisor", async () => {
     vi.stubEnv("HOME", cwd);
     vi.stubEnv("USERPROFILE", cwd);

@@ -41,6 +41,12 @@ export const changeSchema = z.discriminatedUnion("kind", [
     const url = new URL(value);
     return url.protocol === "https:" && !url.username && !url.password && !url.search && !url.hash;
   }) }).strict(),
+  z.object({ kind: z.literal("advisor"), name: id, endpoint: z.url().refine((value) => {
+    const url = new URL(value);
+    const loopback = ["127.0.0.1", "localhost", "[::1]"].includes(url.hostname);
+    return !url.username && !url.password && !url.search && !url.hash
+      && (url.protocol === "https:" || (loopback && url.protocol === "http:"));
+  }), model: z.string().trim().min(1).max(150).optional() }).strict(),
 ]);
 export type Change = z.infer<typeof changeSchema>;
 
@@ -60,6 +66,7 @@ Return a single JSON object and no Markdown. You only propose one Gatewright cha
 {"kind":"jev","endpoint":"http://127.0.0.1:11434","model":"model-id"}
 {"kind":"mcp-plugin","name":"slug","url":"https://example.com/mcp"} (Claude-specific legacy format)
 {"kind":"opencode-plugin","package":"package-name@1.2.3"}
+{"kind":"advisor","name":"slug","endpoint":"https://example.com/advise","model":"optional"}
 Use exactly the supplied URL or path. Use only environment variable names for credentials. Do not claim changes have been applied. If the request lacks required information, ask for it in plain text.`;
 }
 
@@ -85,6 +92,7 @@ export function checkProposalSources(change: Change, input: string): void {
     : change.kind === "git-project" ? [change.url, change.commit, ...(change.mcpUrl ? [change.mcpUrl] : [])]
     : change.kind === "graphify" ? [change.version]
     : change.kind === "jev" ? [change.endpoint, change.model]
+    : change.kind === "advisor" ? [change.endpoint, ...(change.model ? [change.model] : [])]
     : change.kind === "provider" ? [change.provider.endpoint, ...(change.provider.keyEnv ? [change.provider.keyEnv] : [])]
     : change.kind === "link-project" ? [change.path]
     : change.kind === "opencode-plugin" ? [change.package]
@@ -100,6 +108,11 @@ export function describeChange(cwd: string, change: Change) {
     case "git-project": return { target, steps: [`Baixar o commit ${change.commit} de ${change.url}.`, `Vincular .gatewright/integrations/${change.name} ao projeto.`, ...(change.mcpUrl ? [`Registrar o MCP em ${change.mcpUrl}.`] : [])] };
     case "graphify": return { target, steps: [`Instalar graphifyy[mcp] ${change.version} em ambiente local com uv.`, "Registrar o servidor. Ele entra na configuração quando graphify-out/graph.json estiver disponível."] };
     case "jev": return { target, steps: [`Habilitar Jev neste projeto usando ${change.model} em ${change.endpoint}.`] };
+    case "advisor": return { target, steps: [
+      `Registrar o advisor externo "${change.name}" em ${change.endpoint}.`,
+      ...(change.model ? [`Usar o modelo "${change.model}" nas chamadas ao advisor.`] : []),
+      "Habilitar como módulo advisor com provider externo no projeto.",
+    ] };
     case "mcp-http": return { target, steps: [`Registrar ${change.name} em ${change.url}. Reaplique a configuração aos hosts de terminal que deseja usar.`] };
     case "npm-mcp": return { target, steps: [
       `Instalar ${change.package} em .gatewright/integrations/${change.name}, com scripts de instalação desativados.`,
@@ -128,6 +141,11 @@ export async function applyChange(cwd: string, change: Change, revision: string,
       configs.write("project", {
         jev: { enabled: true, endpoint: change.endpoint, model: change.model },
         modules: [{ id: "jev", kind: "jev", provider: "internal", enabled: true }],
+      }, cwd);
+      return;
+    case "advisor":
+      configs.write("project", {
+        modules: [{ id: change.name, kind: "advisor", provider: "external", enabled: true, config: { endpoint: change.endpoint, ...(change.model ? { model: change.model } : {}) } }],
       }, cwd);
       return;
     case "provider": saveProvider(cwd, change.provider); return;

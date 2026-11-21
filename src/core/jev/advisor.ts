@@ -13,6 +13,7 @@
 //           is false, so unconfigured users see no change in behavior.
 //   4. null means "no advisor" — the caller MUST skip consulting entirely.
 
+import { z } from "zod";
 import { FileArtifactStore } from "../artifact-store/artifact-store.js";
 import { ConfigStore } from "../config/config-store.js";
 import { jevAdvise } from "./hook-advisory.js";
@@ -66,8 +67,14 @@ function mapCard(card: ActionCard): AdvisorVerdict {
 }
 
 // ---------------------------------------------------------------------------
-// ExternalAdvisor — stub for external advisor transport (R2-005)
+// ExternalAdvisor — HTTP transport for an external advisor (R2-005)
 // ---------------------------------------------------------------------------
+
+const verdictSchema = z.object({
+  verdict: z.enum(["approve", "discard", "abstain"]),
+  confidence: z.number().min(0).max(1).optional(),
+  rationale: z.string().optional(),
+});
 
 export class ExternalAdvisor implements Advisor {
   readonly #config: Record<string, unknown>;
@@ -76,10 +83,24 @@ export class ExternalAdvisor implements Advisor {
     this.#config = config;
   }
 
-  // TODO R2-005: wire external advisor transport using this.#config
-  async advise(_feature: string, _summary: string): Promise<AdvisorVerdict | null> {
-    void this.#config; // accessed when transport is wired in R2-005
-    return null; // abstain until real transport is implemented
+  async advise(feature: string, summary: string): Promise<AdvisorVerdict | null> {
+    const endpoint = typeof this.#config["endpoint"] === "string" ? this.#config["endpoint"] : null;
+    if (!endpoint) return null;
+    const model = typeof this.#config["model"] === "string" ? this.#config["model"] : undefined;
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        signal: AbortSignal.timeout(10_000),
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ feature, summary, ...(model ? { model } : {}) }),
+      });
+      if (!response.ok) return null;
+      const parsed = verdictSchema.safeParse(await response.json());
+      if (!parsed.success) return null;
+      return { verdict: parsed.data.verdict, ...(parsed.data.confidence !== undefined ? { confidence: parsed.data.confidence } : {}), ...(parsed.data.rationale !== undefined ? { rationale: parsed.data.rationale } : {}) };
+    } catch {
+      return null;
+    }
   }
 }
 
