@@ -33,6 +33,7 @@ import { complete, providerAdapter, providers, providerSchema, saveProvider } fr
 import { applyChange, changeRevision, checkProposalSources, customizationPrompt, describeChange, parseChange, skillChangeSchema, type Change } from "../app/customize.js";
 import { applyIntegration } from "../core/integrations/configure.js";
 import { finishOperation, listOperations, operationSnapshot, recordStep, startOperation } from "../core/integrations/operations.js";
+import { listPending } from "../core/pending/projection.js";
 import { integrationRevision, readHealth, recordHealthAttempt } from "../core/integrations/health.js";
 
 const requestSchema = z.object({ id: z.number(), method: z.string(), params: z.unknown().optional() });
@@ -519,6 +520,9 @@ export async function serveDesktop(): Promise<void> {
         const next = advance(current);
         if (next.runId) send({ event: "flow.run", cwd, data: next.runId });
         return next;
+      }
+      case "pending.list": {
+        return listPending(cwd);
       }
       default: throw new Error("Ação desconhecida.");
     }
