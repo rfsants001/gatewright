@@ -1,5 +1,5 @@
 import { createInterface } from "node:readline";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { basename, join } from "node:path";
 import { lstatSync, readFileSync, realpathSync, statSync } from "node:fs";
@@ -31,6 +31,9 @@ import { applyTerminal, planRevision, planTerminal, terminalConfigStatus, termin
 import { testGatewrightMcp, testManagedMcp } from "../app/integration-diagnostics.js";
 import { complete, providerAdapter, providers, providerSchema, saveProvider } from "../app/providers.js";
 import { applyChange, changeRevision, checkProposalSources, customizationPrompt, describeChange, parseChange, skillChangeSchema, type Change } from "../app/customize.js";
+import { applyIntegration } from "../core/integrations/configure.js";
+import { finishOperation, listOperations, operationSnapshot, recordStep, startOperation } from "../core/integrations/operations.js";
+import { integrationRevision, readHealth, recordHealthAttempt } from "../core/integrations/health.js";
 
 const requestSchema = z.object({ id: z.number(), method: z.string(), params: z.unknown().optional() });
 const projectPath = z.object({ cwd: z.string().min(1) });
@@ -43,6 +46,7 @@ export async function serveDesktop(): Promise<void> {
   const active = new Map<string, RunHandle>();
   const proposals = new Map<string, { cwd: string; change: Change }>();
   const reviews = new Map<string, { cwd: string; runId: string }>();
+  const inFlight = new Set<string>(); // revision lock — prevents concurrent apply of same proposal
   let selected: string | undefined;
   let applying = false;
   let flow: {
@@ -270,6 +274,7 @@ export async function serveDesktop(): Promise<void> {
           hooks: true,
           configuration: terminalConfigStatus(cwd, z.enum(terminalHosts).parse(adapter.id)),
         })),
+        operations: listOperations(cwd),
         };
       }
       case "terminal.preview": {
@@ -289,7 +294,23 @@ export async function serveDesktop(): Promise<void> {
       }
       case "integration.test": {
         const { name } = projectPath.extend({ name: z.union([z.literal("gatewright"), integrationName]) }).parse(params);
-        return name === "gatewright" ? testGatewrightMcp(cwd) : testManagedMcp(cwd, name);
+        if (name === "gatewright") {
+          // Self-test: health recording does not apply (no managed server entry for gatewright itself).
+          return testGatewrightMcp(cwd);
+        }
+        const servers = managedMcpServers(cwd, false);
+        if (!Object.hasOwn(servers, name)) throw new Error("O MCP não está registrado neste projeto.");
+        const t0 = performance.now();
+        const diagnostic = await testManagedMcp(cwd, name);
+        const latencyMs = "latencyMs" in diagnostic ? diagnostic.latencyMs : Math.round(performance.now() - t0);
+        const checkedRevision = integrationRevision(cwd, name);
+        if ("errorCode" in diagnostic) {
+          recordHealthAttempt(cwd, name, { verification: "failed", errorCode: diagnostic.errorCode, checkedRevision });
+        } else {
+          recordHealthAttempt(cwd, name, { verification: "passed", latencyMs, checkedRevision });
+        }
+        const health = readHealth(cwd, name);
+        return { ...diagnostic, ...health };
       }
       case "skill.save": {
         const { skill } = projectPath.extend({ skill: skillChangeSchema }).parse(params);
@@ -353,23 +374,56 @@ export async function serveDesktop(): Promise<void> {
         const proposal = proposals.get(revision);
         if (!proposal || proposal.cwd !== cwd) throw new Error("A proposta expirou. Gere uma nova proposta.");
         if (active.size || flow) throw new Error("Encerre a tarefa antes de aplicar uma integração.");
+        // P2-002: revision lock — reject concurrent apply of the same revision.
+        if (inFlight.has(revision)) throw new Error("Esta proposta já está sendo aplicada.");
+        inFlight.add(revision);
         applying = true;
-        const journal = new Journal(new FileArtifactStore(), join(cwd, ".gatewright", "integrations.json"));
-        const record = (type: string) => journal.append({ type, at: new Date().toISOString(), payload: { revision, kind: proposal.change.kind } });
+
+        // P2-004: operation tracking for recipe-type changes.
+        const recipeKinds = new Set(["npm-mcp", "container", "git-project", "graphify"]);
+        const isRecipe = recipeKinds.has(proposal.change.kind);
+        const operationId = isRecipe ? randomUUID() : undefined;
+
         try {
-          record("PROPOSAL_CONFIRMED");
-          try { await applyChange(cwd, proposal.change, revision); }
-          catch (error) {
-            record("PROPOSAL_FAILED");
+          if (isRecipe && operationId !== undefined) {
+            const steps = describeChange(cwd, proposal.change).steps.map((label, i) => ({ id: String(i), label }));
+            startOperation(cwd, { id: operationId, revision, recipeKind: proposal.change.kind, steps });
+            send({ event: "integration.progress", cwd, data: { operationId, seq: 0, step: { status: "running" } } });
+          }
+
+          // P2-002: delegate to core applyIntegration (records CONFIRMED/APPLIED/FAILED).
+          // applyIntegration may swallow the final-write failure path; we cannot replicate
+          // the warning return in that case — noted as a known gap vs. original inline journal.
+          try {
+            await applyIntegration({ cwd, change: proposal.change, revision });
+          } catch (error) {
+            if (isRecipe && operationId !== undefined) {
+              finishOperation(cwd, operationId, "failed");
+              send({ event: "integration.progress", cwd, data: { operationId, seq: -1, step: { status: "failed" } } });
+            }
             throw error;
           }
+
           proposals.delete(revision);
-          try { record("PROPOSAL_APPLIED"); }
-          catch { return { warning: "Mudança aplicada. O registro final da integração não pôde ser gravado." }; }
+
+          if (isRecipe && operationId !== undefined) {
+            const plan = describeChange(cwd, proposal.change);
+            plan.steps.forEach((_label, i) => {
+              recordStep(cwd, operationId, { stepId: String(i), status: "succeeded" });
+            });
+            finishOperation(cwd, operationId, "succeeded");
+            send({ event: "integration.progress", cwd, data: { operationId, seq: plan.steps.length, step: { status: "succeeded" } } });
+          }
+
           return null;
         } finally {
           applying = false;
+          inFlight.delete(revision);
         }
+      }
+      case "integration.operation.get": {
+        const { operationId } = projectPath.extend({ operationId: z.string().min(1) }).parse(params);
+        return operationSnapshot(cwd, operationId);
       }
       case "review": {
         const { runId } = projectPath.extend({ runId: z.uuid().or(z.string().regex(/^run-[a-f0-9-]{36}$/)) }).parse(params);

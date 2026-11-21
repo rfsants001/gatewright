@@ -10,7 +10,7 @@ const rendererUrl = pathToFileURL(renderer).href;
 const methods = new Set([
   "projects", "open", "snapshot", "terminal.preview", "terminal.apply", "provider.save",
   "skill.save", "agent.preview", "agent.save", "agent.update", "agent.delete",
-  "skills.list", "skills.detail", "integration.test",
+  "skills.list", "skills.detail", "integration.test", "integration.operation.get",
   "customize.propose", "customize.apply", "run", "cancel", "review", "review.decide",
   "flow.start", "flow.answer", "flow.stop",
 ]);
