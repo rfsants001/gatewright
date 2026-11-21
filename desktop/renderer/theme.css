@@ -367,3 +367,54 @@ summary { color: var(--accent); cursor: pointer; }
 @media (max-width: 920px) {
   .lib-split, .agent-split { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* ── P2 · Integrations screen ──────────────────────────────────────────────── */
+.install-split { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(260px, 1fr); gap: 12px; align-items: start; }
+.install-support { display: grid; gap: 12px; }
+
+/* Progress meter */
+.meter { height: 4px; background: #2a2434; border-radius: 2px; margin: 14px 0 10px; overflow: hidden; }
+.meter > span { display: block; height: 100%; background: var(--primary); border-radius: inherit; transition: width .35s ease; }
+
+/* Operation head (icon + description) */
+.op-head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 14px; }
+.op-head > svg { flex: none; color: var(--accent); margin-top: 1px; }
+.op-head strong { font-size: 13px; font-weight: 600; }
+.op-head p { font-size: 11px; color: var(--muted); margin-top: 3px; overflow-wrap: anywhere; }
+.op-head code { font-size: 11px; color: var(--accent); }
+
+/* Steps list */
+.op-steps { list-style: none; padding: 0; margin: 0; display: grid; gap: 0; }
+.op-step { display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; border-top: 1px solid var(--line); }
+.op-step:first-child { border-top: 0; }
+.op-step strong { font-size: 12px; font-weight: 560; line-height: 1.4; }
+.op-step p { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.op-step-icon { flex: none; margin-top: 1px; }
+.op-step-error { font-size: 11px; color: var(--error); margin-top: 2px; overflow-wrap: anywhere; }
+
+/* Step status colours */
+.step-ok  .op-step-icon, .step-ok  strong { color: var(--success); }
+.step-err .op-step-icon, .step-err strong { color: var(--error); }
+.step-run .op-step-icon, .step-run strong { color: var(--progress); }
+.step-skip .op-step-icon { color: var(--soft); }
+.step-unk .op-step-icon  { color: var(--progress); }
+.step-pend .op-step-icon { color: #3f3850; }
+
+/* Health list */
+.health-list { padding: 2px 14px 14px; display: grid; gap: 0; }
+.health-item { padding: 13px 0; border-top: 1px solid var(--line); }
+.health-item:first-child { border-top: 0; }
+.health-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.health-row strong { font-size: 13px; font-weight: 580; }
+.health-facts { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 5px; color: var(--soft); font-size: 11px; }
+.health-stale { color: var(--progress); }
+.health-item > div:last-child { margin-top: 8px; }
+
+/* detail-title: inline label + badge (health) */
+.detail-title { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 5px; }
+.detail-title strong { font-size: 13px; font-weight: 580; }
+.facts { display: flex; flex-wrap: wrap; gap: 4px 16px; color: var(--soft); font-size: 11px; }
+
+@media (max-width: 920px) {
+  .install-split { grid-template-columns: minmax(0, 1fr); }
+}
