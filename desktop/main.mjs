@@ -9,7 +9,8 @@ const renderer = fileURLToPath(new URL("./renderer/index.html", import.meta.url)
 const rendererUrl = pathToFileURL(renderer).href;
 const methods = new Set([
   "projects", "open", "snapshot", "terminal.preview", "terminal.apply", "provider.save",
-  "skill.save", "agent.preview", "agent.save", "integration.test",
+  "skill.save", "agent.preview", "agent.save", "agent.update", "agent.delete",
+  "skills.list", "skills.detail", "integration.test",
   "customize.propose", "customize.apply", "run", "cancel", "review", "review.decide",
   "flow.start", "flow.answer", "flow.stop",
 ]);

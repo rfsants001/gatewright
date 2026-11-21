@@ -22,7 +22,8 @@ import {
 import { Journal } from "../core/journal/journal.js";
 import { stripQuestions } from "../core/flow/questions.js";
 import { buildSkillsSystemPrompt } from "../core/skills/gate-catalog.js";
-import { agentSchema, composeAgent, projectAgents, projectSkills, saveAgent } from "../core/skills/agents.js";
+import { agentSchema, composeAgent, projectAgents, projectSkills, saveAgent, updateAgent, deleteAgent } from "../core/skills/agents.js";
+import { listSkills, skillDetail } from "../core/skills/skills-query.js";
 import { integrationName, managedMcpReady, managedMcpServers } from "../core/integrations/managed-mcp.js";
 import { ConfigStore } from "../core/config/config-store.js";
 import { FileArtifactStore } from "../core/artifact-store/artifact-store.js";
@@ -302,6 +303,32 @@ export async function serveDesktop(): Promise<void> {
         if (method === "agent.preview") return { instructions: composeAgent(cwd, agent) };
         saveAgent(cwd, agent);
         return null;
+      }
+      case "agent.update": {
+        const { agent } = projectPath.extend({ agent: agentSchema }).parse(params);
+        updateAgent(cwd, agent);
+        return null;
+      }
+      case "agent.delete": {
+        const { id } = projectPath.extend({ id: z.string().min(1) }).parse(params);
+        deleteAgent(cwd, id);
+        return null;
+      }
+      case "skills.list": {
+        const { query, category, origin } = projectPath.extend({
+          query: z.string().optional(),
+          category: z.string().optional(),
+          origin: z.enum(["bundled", "project"]).optional(),
+        }).parse(params);
+        const filter: { query?: string; category?: string; origin?: "bundled" | "project" } = {};
+        if (query !== undefined) filter.query = query;
+        if (category !== undefined) filter.category = category;
+        if (origin !== undefined) filter.origin = origin;
+        return listSkills(cwd, filter);
+      }
+      case "skills.detail": {
+        const { name } = projectPath.extend({ name: z.string().min(1) }).parse(params);
+        return skillDetail(cwd, name);
       }
       case "customize.propose": {
         const { providerId, model, prompt, reference } = projectPath.extend({
