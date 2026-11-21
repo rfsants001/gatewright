@@ -8,6 +8,6 @@ Memória tem versões, isolamento, seleção explícita e snapshot imutável no 
 
 A evidência e os comandos estão no [registro de validação](desktop-product-evolution/screens/validation-2026-11-21/README.md). O ensaio Electron executa um provedor HTTP local de teste e confere contexto recebido e histórico original após editar/reiniciar. Graphify 0.9.114 foi instalado, gerou código e foi removido por sua operação em diretórios temporários.
 
-A continuação de ambiente é validar hosts e serviços autenticados quando disponíveis, sem afirmar que assinaturas/proxies de terceiros já foram testados. Inicialização multiplataforma está no CI; fluxos completos desta entrega foram ensaiados no Linux. Operação antiga sem prova de propriedade não é removida automaticamente. Consulte os limites no checkpoint.
+Além do pacote fechado, a visão completa ainda exige tool calling/MCP na execução direta por API/proxy (hoje textual), política de escrita para Codex (piloto read-only), telemetria de terminais externos, preços/conversão extensíveis e distribuição com runtime empacotado. Validar também hosts e serviços autenticados quando disponíveis, sem afirmar que assinaturas/proxies de terceiros já foram testados. Inicialização multiplataforma está no CI; fluxos completos desta entrega foram ensaiados no Linux. Operação antiga sem prova de propriedade não é removida automaticamente. Consulte os limites no checkpoint.
 
 Documentos em docs/desktop-product-evolution, commits sem Co-authored-by. .specs e vault permanecem fora dos commits.

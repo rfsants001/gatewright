@@ -32,8 +32,19 @@ O provedor HTTP do ensaio é local e controlado; valida spawn, protocolo, contex
 
 Operações anteriores sem receita e prova de ownership não permitem remoção automática. Um lock sem owner.json (falha antes do primeiro registro de processo) exige conferência manual, preservando recursos. A geração local indexa código; indexação semântica de documentos depende dos recursos próprios do Graphify. Memórias de tarefa ficam restritas à execução indicada; não são promovidas automaticamente para novos runs. Integrações no custo significam contexto habilitado rateado, não uma fatura externa nem medição de tool calls.
 
+## Lacunas funcionais além do pacote P0–P7
+
+O fechamento das fases deste pacote não encerra toda a visão do produto. A leitura do código após os smokes confirmou:
+
+1. `src/app/providers.ts` ainda faz completação textual em API/proxy direto, sem ciclo de tool calling/MCP. `src/core/engine/adapters/stream-host.ts` inicia Codex com sandbox read-only.
+2. Sessões iniciadas fora do aplicativo ainda dependem de coleta de telemetria para aparecer integralmente nos custos.
+3. `src/core/run/pricing.ts` tem tabela embutida para famílias Claude e conversão BRL local fixa; preços extensíveis para outros modelos/proxies e atualização da conversão não foram entregues nesta fase.
+4. Falta aceite autenticado nos hosts/serviços reais, inclusive prova de bloqueio no OpenCode e operação MCP/harness com a janela fechada. O smoke controlado não substitui esse ensaio.
+5. Instaladores nativos com runtime empacotado, assinatura e atualização precisam de entrega própria; hoje a execução depende de Node/checkout e o instalador existente é um atalho Linux.
+6. CI validou inicialização nos três SOs; a matriz funcional completa nova foi exercitada no Linux.
+
 ## Próxima ação exata para o Claude
 
-Conferir git status, commits posteriores e a execução do CI desta entrega. Não reimplementar P4–P7. Reproduzir os três smokes quando alterar bridge/UI, usando o pacote atual de docs. Se o usuário disponibilizar um ambiente autenticado, executar a matriz de hosts/serviços de docs/DESKTOP.md e registrar versões e resultados; corrigir somente as lacunas reproduzidas. Preservar snapshots, versões, orçamento e ownership.
+Conferir git status, commits posteriores e o CI da entrega a6ab1bf. Não reimplementar P4–P7. Para a visão completa, priorizar em nova continuação autorizada a execução com ferramentas nos caminhos API/proxy e a política de escrita do Codex; em seguida telemetria/preços e distribuição. Executar a matriz autenticada quando houver ambiente disponível. Cada frente precisa de critérios próprios e evidência real, preservando snapshots, versões, orçamento e ownership.
 
 Commits na main, sem Co-authored-by. Não incluir .specs nem a vault. As referências locais podem apontar para este arquivo.

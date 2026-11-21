@@ -39,7 +39,7 @@ Use login e assinaturas pelas opções oficiais dos hosts. O Gatewright não lê
 
 ## Decisões de interface
 
-- A navegação superior mantém Projeto, Tarefas, Custos, Integrações, Agentes e Skills. Projeto reúne Resumo e Pendências.
+- A navegação superior mantém Projeto, Tarefas, Custos, Integrações, Agentes e Skills. Projeto reúne Resumo, Pendências, Memória e Mapa.
 - Tema preto grafite com rosa-magenta para foco, seleção, ações primárias e dados nos gráficos. Verde indica sucesso, âmbar indica execução e vermelho sinaliza falha ou cancelamento. Os estados também têm rótulos.
 - A marca usa dois traços que desenham uma passagem em forma de G. Geist e Lucide são distribuídos junto com a interface. Tabelas, painéis e formulários mantêm ações próximas de seus dados.
 - Seleção de pasta nativa, navegação por teclado, foco visível e texto em português. “Aplicar configuração” e “Cancelar execução” descrevem a ação.
@@ -50,9 +50,19 @@ Use login e assinaturas pelas opções oficiais dos hosts. O Gatewright não lê
 
 O processo principal do Electron abre a janela e liga o renderer React ao subprocesso Node por IPC. O preload expõe apenas seleção de pasta, ações da interface e eventos do runtime. O renderer roda isolado, em sandbox, com Node desabilitado e conteúdo local. O Node externo continua responsável pelas invocações de MCP e hooks. A configuração existente e os journals continuam utilizáveis. [Segurança do Electron](https://www.electronjs.org/docs/latest/tutorial/security/)
 
-## Próximas entregas
+## Escopo entregue e trabalho restante
 
-A próxima fase é Memória e contexto de tarefa. Mapa do projeto, atribuição de custos e consolidação da ajuda seguem no SDD. P2-004b completa progresso por etapa, reconciliação e compensação dos instaladores. Os ensaios autenticados por host, a prova de bloqueio no OpenCode, a telemetria externa, os orçamentos e a distribuição com runtime empacotado mantêm seus aceites próprios.
+P0–P7 e P2-004b da evolução do desktop foram implementadas. Memória, Mapa, atribuição de custos, ajuda e recuperação de instalações já estão no aplicativo; não são próximas fases a reimplementar.
+
+A visão completa do produto ainda tem frentes distintas:
+
+- **Execução com ferramentas em API/proxy:** o adapter direto atual faz completação textual compatível com OpenAI. Falta o ciclo de chamadas de ferramentas/MCP para editar e executar trabalho por esse caminho. O adapter Codex do desktop continua com `--sandbox read-only` no piloto.
+- **Telemetria de sessões externas:** o painel agrega journals de execução; sessões iniciadas diretamente no terminal precisam de uma fonte de telemetria. Ter MCP/hooks configurados não equivale a receber automaticamente todo o consumo do host.
+- **Cobertura de preços:** a tabela embutida estima famílias Claude. Outros modelos ficam sem custo estimado se não houver preço/custo disponível; a conversão BRL é local e fixa. Configuração extensível e atualização de preços/câmbio são trabalho de produto.
+- **Aceite autenticado:** rodar tarefas reais em Claude/Codex/Gemini/OpenCode, conferir MCP/harness com a janela fechada, comprovar o bloqueio dentro do OpenCode e ensaiar Docker/MCPs/proxies reais. Os smokes novos usam um provedor local controlado.
+- **Distribuição desktop:** instaladores nativos com runtime empacotado, assinatura e atualização ainda precisam de uma entrega própria. A inicialização por Node/npm é multiplataforma; `desktop:install` cria o atalho Linux ligado ao checkout e ao Node existentes.
+
+A inicialização passou no CI em Linux/macOS/Windows. Os fluxos novos completos foram ensaiados no Linux; ainda falta repetir essa matriz funcional nos outros sistemas. O registro de execução está em [CHECKPOINT.md](desktop-product-evolution/CHECKPOINT.md).
 
 ## Verificar Pendências e retomada
 
