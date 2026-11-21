@@ -340,7 +340,10 @@ describe("bridge — flow resume (FDR-006)", () => {
       const resumeReply = await resumePromise;
       expect(resumeReply.error).toBeUndefined();
       const duplicateReply = await duplicatePromise;
-      expect(duplicateReply.error).toContain("execução em andamento");
+      // Without a native host, the first run can fail before the second RPC is
+      // consumed. Both states must reject the duplicate without starting a run.
+      expect(duplicateReply.error).toMatch(/execução em andamento|Nenhum fluxo para retomar/);
+      expect(bridge.events.filter((event) => event.event === "flow.run")).toHaveLength(1);
     },
     15000,
   );

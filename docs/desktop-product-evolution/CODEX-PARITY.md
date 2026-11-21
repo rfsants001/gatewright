@@ -39,6 +39,7 @@ O worker remove somente variáveis de sessão/IPC do Codex pai para iniciar uma 
 
 Ambiente: Linux/Nobara, Node 24.16.0, Electron 45.3.1; protocolo real Codex 0.169.1. Versões sem hooks/list recebem orientação de atualização, em vez de executar sem comprovação dos hooks.
 
+- CI confirmou abertura em Linux/macOS/Windows e fluxos Electron no Linux. O teste de retomada agora aceita a falha imediata de um host ausente e exige exatamente um flow.run, eliminando a dependência de temporização da mensagem de rejeição.
 - `npm run check`: **974 testes / 130 arquivos** com GATEWRIGHT_HOME e GATEWRIGHT_PROJECTS temporários. O registro pessoal não deve ser usado pelo bridge durante a suíte.
 - Smokes Electron de abertura, Pendências e evolução: projeto descartável, IPC e bridge reais. A extensão Codex usa uma CLI controlada e MCP Gatewright real: confiança pendente, edição, comando de teste, revisão aprovada, tokens/cache/modelo, Flow e cancelamento. Fixtures em `desktop/codex-fixture.mjs`; não são importadas pela produção.
 - CLI Codex real, sem credenciais reais e com CODEX_HOME isolado, backend HTTP local com respostas fixas: MCP carregado, ferramenta check_gate executada e leitura de `.env` bloqueada pelo hook nativo. A revisão dos hooks ocorreu pelo fluxo interativo nativo, somente no projeto descartável.
