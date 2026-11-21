@@ -1,0 +1,20 @@
+{
+  "date": "2026-11-20",
+  "scope": "Protótipo de design e interações locais",
+  "checks": [
+    "Filtro de pendências mostra uma aprovação",
+    "Revisão abre e Escape fecha o painel",
+    "Busca de skills, resultado vazio e limpar filtros",
+    "Reordenação reflete na prévia e perfil abre tarefa",
+    "Instalação simulada avança, falha na verificação e retenta apenas o teste",
+    "Memória filtra escopo e permite registro local de demonstração",
+    "Mapa e lista oferecem os cinco módulos",
+    "Grupo sem preço continua visível e filtra a execução",
+    "Ajuda contém foco e fecha com Escape",
+    "Estados vazio, erro e carregamento",
+    "Oito telas em 780 × 580 sem overflow global e com fim do conteúdo alcançável",
+    "Ficha editável atualiza o perfil na demonstração",
+    "Registro de memória e origem de custo desenhados em painéis"
+  ],
+  "consoleErrors": []
+}
