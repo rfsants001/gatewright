@@ -17,10 +17,12 @@ No Linux, rode `npm run desktop:install` para criar a entrada no menu. O atalho 
 
 ## Usar
 
-- **Projeto** abre uma pasta, mostra projetos recentes e detecta hosts. A prévia da conexão informa os arquivos que serão atualizados. Aplique e reinicie o host. Respeite os avisos de confiança e permissões do host.
-- **Execução** roda uma tarefa, transmite os eventos, mostra o resultado e permite cancelar. O fluxo SDD guia planejamento, aprovação, implementação e revisão. Push e PR ficam a cargo do usuário nesta superfície. A aprovação do diff registra a decisão no journal.
-- **Consumo** exibe o que o runtime registrou no projeto. Um host aberto por fora pode acessar skills e resources MCP, sem enviar automaticamente sua telemetria para o Gatewright. O gráfico diário alterna entre 7 e 30 dias e o gráfico por modelo usa todo o histórico medido. Custos ausentes e parciais são sinalizados. Valores estimados ou reportados são distintos de faturas de assinatura.
-- **Configuração** cadastra um endpoint compatível com `/chat/completions`. Use HTTPS ou HTTP loopback. O campo de credencial aceita o nome de uma variável, como `OPENROUTER_API_KEY`. O processo do desktop precisa receber essa variável. A janela também gera propostas para criar uma skill, vincular um projeto, cadastrar um provedor, adicionar um servidor MCP HTTP ao Claude Code ou cadastrar no OpenCode um pacote com versão fixa para o próprio host carregar.
+- **Projeto** abre uma pasta, mostra projetos recentes e detecta hosts. A prévia da conexão informa os arquivos que serão atualizados. Em **Pendências**, consulte aprovações, retomadas de Flow e falhas de instalação. Cada ação abre a revisão do run correspondente ou o diagnóstico da operação, conferindo a revisão atual da pendência.
+- **Tarefas** executa um objetivo, transmite os eventos e permite cancelar. O Flow SDD guia planejamento, aprovação, implementação e revisão. Ao reabrir o projeto, uma revisão pendente é recuperada e uma etapa interrompida aguarda a ação **Retomar**. A aprovação do diff registra a decisão vinculada ao snapshot atual.
+- **Custos** exibe o uso registrado nos journals do projeto, com custo por dia, por modelo e tokens por execução. Valores ausentes ou parciais são sinalizados. Hosts abertos por fora precisam de uma fonte de telemetria para que seu consumo apareça aqui.
+- **Skills** oferece busca, filtros de categoria e origem, corpo de instruções e os agentes dependentes. Crie playbooks no projeto em formato SKILL.md.
+- **Agentes** mantém perfis com responsabilidades, entrada, saída e limites opcionais. Ordene as skills, confira as instruções combinadas e use o perfil numa tarefa. O mesmo compositor alimenta os prompts MCP.
+- **Integrações** cadastra provedores de API ou proxy e recebe pedidos em linguagem natural. A pessoa revisa a proposta antes de aplicar as receitas de MCP, npm, Docker, Git, Graphify ou Jev. Operações e resultados de diagnóstico são persistidos. O progresso fino dos instaladores e a compensação de recursos ainda estão em P2-004b. O campo de credencial recebe o nome de uma variável de ambiente disponível ao desktop.
 
 ## Compatibilidade do piloto
 
@@ -37,7 +39,7 @@ Use login e assinaturas pelas opções oficiais dos hosts. O Gatewright não lê
 
 ## Decisões de interface
 
-- Hierarquia por tarefa, com as mesmas quatro áreas em todas as vistas. A interface abre no projeto, o contexto das ações.
+- A navegação superior mantém Projeto, Tarefas, Custos, Integrações, Agentes e Skills. Projeto reúne Resumo e Pendências.
 - Tema preto grafite com rosa-magenta para foco, seleção, ações primárias e dados nos gráficos. Verde indica sucesso, âmbar indica execução e vermelho sinaliza falha ou cancelamento. Os estados também têm rótulos.
 - A marca usa dois traços que desenham uma passagem em forma de G. Geist e Lucide são distribuídos junto com a interface. Tabelas, painéis e formulários mantêm ações próximas de seus dados.
 - Seleção de pasta nativa, navegação por teclado, foco visível e texto em português. “Aplicar configuração” e “Cancelar execução” descrevem a ação.
@@ -50,4 +52,8 @@ O processo principal do Electron abre a janela e liga o renderer React ao subpro
 
 ## Próximas entregas
 
-Concluir o dogfood por host e versão, incluindo conexão MCP interativa. Completar a configuração de OpenCode, reconciliar eventos de sessões externas, unificar medição e orçamentos, e persistir as etapas do Flow para retomada depois de fechar. O instalável com runtime empacotado, o catálogo de plugins executáveis e o SmartRouter ainda precisam de implementação e aceite.
+A próxima fase é Memória e contexto de tarefa. Mapa do projeto, atribuição de custos e consolidação da ajuda seguem no SDD. P2-004b completa progresso por etapa, reconciliação e compensação dos instaladores. Os ensaios autenticados por host, a prova de bloqueio no OpenCode, a telemetria externa, os orçamentos e a distribuição com runtime empacotado mantêm seus aceites próprios.
+
+## Verificar Pendências e retomada
+
+Use `npm run test:desktop:pending` em sessão gráfica. O comando compila o aplicativo e exercita a janela, IPC e bridge com um projeto descartável. Ele cobre filtros, revisão vencida, diagnóstico por operação, janela compacta e reabertura de um Flow aguardando revisão ou retomada. O smoke de abertura nos sistemas continua em `npm run test:desktop`.

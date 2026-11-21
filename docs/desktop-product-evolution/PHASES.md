@@ -1,5 +1,9 @@
 # Fases de implementação e retomada
 
+## Estado em 21/11/2026
+
+P0/P1 entregues pelo Claude. P2 funcional com P2-004b pendente. P3 concluída com a tela de Pendências e o ensaio de reinício do Electron. Próxima fase P4. Consulte CHECKPOINT.md e sdd/tasks.md para o estado de cada subtarefa e o registro de validação.
+
 ## Regras de execução
 
 Concluir cada fase com uma fatia verificável pela entrada normal do produto. Atualizar o checkpoint após uma mudança relevante, antes de operações longas e ao encerrar. Ler o checkpoint no início da sessão seguinte. Só marcar um aceite verificado com evidência de execução. Registrar problemas do ambiente junto do comando e do efeito observado.

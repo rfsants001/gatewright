@@ -2,6 +2,10 @@
 
 Referência técnica para o SDD. A inspeção foi feita em 20/11/2026 sobre `b2dfd32`. O Claude deve conferir assinaturas, arquivos e commits antes de executar a fase P0. As estruturas abaixo são propostas a refinar, e cada alteração precisa preservar dados e chamadores existentes.
 
+## Estado da continuação em 21/11/2026
+
+Skills, ficha de agente, aplicação compartilhada de integração, operações e saúde já têm implementação da P1/P2. A projeção de pendências foi ligada à janela na P3. pending.open revalida identidade e revisão antes de abrir um diff, um diagnóstico ou uma retomada. A ordem de entrega de ask recuperada e a retomada explícita foram exercitadas em reinícios reais do Electron. P2-004b continua cobrindo progresso fino e compensação. O próximo domínio é Memória. O inventário abaixo preserva a referência de origem e deve ser lido com o SDD e seu checkpoint atuais.
+
 ## Pontos de integração encontrados
 
 | Área | Arquivos existentes | Uso esperado |

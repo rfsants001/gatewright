@@ -90,6 +90,15 @@ interface HealthStatus {
 
 ## 3. P3 — Pendências e FDR-007
 
+### Implementação validada em 21/11/2026
+
+A aba Projeto → Pendências consome pending.list, mantém o resumo atual e abre o item por pending.open. A ação reconsulta a projeção e confere kind, entity e revision. Revisões usam o mesmo prepareReview do caminho manual e a decisão permanece vinculada ao diff atual. O diagnóstico leva ao snapshot da operação pelo ID. Respostas de um projeto anterior são descartadas no renderer.
+
+A revisão de um Flow segue o head do journal, mantendo a identidade do FLOW_START. Runs registrados no journal do Flow ficam no fluxo de revisão próprio e não geram uma segunda aprovação avulsa. Uma operação de integração tem revisão derivada de seu estado persistido. A projeção do bridge omite retomadas enquanto houver run ativo. flow.resume recusa uma segunda chamada durante uma execução em andamento.
+
+O smoke desktop/pending-smoke.mjs cobre a janela, IPC e bridge reais, revisão vencida, diagnóstico, janela compacta e reinício do Electron na mesma pasta com uma ask recuperada ou run aguardando confirmação. O script termina esses fluxos antes de limpar a fixture.
+
+
 ### Projeção `pending.list` (core, `src/core/pending/projection.ts`)
 ```ts
 type PendingKind = "review"|"resumable-run"|"resumable-ask"|"integration-failure";
@@ -98,7 +107,7 @@ interface PendingItem { kind:PendingKind; entity:string /*runId|operationId*/; r
 - Derivada de fontes de verdade (não é 2º armazenamento): Flow (`resumableFlow`, `flow-state.json`), runs aguardando review (journal), operações de integração `failed|partial`. Item resolvido some ao mudar a fonte. Contagem segue filtro. Filtrar não altera entidades.
 
 ### FDR-007 (fecha o arco Flow durável)
-Estado: FDR-001..006 **prontos**; falta a ligação de tela + 3 pontos (ver `../../.specs/features/flow-durable-resume/tasks.md` FDR-007). Trabalho:
+Estado em 21/11: FDR-001..007 ligados à janela, com os ensaios descritos acima. O inventário abaixo registra os pontos resolvidos (ver `../../.specs/features/flow-durable-resume/tasks.md` FDR-007). Trabalho:
 1. `flow.resume` na allowlist de `main.mjs`; `Bridge.busy` passa a considerar flow restaurado (fechar/cancelar refletem trabalho real); `inFlow=true` no resume.
 2. **Ordem de eventos**: `flow.ask` recuperado é emitido durante `open`, antes de `cwdRef.current` ser setado, e o renderer filtra por `cwd` → evento perdido. Correção: entregar a revisão recuperada **no retorno do `open`** (via `resumableFlow`) e/ou **enfileirar** eventos até a seleção da pasta ser confirmada no renderer; `app.jsx open()` consome `resumableFlow` e seta estado antes de escrever `cwdRef`.
 3. UI de retomada: `atKind:"run"` mostra título + "Retomar"(`flow.resume`)/"Encerrar"(`flow.stop`), run só após confirmação; `atKind:"ask", pendingAsk:false` mostra o problema e oferece encerrar.

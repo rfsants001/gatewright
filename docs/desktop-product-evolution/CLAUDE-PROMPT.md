@@ -2,6 +2,10 @@
 
 Você vai continuar o Gatewright como responsável pela implementação da lógica e da integração das telas. O usuário aprovou a evolução visual e pediu que o Codex desenhasse as páginas e preparasse PRD e TRD. Seu trabalho começa criando um SDD a partir deste pacote, depois executando a implementação por fases com checkpoints persistidos.
 
+## Retomada em 21/11/2026
+
+O SDD e as fases P0, P1 e P3 estão implementados. A P2 tem entrega funcional com a subtarefa P2-004b ainda pendente. Consulte CHECKPOINT.md e sdd/tasks.md antes de iniciar. O próximo trabalho novo é P4, Memória e contexto. O teste real do Electron para Pendências e retomada está documentado em screens/validation-2026-11-21/README.md.
+
 ## Leitura inicial obrigatória
 
 Trabalhe no checkout `~/dev/gatewright`. Leia os arquivos abaixo nesta ordem, conferindo os caminhos reais antes de usar.
@@ -77,4 +81,4 @@ Quando o ambiente bloquear um ensaio, registre o erro e mantenha o aceite como p
 
 Os documentos, checkpoints, telas e SDDs desta entrega ficam em `docs/desktop-product-evolution/`, conforme a orientação mais recente do usuário. O SDD de implementação usa a subpasta `sdd/`. Commits de código não levam Co-authored-by. Confira a autorização vigente para publicar na main, observando também alterações concorrentes. Atualize o README quando a funcionalidade e suas capturas reais estiverem prontas para publicação.
 
-Comece agora pela P0. Primeiro reporte a base encontrada, os arquivos de referência e o plano de tarefas persistido. Em seguida implemente as fases pela entrada normal do produto, mantendo o checkpoint atualizado.
+Comece pela próxima tarefa pendente indicada no CHECKPOINT.md. Confira a base encontrada, os contratos existentes e o plano persistido. Continue pela entrada normal do produto, mantendo o checkpoint atualizado e preservando as entregas já validadas.

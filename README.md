@@ -34,13 +34,15 @@ The terminal remains a supported surface. Connect each project's MCP and support
 
 ### Desktop screenshots
 
-The six banners show the current interface with a demo project. Connections, run output, and usage figures are sample data.
+The banners illustrate the desktop with a demo project. Connections, run output, and usage figures are sample data. The Pending view below was captured from the Electron acceptance test.
 
 #### Project
 
-Open a repository, switch between recent projects, and review the MCP and hook configuration for each terminal host. The seven-day chart shows the project's recorded costs at a glance.
+Open a repository, switch between recent projects, and review the MCP and hook configuration for each terminal host. The seven-day chart shows the project's recorded costs at a glance. The Pending tab brings together reviews, interrupted flows, and failed integration operations, with actions that open the corresponding review or diagnostic.
 
 ![Project workspace with four detected terminal hosts, a seven-day cost chart, and recent projects](docs/screenshots/gatewright-project.webp)
+
+![Project Pending tab in Electron showing a run awaiting review and an integration operation awaiting diagnosis](docs/desktop-product-evolution/screens/validation-2026-11-21/pending-overview.png)
 
 #### Tasks
 
@@ -165,8 +167,8 @@ The live run view is OpenCode-style: a scrollable viewport, tool targets, cleane
 AI's answer rendered in full. You can leave any screen and return to the dashboard at any time.
 
 The desktop runtime records flow inputs (run outputs and your answers) in a per-project journal.
-The runtime can replay a flow from that journal. Resuming a recovered review or run from the
-desktop window is planned.
+Reopening the project restores a pending review or presents an explicit action to resume an
+interrupted step. Review decisions remain bound to the current repository snapshot.
 
 ---
 

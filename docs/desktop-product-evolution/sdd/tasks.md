@@ -45,9 +45,10 @@
 - [x] **P3-002** Corrigir ordem de eventos do `flow.ask` recuperado (entregar via retorno do `open`/enfileirar até seleção da pasta); `app.jsx open()` consome `resumableFlow` antes de escrever `cwdRef`.
   - Done when: `flow.ask` recuperado não é descartado na abertura/troca de pasta; `pendingAsk:false` mostra problema+encerrar; estende `bridge.resume.test`. Dep: P3-001. → `fix(flow): deliver recovered ask after project selected (FDR-007)`
 - [x] **P3-003** UI de retomada em `app.jsx` (`atKind:"run"` título+Retomar/Encerrar, run só após confirmação; reconciliação de incerteza pós-crash).
-  - Done when: retomar não dispara 2ª execução; run ativo/diff alterado/Flow encerrado cobertos; e2e Electron mesma cwd entre reinícios. Dep: P3-002. → `feat(desktop): resume paused flow from window (FDR-007)`
-- [ ] **P3-004** Projeção `pending.list` (`src/core/pending/projection.ts`) + bridge `pending.list` + tela Pendências (contagem por tipo, filtros, ação+vínculo).
+  - Done when: retomar não dispara 2ª execução; run ativo/diff alterado/Flow encerrado cobertos; e2e Electron mesma cwd entre reinícios. Validado no smoke de 21/11 para revisão recuperada e run aguardando ação. Dep: P3-002. → `feat(desktop): resume paused flow from window (FDR-007)`
+- [x] **P3-004** Projeção `pending.list` (`src/core/pending/projection.ts`) + bridge `pending.list` + tela Pendências (contagem por tipo, filtros, ação+vínculo).
   - Done when: deriva de revisões/runs/operações; item resolvido some; filtrar não altera entidades; teste `pending-projection`. Dep: P2, P3-001. → `feat(pending): projection and screen over runtime sources`
+  - Entrega de 21/11: tela Projeto → Pendências, filtros e contagens, pending.open com revisão atual, ação de diff para o run correto e diagnóstico por operationId. Revisão de Flow avança sua versão e seus outputs não duplicam revisões avulsas. Regressão e smoke real do Electron registrados em ../screens/validation-2026-11-21/README.md.
 
 ## P4 — Memória e contexto  (REQ ME-01..05)  — Dep: P1, P3
 

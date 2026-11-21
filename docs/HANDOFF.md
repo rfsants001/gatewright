@@ -1,20 +1,21 @@
 # Retomar o Gatewright
 
-Leia [DESKTOP.md](DESKTOP.md), [PRD](GATEWRIGHT-PRD.md) e [TRD](GATEWRIGHT-TRD.md). O SDD do autor está em `.specs/` neste checkout. A vault está em `~/Documentos/planning-vault/ideias/projetos/gatewright/`. Ambos são locais.
+Atualizado em 21/11/2026. A base recebida do Claude foi 27a393d. A continuação de código d0441e4 concluiu a ligação da tela de Pendências e a validação de retomada pela janela do Electron.
 
-## Pontos de entrada
+## Ponto de partida
 
-- `src/cli/gate.ts` — terminal, hooks, MCP, desktop e subprocesso de completion.
-- `desktop/main.mjs` e `preload.cjs` — janela, seleção de pasta e IPC. `desktop/renderer/` — React e tema escuro. `src/desktop/bridge.ts` — ações e eventos sobre stdin/stdout.
-- `src/app/terminal.ts` — configuração de hosts por projeto. `providers.ts` — endpoints e chaves por referência. `customize.ts` — propostas tipadas com revisão.
-- `src/core/engine/`, `src/host/`, `src/mcp/` — harness e integrações compartilhados.
+Comece em docs/desktop-product-evolution/CHECKPOINT.md e sdd/tasks.md. O pacote mantém o PRD, TRD, telas de referência, fases e prompt de retomada. O próximo domínio é P4, Memória e contexto. A entrega atual usa a branch main. Confira git status e os commits posteriores antes de editar.
 
-## Próximos aceites
+## Implementado e validado
 
-1. Repetir o aceite gráfico e de teclado em instalações limpas, incluindo macOS e Windows antes de anunciar suporte. Exercitar seleção de pasta, tarefa, cancelamento, revisão e troca de projeto.
-2. Em repositório descartável, testar com as versões instaladas de Claude Code, Codex, Gemini e OpenCode. Registrar separadamente login, descoberta de MCP, prompts/resources, hooks e telemetria. O Claude Code 2.1.172 confirmou a conexão MCP em configuração temporária. Invocação interativa de skill e execução autenticada ainda exigem dogfood.
-3. Adicionar integração do harness no OpenCode e métricas de sessões externas que os hosts disponibilizem. Manter a matriz de compatibilidade atualizada por capacidade.
-4. Persistir Flow e decisões de configuração com retomada, reversão e auditabilidade. Evoluir plugins de registro MCP para instalações revisáveis com contrato tipado. Validar a política de roteamento e budgets quando houver dados confiáveis.
-5. Empacotar o runtime e estabilizar a invocação usada por hooks e MCP. Retirar a TUI após o piloto completar o fluxo em instalação limpa.
+Skills e Agentes oferecem catálogo pesquisável, ficha ampliada e composição ordenada. Integrações tem proposta, confirmação, operações persistidas e diagnóstico. Projeto → Pendências consulta os journals, abre a revisão correta e apresenta falhas de instalação com o ID da operação. A decisão de review exige o snapshot atual.
 
-Para verificar localmente, rode `npm run typecheck`, `npm test` e `npm run build`. O guia desktop tem a entrada pelo menu. Preserve `.specs/` e vault fora do Git e mantenha commits sem trailer de coautoria.
+O Flow recupera sua revisão na abertura do projeto e pede uma ação explícita para retomar um run interrompido. Uma segunda chamada de retomada durante execução ativa é recusada. Runs do Flow seguem seu próprio caminho de revisão.
+
+npm run check passou em 946 testes. Os comandos npm run test:desktop e npm run test:desktop:pending passaram no Linux com projeto descartável. O registro e as capturas ficam em docs/desktop-product-evolution/screens/validation-2026-11-21/README.md.
+
+## Próximas entregas
+
+P4 implementa memória versionada e seleção de contexto. P5 conecta o mapa de código do Graphify. P6 entrega atribuição de custos. P7 consolida ajuda, acessibilidade e aceite completo. P2-004b ainda precisa de progresso fino, evidência por efeito, reconciliação e compensação dos instaladores. Ensaios autenticados por host, telemetria externa e prova de bloqueio no OpenCode mantêm aceites separados.
+
+Os documentos desta evolução ficam em docs/desktop-product-evolution. A vault e .specs continuam como referências locais. Commits sem Co-authored-by.
