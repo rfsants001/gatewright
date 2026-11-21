@@ -11,20 +11,20 @@
 
 ## Estado atual
 
-**P0 concluída.** SDD escrito em `sdd/{spec,design,tasks}.md` com inventário dos contratos reais (design.md §0), matriz REQ→contrato→tela→teste e plano de tarefas P1..P7. Próxima fase: **P1 (Skills e ficha de agentes)**, começando por **P1-001** (estender `AgentProfile`/`agentSchema` com campos opcionais + compat legado).
+**P0 e P1 concluídas e commitadas.** Próxima fase: **P2 (Operações de integração e saúde)**, começando por **P2-001** (domínio `IntegrationOperation` em `src/core/integrations/operations.ts`).
 
 ### Registro por subtarefa
 
 | Campo | Valor |
 | --- | --- |
-| Commit e branch atuais | `328a646` + commit do SDD · branch `main` |
-| Alterações locais | SDD novo em `sdd/`; CHECKPOINT atualizado. `.specs/` é gitignored |
-| Última tarefa concluída | P0-001/002/003 (pacote lido, inventário via 3 subagents Explore, SDD escrito) |
-| Tarefa em andamento | P0-004 (commit do SDD) → depois P1-001 |
-| Decisões | Ver `sdd/design.md` §8 (campos opcionais+migração aditiva, fonte única `composeAgent`, operações em journal por-id, confirmação 2-passos+lock, memória com tombstone, CodeMap domínio próprio, atribuição no início do run, métodos de bridge próprios p/ listas) |
-| Verificação | Inventário read-only (sem mudança de código ainda); base = 849 testes |
-| Próxima ação exata | Commitar `sdd/` → iniciar P1-001 em `src/core/skills/agents.ts` (estender `agentSchema`) |
-| Bloqueios | P5 pode precisar de Graphify real (host) — registrar pendência quando chegar |
+| Commit e branch atuais | `d7c4d82` (HEAD) · branch `main` |
+| Alterações locais | tasks.md P0/P1 marcados `[x]`; este CHECKPOINT. `.specs/` é gitignored |
+| Última tarefa concluída | **P1 inteira** — `367ee77` (agents.ts P1-001/002/003), `107ca75` (skills-query.ts P1-004 núcleo), `e59fbf7` (bridge+IPC skills.list/detail, agent.update/delete), `d7c4d82` (renderer Skills+Agentes+ajuda, inclui fix do `skills.detail` p/ body no detalhe) |
+| Tarefa em andamento | nenhuma — iniciar P2-001 |
+| Decisões | Ver `sdd/design.md` §8 |
+| Verificação | `npm run typecheck` + `npm run build` + `npm test` = **901 testes verdes** (119 arquivos) |
+| Próxima ação exata | P2-001: criar `src/core/integrations/operations.ts` (journal por-id, eventos `OP_STEP`, snapshot via `Journal.project`, evidência por efeito). Depois P2-002 (consolidar customize no core R2 + lock por revisão), P2-003 (HealthStatus + integration.test estendido + evento `integration.progress`), P2-004 (operation.get + recuperação), P2-005 (renderer) |
+| Bloqueios | **Validação visual/pixel de P1 pendente** (precisa de sessão gráfica interativa — `npm run desktop:dev`); lógica de bridge já coberta por teste. P5 pode precisar de Graphify real (host) |
 
 ## Atualizar ao avançar
 

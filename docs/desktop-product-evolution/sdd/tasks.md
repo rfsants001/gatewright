@@ -9,19 +9,19 @@
 - [x] **P0-001** Ler o pacote (PRD/TRD/UI-SPEC/PHASES/README/CLAUDE-PROMPT) e conferir base.
 - [x] **P0-002** Inventariar contratos reais (skills/agents, bridge/IPC/flow, custos/grafos/memória/journal) — `design.md` §0.
 - [x] **P0-003** Escrever `spec.md`, `design.md`, `tasks.md` com matriz REQ→contrato→tela→teste.
-- [ ] **P0-004** Commitar o SDD e atualizar `CHECKPOINT.md` com a primeira tarefa da P1. → `docs(sdd): inventory and SDD for desktop evolution`
+- [x] **P0-004** Commitar o SDD e atualizar `CHECKPOINT.md` com a primeira tarefa da P1. → `docs(sdd): inventory and SDD for desktop evolution`
 
 ## P1 — Skills e ficha de agentes  (REQ SK-01..04, AG-01..05)
 
-- [ ] **P1-001** Estender `AgentProfile`/`agentSchema` com campos opcionais (`responsibilities/expectedInput/expectedOutput/boundaries`, `schemaVersion?`). Atualizar tipos e leitores. Perfil legado continua válido.
+- [x] **P1-001** Estender `AgentProfile`/`agentSchema` com campos opcionais (`responsibilities/expectedInput/expectedOutput/boundaries`, `schemaVersion?`). Atualizar tipos e leitores. Perfil legado continua válido.
   - Done when: schema strict aceita perfil antigo e novo; `projectAgents` não descarta legado; teste `agent-legacy`. → `feat(agents): optional profile fields with legacy compat`
-- [ ] **P1-002** `composeAgent` anexa bloco determinístico dos campos novos (antes das skills, dentro de 20 KB). Fonte única preservada.
+- [x] **P1-002** `composeAgent` anexa bloco determinístico dos campos novos (antes das skills, dentro de 20 KB). Fonte única preservada.
   - Done when: prévia==execução==prompt MCP; `agentPrompt` do Flow inalterado no início; teste `agent-compose`. Dep: P1-001. → `feat(agents): compose profile fields into single prompt`
-- [ ] **P1-003** `updateAgent` + `deleteAgent` no core (update exige id existente, sem contornar proteção anti-duplicata). Bridge `agent.update`/`agent.delete` + allowlist `main.mjs`.
+- [x] **P1-003** `updateAgent` + `deleteAgent` no core (update exige id existente, sem contornar proteção anti-duplicata). Bridge `agent.update`/`agent.delete` + allowlist `main.mjs`.
   - Done when: reordenar/editar salva e persiste ordem ao reabrir; excluir remove; teste `agent-reorder`. Dep: P1-001. → `feat(agents): update and delete operations`
-- [ ] **P1-004** `skills.list`/`skills.detail` no bridge (busca, `category`, `origin`, `dependents`, `invalid`) + filtro `_system/` em todo caminho público. Allowlist.
+- [x] **P1-004** `skills.list`/`skills.detail` no bridge (busca, `category`, `origin`, `dependents`, `invalid`) + filtro `_system/` em todo caminho público. Allowlist.
   - Done when: filtro por nome/categoria/origem; contagem derivada; limpar recupera; `_system/` oculto; arquivo inválido não derruba a tela; teste `skills-list`/`skills-detail`/`system-filter`. → `feat(skills): searchable catalog with origin and dependents`
-- [ ] **P1-005** Renderer: tela Skills (busca/tabela/detalhe/dependentes com link ao agente) e tela Agentes (abas Ficha/Skills/Instruções, reorder por teclado, "Usar em tarefa"). Ajuda desses fluxos. Captura com dados de teste.
+- [x] **P1-005** Renderer: tela Skills (busca/tabela/detalhe/dependentes com link ao agente) e tela Agentes (abas Ficha/Skills/Instruções, reorder por teclado, "Usar em tarefa"). Ajuda desses fluxos. Captura com dados de teste.
   - Done when: fluxo completo pela janela; a11y (foco/teclado/labels); SK/AG aceites exercitados. Dep: P1-002..004. → `feat(desktop): skills library and agent profile screens`
 
 ## P2 — Operações de integração e saúde  (REQ IN-01..06)
