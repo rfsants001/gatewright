@@ -5,6 +5,7 @@
 // and applyIntegration — that gate is the fail-safe (NF-001, RT-CFG-3).
 
 import { join } from "node:path";
+import { randomUUID } from "node:crypto";
 import { FileArtifactStore } from "../artifact-store/artifact-store.js";
 import { Journal } from "../journal/journal.js";
 import { complete as defaultComplete } from "../../app/providers.js";
@@ -19,6 +20,10 @@ import {
 } from "../../app/customize.js";
 import type { Provider } from "../../app/providers.js";
 import type { IntegrationSpec } from "./spec.js";
+import { finishOperation, recordStep, startOperation } from "./operations.js";
+import type { InstallEvent, InstallReporter } from "./install-report.js";
+import type { Executor } from "../provision/types.js";
+import { acquireInstallationLock } from "./install-lock.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -60,6 +65,7 @@ export async function proposeIntegration(opts: {
   model?: string;
   reference?: string;
   complete?: CompleteFn;
+  prompt?: string;
 }): Promise<ProposeResult> {
   const { cwd, spec, reference } = opts;
   const completeFn = opts.complete ?? defaultComplete;
@@ -69,7 +75,7 @@ export async function proposeIntegration(opts: {
 
   // Build input text — mirrors bridge.ts customize.propose construction.
   const location = spec.endpoint ?? spec.package ?? "";
-  const prompt = `Configure uma integração do tipo "${spec.kind}" em ${location}. Intenção: ${spec.intent}`;
+  const prompt = opts.prompt ?? `Configure uma integração do tipo "${spec.kind}" em ${location}. Intenção: ${spec.intent}`;
   const input = reference ? `${prompt}\n\nDocumentação fornecida:\n${reference}` : prompt;
 
   const result = await completeFn(provider, input, AbortSignal.timeout(60_000), customizationPrompt());
@@ -100,8 +106,12 @@ export async function applyIntegration(opts: {
   cwd: string;
   change: Change;
   revision: string;
-}): Promise<void> {
+  executor?: Executor;
+  progress?: (data: { operationId: string; seq: number; step: InstallEvent }) => void;
+}): Promise<{ operationId?: string; warning?: string }> {
   const { cwd, change, revision } = opts;
+  const operationId = randomUUID();
+  const release = acquireInstallationLock(cwd, operationId);
   const journal = new Journal(
     new FileArtifactStore(),
     join(cwd, ".gatewright", "integrations.json"),
@@ -109,12 +119,28 @@ export async function applyIntegration(opts: {
   const record = (type: string) =>
     journal.append({ type, at: new Date().toISOString(), payload: { revision, kind: change.kind } });
 
-  record("PROPOSAL_CONFIRMED");
   try {
-    await applyChange(cwd, change, revision);
-  } catch (error) {
-    record("PROPOSAL_FAILED");
-    throw error;
+    record("PROPOSAL_CONFIRMED");
+    const recipe = ["npm-mcp", "container", "git-project", "graphify"].includes(change.kind);
+    let warning: string | undefined;
+    let reporter: InstallReporter | undefined;
+    if (recipe) {
+      startOperation(cwd, { id: operationId, revision, recipeKind: change.kind, recipe: change, steps: [] });
+      reporter = { operationId, report: (step) => {
+        const seq = recordStep(cwd, operationId, step);
+        opts.progress?.({ operationId, seq, step });
+      } };
+    }
+    try { await applyChange(cwd, change, revision, opts.executor, reporter); }
+    catch (error) {
+      try { if (recipe) finishOperation(cwd, operationId, "partial"); record("PROPOSAL_FAILED"); } catch { /* Preserve the original failure and resource evidence. */ }
+      throw error;
+    }
+    // Installation has committed. A journal failure must never invite a blind retry.
+    try { record("PROPOSAL_APPLIED"); if (recipe) finishOperation(cwd, operationId, "succeeded"); }
+    catch { warning = "A integração foi aplicada, mas o registro final falhou. Reconcilie a operação; não reinstale."; }
+    return { ...(recipe ? { operationId } : {}), ...(warning ? { warning } : {}) };
+  } finally {
+    release();
   }
-  record("PROPOSAL_APPLIED");
 }

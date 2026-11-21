@@ -35,10 +35,11 @@ export interface IntegrationOperation {
   cwd: string;
   revision: string;
   recipeKind: string;
-  status: "pending" | "running" | "succeeded" | "failed" | "partial";
+  status: "pending" | "running" | "succeeded" | "failed" | "partial" | "reverted";
   steps: OperationStep[];
   startedAt: string;
   updatedAt: string;
+  recipe?: Record<string, unknown>;
 }
 
 // ── Event type constants ──────────────────────────────────────────────────────
@@ -55,6 +56,7 @@ export interface OpStartPayload {
   revision: string;
   recipeKind: string;
   steps: { id: string; label: string }[];
+  recipe?: Record<string, unknown>;
 }
 
 export interface OpStepPayload {
@@ -63,15 +65,17 @@ export interface OpStepPayload {
   status: StepStatus;
   errorCode?: string;
   evidence?: Record<string, string>;
+  label?: string;
 }
 
 export interface OpDonePayload {
-  status: "succeeded" | "failed" | "partial";
+  status: "succeeded" | "failed" | "partial" | "reverted";
 }
 
 // ── Path helpers ──────────────────────────────────────────────────────────────
 
 function operationPath(cwd: string, id: string): string {
+  if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$/.test(id)) throw new Error("Identificador de operação inválido.");
   return join(cwd, ".gatewright", "operations", `${id}.json`);
 }
 
@@ -94,7 +98,7 @@ export function openOperationJournal(
 /** Declare a new operation with its planned steps (all initially pending). */
 export function startOperation(
   cwd: string,
-  params: { id: string; revision: string; recipeKind: string; steps: { id: string; label: string }[] },
+  params: { id: string; revision: string; recipeKind: string; steps: { id: string; label: string }[]; recipe?: Record<string, unknown> },
   at: string = new Date().toISOString(),
 ): void {
   const journal = openOperationJournal(cwd, params.id);
@@ -104,6 +108,7 @@ export function startOperation(
     revision: params.revision,
     recipeKind: params.recipeKind,
     steps: params.steps,
+    ...(params.recipe ? { recipe: params.recipe } : {}),
   };
   journal.append({ type: OP_START_TYPE, payload, at });
 }
@@ -115,7 +120,7 @@ export function startOperation(
 export function recordStep(
   cwd: string,
   id: string,
-  params: { stepId: string; status: StepStatus; errorCode?: string; evidence?: Record<string, string> },
+  params: { stepId: string; status: StepStatus; label?: string; errorCode?: string; evidence?: Record<string, string> },
   at: string = new Date().toISOString(),
 ): number {
   const journal = openOperationJournal(cwd, id);
@@ -128,6 +133,7 @@ export function recordStep(
     seq,
     stepId: params.stepId,
     status: params.status,
+    ...(params.label !== undefined ? { label: params.label } : {}),
     ...(params.errorCode !== undefined ? { errorCode: params.errorCode } : {}),
     ...(params.evidence !== undefined ? { evidence: params.evidence } : {}),
   };
@@ -139,7 +145,7 @@ export function recordStep(
 export function finishOperation(
   cwd: string,
   id: string,
-  status: "succeeded" | "failed" | "partial",
+  status: "succeeded" | "failed" | "partial" | "reverted",
   at: string = new Date().toISOString(),
 ): void {
   const journal = openOperationJournal(cwd, id);
@@ -168,6 +174,7 @@ function reducer(state: ProjectionState, event: JournalEvent): ProjectionState {
         steps,
         startedAt: event.at,
         updatedAt: event.at,
+        ...(p.recipe ? { recipe: p.recipe } : {}),
       },
       updatedAt: event.at,
     };
@@ -175,9 +182,10 @@ function reducer(state: ProjectionState, event: JournalEvent): ProjectionState {
 
   if (event.type === OP_STEP_TYPE && state.op !== null) {
     const p = event.payload as OpStepPayload;
-    const steps = state.op.steps.map((s): OperationStep => {
+    const known = state.op.steps.some((s) => s.id === p.stepId) ? state.op.steps : [...state.op.steps, { id: p.stepId, label: p.label ?? p.stepId, status: "pending" as StepStatus }];
+    const steps = known.map((s): OperationStep => {
       if (s.id !== p.stepId) return s;
-      const updated: OperationStep = { id: s.id, label: s.label, status: p.status };
+      const updated: OperationStep = { ...s, label: p.label ?? s.label, status: p.status };
       if (p.errorCode !== undefined) updated.errorCode = p.errorCode;
       if (p.evidence !== undefined) updated.evidence = p.evidence;
       return updated;
@@ -208,6 +216,7 @@ function reducer(state: ProjectionState, event: JournalEvent): ProjectionState {
 export function operationSnapshot(cwd: string, id: string): IntegrationOperation | null {
   try {
     const journal = openOperationJournal(cwd, id);
+    if (!journal.verify().ok) throw new Error("Histórico de operação inválido.");
     const initial: ProjectionState = { op: null, updatedAt: "" };
     const result = journal.project(reducer, initial);
     return result.op;

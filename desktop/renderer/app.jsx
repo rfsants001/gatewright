@@ -7,6 +7,10 @@ import {
 } from "lucide-react";
 import { AgentsPage, SkillsPage } from "./library.jsx";
 import { OperationDetails, PendingPage } from "./pending.jsx";
+import { TaskHistory } from "./history.jsx";
+import { CodeMapPage } from "./codemap.jsx";
+import { MemoryPage, MemoryPicker } from "./memory.jsx";
+import { ContextHelp, helpErrorCode, HelpDrawer as IntegHelpDrawer } from "./help.jsx";
 import { CostTimeline, Usage } from "./usage.jsx";
 
 const gate = window.gatewright;
@@ -170,7 +174,7 @@ function Project({ cwd, data, loading, recents, busy, open, choose, connect, nav
   </>;
 }
 
-function Execution({ options, engine, setEngine, agents, agent, setAgent, model, setModel, task, setTask, state, busy, running, canReview, log, start, cancel, review }) {
+function Execution({ options, engine, setEngine, agents, agent, setAgent, model, setModel, task, setTask, state, busy, running, canReview, log, start, cancel, review, memoryPicker }) {
   const transcript = useRef(null);
   useEffect(() => {
     const panel = transcript.current;
@@ -190,6 +194,7 @@ function Execution({ options, engine, setEngine, agents, agent, setAgent, model,
         {!!agents.length && <label>Agente<select value={agent} onChange={(event) => setAgent(event.target.value)} disabled={busy}>
           <option value="">Sem agente</option>{agents.map(({ id, name }) => <option key={id} value={id}>{name}</option>)}
         </select></label>}
+        {memoryPicker}
         <label>Objetivo<textarea rows="4" value={task} onChange={(event) => setTask(event.target.value)} placeholder="Ex.: revise as mudanças da API do catálogo." maxLength={48000} disabled={busy} /></label>
         <div className="actions">
           <button className="primary" disabled={busy || !engine || !task.trim()}><Play size={14} aria-hidden="true" />Executar tarefa</button>
@@ -359,41 +364,7 @@ function verificationLabel(result) {
   return "Registrado";
 }
 
-// HelpDrawer — identical pattern to library.jsx (self-contained here to avoid cross-import)
-function IntegHelpDrawer({ title, onClose, children }) {
-  const panelRef = useRef(null);
-  const triggerEl = useRef(typeof document !== "undefined" ? document.activeElement : null);
-  useEffect(() => {
-    const panel = panelRef.current;
-    if (!panel) return;
-    const focusable = [...panel.querySelectorAll('button,input,textarea,select,[tabindex="0"]')]
-      .filter((n) => !n.disabled);
-    if (focusable.length) focusable[0].focus();
-    function onKey(e) {
-      if (e.key === "Escape") { onClose(); return; }
-      if (e.key !== "Tab") return;
-      const nodes = [...panel.querySelectorAll('button,input,textarea,select,[tabindex="0"]')]
-        .filter((n) => !n.disabled);
-      if (!nodes.length) return;
-      const first = nodes[0], last = nodes[nodes.length - 1];
-      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
-      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
-    }
-    document.addEventListener("keydown", onKey);
-    return () => { document.removeEventListener("keydown", onKey); triggerEl.current?.focus(); };
-  }, []);
-  return <div className="aside-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-    <section className="drawer" role="dialog" aria-modal="true" aria-labelledby="integ-help-title" ref={panelRef}>
-      <header>
-        <h2 id="integ-help-title">{title}</h2>
-        <button className="icon-button" aria-label="Fechar painel" onClick={onClose}><X size={18} /></button>
-      </header>
-      <div className="drawer-content">{children}</div>
-    </section>
-  </div>;
-}
-
-function IntegrationsPage({ cwd, cwdRef: cwdRefProp, data, operations, opsRef, saveProvider, propose, testIntegration, connect, bridgeRequest, refresh }) {
+function IntegrationsPage({ cwd, cwdRef: cwdRefProp, data, operations, opsRef, saveProvider, propose, testIntegration, connect, bridgeRequest, refresh, onOperation }) {
   // ── local state ──────────────────────────────────────────────────────────
   const [helpOpen, setHelpOpen] = useState(false);
   const helpBtnRef = useRef(null);
@@ -403,6 +374,7 @@ function IntegrationsPage({ cwd, cwdRef: cwdRefProp, data, operations, opsRef, s
 
   // Proposal under review: { revision, change, plan, applyError, applying }
   const [proposal, setProposal] = useState(null);
+  const [operationNotice, setOperationNotice] = useState("");
 
   // Track last seq per operationId to guard out-of-order events
   const lastSeqRef = useRef({});
@@ -419,7 +391,13 @@ function IntegrationsPage({ cwd, cwdRef: cwdRefProp, data, operations, opsRef, s
   const activeOp = (() => {
     if (!proposal?.revision) return null;
     const snap = (operations || []).find((op) => op.revision === proposal.revision);
-    if (!snap || !opsRef?.current?.has(snap.id)) return snap;
+    if (!snap) {
+      const live = [...(opsRef?.current?.entries() ?? [])].find(([, value]) => value.revision === proposal.revision);
+      if (!live) return null;
+      const steps = Object.values(live[1].steps).map((step) => ({ ...step, id: step.stepId ?? step.id }));
+      return { id: live[0], revision: proposal.revision, status: steps.some((step) => step.status === "failed") ? "partial" : "running", steps };
+    }
+    if (!opsRef?.current?.has(snap.id)) return snap;
     const live = opsRef.current.get(snap.id);
     if (!live) return snap;
     // Build merged steps: start from snapshot, overlay any event-updated steps
@@ -485,10 +463,12 @@ function IntegrationsPage({ cwd, cwdRef: cwdRefProp, data, operations, opsRef, s
     const result = await bridgeRequest("customize.apply", { cwd, revision: proposal.revision });
     if (cwdRefProp.current !== cwd) return;
     if (result.ok) {
+      setOperationNotice(result.data?.warning ?? "Integração aplicada. Teste a conexão para confirmar a comunicação.");
       setProposal(null);
       void refresh();
     } else {
       setProposal((p) => p ? { ...p, applying: false, applyError: result.error || "Erro ao aplicar." } : p);
+      void refresh();
     }
   }
 
@@ -593,10 +573,7 @@ function IntegrationsPage({ cwd, cwdRef: cwdRefProp, data, operations, opsRef, s
           </div>
 
           {/* Progress meter (visible once operation starts) */}
-          {opSteps.length > 0 && <div className="meter" aria-label={`Progresso ${pct}%`} role="progressbar"
-            aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
-            <span style={{ width: `${pct}%` }} />
-          </div>}
+          {opSteps.length > 0 && <p role="status">{doneSteps} etapas concluídas{applying || opStatus === "running" ? " · acompanhando a etapa atual" : ""}</p>}
 
           {/* Step list: operation steps take priority, fall back to plan steps */}
           {opSteps.length > 0
@@ -680,6 +657,8 @@ function IntegrationsPage({ cwd, cwdRef: cwdRefProp, data, operations, opsRef, s
     {/* Proposal/operation panel (shown when a proposal exists) */}
     {proposal && renderInstallColumn()}
 
+    {operationNotice && <p role="status" className="notice">{operationNotice}</p>}
+    {!!operations.length && <section className="surface section"><header className="panel-heading"><div><h2>Histórico de instalações</h2><p>Reabra etapas e confira recursos antes de repetir uma receita.</p></div></header><div className="table-wrap"><table><thead><tr><th>Operação</th><th>Estado</th><th>Atualizada</th><th>Ação</th></tr></thead><tbody>{operations.map((op) => <tr key={op.id}><th>{op.recipeKind}<small className="path-value"> · {op.id.slice(0, 8)}</small></th><td>{({ succeeded: "Concluída", partial: "Verificar recursos", failed: "Encerrada com falha", reverted: "Recursos removidos", running: "Em andamento", pending: "Pendente" })[op.status]}</td><td>{new Date(op.updatedAt).toLocaleString("pt-BR")}</td><td><button onClick={() => onOperation(op)}>Ver operação</button></td></tr>)}</tbody></table></div></section>}
     {/* Propose form + provider form */}
     <div className="settings-grid" style={{ marginTop: proposal ? 13 : 0 }}>
       {/* Provider form (unchanged) */}
@@ -840,6 +819,7 @@ function App() {
   const [questions, setQuestions] = useState(null);
   const [engine, setEngine] = useState("");
   const [agentId, setAgentId] = useState("");
+  const [memories, setMemories] = useState([]);
   const [model, setModel] = useState("");
   const [task, setTask] = useState("");
   const [state, setState] = useState("IDLE");
@@ -895,6 +875,7 @@ function App() {
     setFocusedOperation(null);
     setData(empty);
     setAgentId("");
+    setMemories([]);
     setRunId("");
     setLog("");
     setState("IDLE");
@@ -929,6 +910,7 @@ function App() {
       }
     } else {
       setInFlow(false);
+      notify(`Projeto aberto: ${leaf(project)}.`, "neutral");
     }
     setPage("project");
     void listProjects();
@@ -977,13 +959,14 @@ function App() {
           break;
         case "integration.progress": {
           // Guard: cwd already checked above. Apply seq guard per operationId.
-          const { operationId, seq, step } = message.data || {};
+          const { operationId, seq, step, revision, recipeKind } = message.data || {};
           if (!operationId || seq == null || !step) break;
           const map = opsRef.current;
           const existing = map.get(operationId) || { steps: {}, lastSeq: -1 };
           if (seq <= existing.lastSeq) break; // out-of-order: ignore
           map.set(operationId, {
-            steps: { ...existing.steps, [step.id ?? seq]: step },
+            ...existing, revision: revision ?? existing.revision, recipeKind: recipeKind ?? existing.recipeKind,
+            steps: { ...existing.steps, [step.stepId ?? step.id ?? seq]: step },
             lastSeq: seq,
           });
           setOpsVersion((v) => v + 1); // trigger re-render
@@ -1010,7 +993,7 @@ function App() {
     setLog("");
     setRunId("");
     notify(flow ? "Iniciando fluxo SDD…" : "Iniciando execução…");
-    const result = await request(flow ? "flow.start" : "run", { cwd, engine: selectedEngine, model: model.trim(), prompt: task.trim(), ...(agentId ? { agentId } : {}) });
+    const result = await request(flow ? "flow.start" : "run", { cwd, engine: selectedEngine, model: model.trim(), prompt: task.trim(), memories, ...(agentId ? { agentId } : {}) });
     setStarting(false);
     if (result.ok) setRunId(result.data.runId || "");
     else setInFlow(false);
@@ -1183,6 +1166,13 @@ function App() {
     if (state === "CANCELLED") return { text: "Execução cancelada.", tone: "neutral" };
     return null;
   })();
+  function openHistoryTask(detail) {
+    if (busy) { notify("Encerre a execução atual para abrir o histórico.", "error"); return; }
+    setRunId(detail.runId); setTask(detail.context?.prompt ?? "");
+    setLog(detail.events.filter((event) => event.type === "ENGINE_EVENT").map((event) => event.payload.text ?? "").filter(Boolean).join("\n"));
+    const terminal = detail.events.filter((event) => event.type === "CONTROL_STATE_CHANGED").at(-1)?.payload.to;
+    setState(terminal === "RUNNING" ? "IDLE" : terminal ?? "IDLE"); setPage("execution");
+  }
   const footerNotice = page === "execution" ? execNotice ?? notice : notice;
 
   return <div className="app-shell">
@@ -1195,6 +1185,7 @@ function App() {
           </button>
         ))}</nav>
         <div className="header-actions">
+          <ContextHelp errorCode={helpErrorCode(notice.tone === "error" ? notice.text : "")} screenId={page === "project" && ["memory", "map"].includes(projectSection) ? projectSection : page} />
           <button className="project-switch" onClick={choose} disabled={busy}
             aria-label={cwd ? `Trocar de projeto. Projeto atual: ${leaf(cwd)}` : "Abrir projeto"}
             title={cwd ? `Trocar de projeto · ${cwd}` : "Abrir projeto"}>
@@ -1208,25 +1199,30 @@ function App() {
     </header>
     <main id="main" key={page} tabIndex={0}><div className="content">
       {page === "project" && cwd && <nav className="subnav project-sections" aria-label="Áreas do projeto">
-        {[["overview", "Resumo"], ["pending", "Pendências"]].map(([id, label]) => <button key={id}
+        {[["overview", "Resumo"], ["pending", "Pendências"], ["memory", "Memória"], ["map", "Mapa"]].map(([id, label]) => <button key={id}
           aria-current={projectSection === id ? "page" : undefined} onClick={() => setProjectSection(id)}>{label}</button>)}
       </nav>}
-      {page === "project" ? projectSection === "pending" && cwd
+      {page === "project" ? projectSection === "map" && cwd
+        ? <CodeMapPage key={cwd} cwd={cwd} request={bridgeRequest} connect={() => setPage("settings")} />
+        : projectSection === "memory" && cwd
+        ? <MemoryPage key={cwd} cwd={cwd} request={bridgeRequest} agents={data.agents} />
+        : projectSection === "pending" && cwd
         ? <PendingPage key={cwd} cwd={cwd} version={pendingVersion} request={bridgeRequest} onOpen={openPending} />
         : <Project {...{ cwd, data, loading, recents, busy, open, choose, connect, navigate: setPage }} />
         : !cwd ? <Empty title="Abra um projeto" action={<button className="primary" onClick={choose}>Abrir pasta…</button>}>
           Escolha a pasta do repositório para continuar.
-        </Empty> : page === "execution" ? <Execution {...{
-          options, engine: selectedEngine, setEngine, agents: data.agents, agent: agentId, setAgent: setAgentId, model, setModel, task, setTask, state, busy, running: state === "RUNNING",
+        </Empty> : page === "execution" ? <><Execution {...{
+          options, engine: selectedEngine, setEngine, agents: data.agents, agent: agentId, setAgent: (id) => { setAgentId(id); setMemories([]); }, model, setModel, task, setTask, state, busy, running: state === "RUNNING",
           canReview: !!runId && !busy, log, start, cancel, review: () => review(),
-        }} /> : page === "usage" ? <Usage usage={data.usage} heading={<PageHeading title="Custos do projeto">Veja os valores e tokens registrados pelo Gatewright.</PageHeading>} /> : page === "agents" ? <AgentsPage cwd={cwd} cwdRef={cwdRef} catalog={data.skillDetails} agents={data.agents} preview={previewAgent}
+          memoryPicker: <MemoryPicker key={cwd} cwd={cwd} request={bridgeRequest} agentId={agentId} selected={memories} onChange={setMemories} disabled={busy} />,
+        }} /><TaskHistory key={cwd} cwd={cwd} request={bridgeRequest} version={pendingVersion} openTask={openHistoryTask} /></> : page === "usage" ? <Usage key={cwd} cwd={cwd} request={bridgeRequest} openTask={openHistoryTask} usage={data.usage} heading={<PageHeading title="Custos do projeto">Veja os valores e tokens registrados pelo Gatewright.</PageHeading>} /> : page === "agents" ? <AgentsPage cwd={cwd} cwdRef={cwdRef} catalog={data.skillDetails} agents={data.agents} preview={previewAgent}
           save={(agent) => saveLibrary("agent.save", "agent", agent, "Agente salvo no projeto.")}
           useAgent={(id) => { setAgentId(id); setPage("execution"); }} openSkills={() => setPage("skills")}
           refresh={() => refresh()} />
           : page === "skills" ? <SkillsPage cwd={cwd} cwdRef={cwdRef} catalog={data.skillDetails} save={(skill) => saveLibrary("skill.save", "skill", skill, "Skill salva no projeto.")}
           onNavigateAgent={(id) => { setPage("agents"); }} />
-          : <>{focusedOperation && <OperationDetails operation={focusedOperation} onClose={() => setFocusedOperation(null)} />}
-            <IntegrationsPage key={cwd} {...{ cwd, cwdRef, data, operations: data.operations ?? [], opsRef, saveProvider, propose, testIntegration, connect, bridgeRequest, refresh }} /></>}
+          : <>{focusedOperation && <OperationDetails key={focusedOperation.id} cwd={cwd} request={bridgeRequest} onChanged={() => refresh()} operation={focusedOperation} onClose={() => setFocusedOperation(null)} />}
+            <IntegrationsPage key={cwd} {...{ cwd, cwdRef, data, operations: data.operations ?? [], opsRef, saveProvider, propose, testIntegration, connect, bridgeRequest, refresh, onOperation: setFocusedOperation }} /></>}
     </div></main>
     <footer className={`statusbar ${footerNotice.tone}`} role="status">{footerNotice.tone === "success" ? <CircleCheck size={13} aria-hidden="true" /> : <span aria-hidden="true" />}{footerNotice.text}</footer>
     {modal && <Modal modal={modal} notice={notice} onClose={() => setModal(null)} />}

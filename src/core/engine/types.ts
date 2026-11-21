@@ -10,6 +10,15 @@
 export type EngineAuthModel = "inherited-cli" | "api-key";
 
 /** Everything the gate needs to launch one headless run. */
+export interface RunContext {
+  agentId?: string;
+  providerId?: string;
+  integrationIds?: string[];
+  attributionSource: "run-start" | "inferred";
+  integrationMeaning?: "enabled-context";
+  memorySnapshot?: import("../memory/store.js").MemorySnapshot;
+}
+
 export interface EngineRunOptions {
   prompt: string;
   cwd: string;
@@ -22,6 +31,7 @@ export interface EngineRunOptions {
   allowedTools?: string[];
   permissionMode?: string;
   model?: string;
+  runContext?: RunContext;
 }
 
 /** A concrete process invocation produced by an adapter. */

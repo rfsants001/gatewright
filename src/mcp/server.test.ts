@@ -18,6 +18,25 @@ async function connect(cwd?: string) {
 
 const parse = (res: ToolResult) => JSON.parse(res.content[0]!.text);
 
+describe("MCP memory contracts", () => {
+  it("shares versioned CRUD and immutable resolution with the desktop domain", async () => {
+    const { client, close } = await connect();
+    try {
+      const record = { scope: "project", title: "Contract", body: "Keep the public API stable.", type: "decision", version: 0 };
+      const saved = parse(await client.callTool({ name: "memory_upsert", arguments: { record } }) as ToolResult);
+      const ref = { id: saved.id, scope: saved.scope, version: saved.version };
+      expect(parse(await client.callTool({ name: "memory_list", arguments: {} }) as ToolResult)).toHaveLength(1);
+      const snapshot = parse(await client.callTool({ name: "memory_resolve", arguments: { refs: [ref] } }) as ToolResult);
+      expect(snapshot.items[0].body).toBe(record.body);
+      await client.callTool({ name: "memory_delete", arguments: { ref } });
+      expect(parse(await client.callTool({ name: "memory_list", arguments: {} }) as ToolResult)).toEqual([]);
+      expect(snapshot.items[0].version).toBe(1);
+      const stale = await client.callTool({ name: "memory_resolve", arguments: { refs: [ref] } }) as ToolResult;
+      expect(stale.isError).toBe(true);
+    } finally { await close(); }
+  });
+});
+
 describe("MCP server — tools (backcompat)", () => {
   it("exposes all four gate tools unchanged", async () => {
     const { client, close } = await connect();

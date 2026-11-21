@@ -1,8 +1,15 @@
 # Fases de implementação e retomada
 
+## Entrega integrada em 21/11/2026
+
+P0–P7 e P2-004b implementadas no aplicativo. A validação atual está em [CHECKPOINT.md](CHECKPOINT.md) e [no registro do Electron](screens/validation-2026-11-21/README.md). O material em `ui/` continua sendo uma referência isolada com fixtures; as telas de produção estão em `desktop/renderer/`.
+
+A entrega inclui memória com versões e seleção explícita, snapshot imutável de contexto, histórico de tarefas com ou sem medição, mapa Graphify com arquivo/diff, custos por atribuição, recuperação de recursos pertencentes à operação e ajuda por tela/ação/erro. A validação autenticada de serviços de terceiros e dos hosts em cada sistema operacional permanece uma matriz de ambiente, sem promessa de compatibilidade universal.
+
+
 ## Estado em 21/11/2026
 
-P0/P1 entregues pelo Claude. P2 funcional com P2-004b pendente. P3 concluída com a tela de Pendências e o ensaio de reinício do Electron. Próxima fase P4. Consulte CHECKPOINT.md e sdd/tasks.md para o estado de cada subtarefa e o registro de validação.
+P0–P7 e P2-004b concluídas. As evidências e os contratos finais estão em CHECKPOINT.md, TRD.md e sdd/tasks.md. A próxima continuação é a matriz de hosts/serviços autenticados quando houver ambiente disponível. Não reabrir fases concluídas sem uma regressão reproduzida.
 
 ## Regras de execução
 
@@ -84,7 +91,7 @@ Atualizar o checkpoint ao concluir uma subtarefa. Se a sessão terminar durante 
 
 ## Verificação local
 
-A base passou em 849 testes com um registro temporário em 20/11. O comando a seguir evita modificar o registro pessoal de projetos durante os testes.
+A base inicial de 20/11 passou em 849 testes com um registro temporário em 20/11. O comando a seguir evita modificar o registro pessoal de projetos durante os testes.
 
 ```sh
 validation_dir=$(mktemp -d /tmp/gatewright-validation-XXXXXX)

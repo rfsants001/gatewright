@@ -26,6 +26,7 @@ export interface FlowStartPayload {
   engineId: string;
   model?: string;
   agentPrompt?: string;
+  runContext?: import("../engine/types.js").RunContext;
 }
 
 export interface FlowRunPayload {

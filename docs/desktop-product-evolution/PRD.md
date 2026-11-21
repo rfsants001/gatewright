@@ -1,6 +1,12 @@
 # Gatewright — PRD da evolução do desktop
 
-Data de referência 20/11/2026. Base observada `b2dfd32` sobre os commits R2 `10a059b`, `77b789d` e `328a646`. Este documento orienta o SDD que o Claude produzirá após conferir o checkout atual. As telas propostas estão em `ui/dist/index.html`. Os dados e as ações da prévia são simulados.
+Data de referência 20/11/2026. Base observada `b2dfd32` sobre os commits R2 `10a059b`, `77b789d` e `328a646`. O SDD e a entrega integrada estão em `sdd/`; esta introdução preserva a base de planejamento. As telas propostas estão em `ui/dist/index.html`. Os dados e as ações da prévia são simulados.
+
+## Entrega integrada em 21/11/2026
+
+P0–P7 e P2-004b implementadas no aplicativo. A validação atual está em [CHECKPOINT.md](CHECKPOINT.md) e [no registro do Electron](screens/validation-2026-11-21/README.md). O material em `ui/` continua sendo uma referência isolada com fixtures; as telas de produção estão em `desktop/renderer/`.
+
+A entrega inclui memória com versões e seleção explícita, snapshot imutável de contexto, histórico de tarefas com ou sem medição, mapa Graphify com arquivo/diff, custos por atribuição, recuperação de recursos pertencentes à operação e ajuda por tela/ação/erro. A validação autenticada de serviços de terceiros e dos hosts em cada sistema operacional permanece uma matriz de ambiente, sem promessa de compatibilidade universal.
 
 ## Objetivo de produto
 
@@ -8,7 +14,7 @@ Permitir que uma pessoa entenda o que cada agente faz, encontre suas skills, aco
 
 O desktop permanece como centro de configuração de projetos. Claude Code, Codex, Gemini CLI, OpenCode, Ollama e provedores de API ou proxy continuam sendo opções de execução conforme suas capacidades. MCP e harness devem funcionar com a janela fechada. Os recursos aceitos na interface também precisam de contratos consumíveis pelo runtime e pelos clientes MCP quando aplicável.
 
-## Situação encontrada
+## Situação encontrada na P0 (histórico)
 
 | Recurso | Evidência atual | Evolução esperada |
 | --- | --- | --- |

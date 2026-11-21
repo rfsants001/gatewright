@@ -2,6 +2,13 @@
 
 > Companheiro de `spec.md`. §0 fixa os contratos **reais** inventariados em P0 (com `file:line`). §1+ descreve o design por fase: DTOs, schemas Zod, eventos, caminhos persistidos, snapshots, migração, concorrência, e o que o código já cobre × o que falta.
 
+## Contratos finais da entrega de 21/11/2026
+
+P0–P7 e P2-004b implementadas. As decisões e assinaturas finais estão em [TRD.md](../TRD.md#contratos-entregues), com evidências em [CHECKPOINT.md](../CHECKPOINT.md). O inventário P0 abaixo é histórico, anterior à implementação.
+
+Decisões finais: memória em eventos imutáveis por versão publicados com compare-and-swap via hard link; `RUN_CONTEXT` como header dedicado; `FLOW_START.runContext` para retomada; snapshots com records completos, texto e bytes. Custos por integração são rateio explícito de contexto habilitado. O parser suporta `edges` legado do pacote Graphify 0.9.114 e `links` schema 1 do upstream. A geração usa `--out .`; `uv venv --allow-existing` preserva a marca de ownership. Operações ficam `reverted` após limpeza e compartilham mutex entre aplicação e recuperação. Ajuda usa dialog modal nativo. `run.list/detail` preserva acesso ao contexto mesmo sem medição.
+
+
 ## 0. Inventário da base (contratos reais, P0)
 
 ### Skills (`src/core/skills/`)

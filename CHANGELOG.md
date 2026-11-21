@@ -6,6 +6,11 @@ All notable changes to Gatewright. Format loosely follows
 ## [Unreleased]
 
 ### Added
+- Desktop memory with versioned records, explicit task selection, scope and recipient checks, immutable run/Flow snapshots, and MCP CRUD/resolution.
+- Graphify project map with bounded parsing, last-valid cache, map/list navigation, Git changes and guarded file/diff inspection.
+- Run context/history and cost attribution by agent, provider, task and enabled integration context; one period across the analysis.
+- Per-command integration progress, owned-resource reconciliation/removal, shared desktop/MCP installation locking and contextual native-dialog help.
+- Electron workflow acceptance smoke covering context delivery to a local provider, history, costs, map, cleanup, keyboard, scroll and restart.
 - **Config change history** — every configuration change the CLI makes is recorded as a
   revision (which files, when, before/after). View it with `gate history`.
 - **Rollback** — `gate rollback [id]` restores a previous revision's files (itself recorded,

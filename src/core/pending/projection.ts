@@ -199,7 +199,7 @@ function pendingIntegrationFailures(cwd: string): PendingItem[] {
   try {
     const ops = listOperations(cwd);
     return ops
-      .filter((op) => op.status === "failed" || op.status === "partial")
+      .filter((op) => op.status === "failed" || op.status === "partial" || op.status === "running" || op.status === "pending")
       .map((op) => ({
         kind: "integration-failure" as const,
         entity: op.id,

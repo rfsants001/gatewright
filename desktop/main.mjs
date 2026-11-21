@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, shell } from "electron";
 import { spawn } from "node:child_process";
 import { createInterface } from "node:readline";
 import { resolve } from "node:path";
@@ -10,10 +10,10 @@ const rendererUrl = pathToFileURL(renderer).href;
 const methods = new Set([
   "projects", "open", "snapshot", "terminal.preview", "terminal.apply", "provider.save",
   "skill.save", "agent.preview", "agent.save", "agent.update", "agent.delete",
-  "skills.list", "skills.detail", "integration.test", "integration.operation.get",
+  "skills.list", "skills.detail", "integration.test", "integration.operation.get", "integration.operation.inspect", "integration.operation.recover",
   "customize.propose", "customize.apply", "run", "cancel", "review", "review.decide",
   "flow.start", "flow.answer", "flow.stop", "flow.resume",
-  "pending.list", "pending.open",
+  "usage.get", "projectMap.get", "projectMap.refresh", "projectMap.openFile", "pending.list", "pending.open", "memory.list", "memory.upsert", "memory.delete", "memory.resolve", "run.detail", "run.list",
 ]);
 
 class Bridge {
@@ -67,7 +67,7 @@ class Bridge {
   }
 
   get installing() {
-    return [...this.#pending.values()].some(({ method }) => method === "customize.apply");
+    return [...this.#pending.values()].some(({ method }) => method === "customize.apply" || method === "projectMap.refresh" || method === "integration.operation.recover");
   }
 
   request(method, params) {
@@ -99,9 +99,11 @@ function trustedSender(event) {
     && event.senderFrame === window.webContents.mainFrame && event.senderFrame.url === rendererUrl;
 }
 
-ipcMain.handle("gate:request", (event, method, params) => {
+ipcMain.handle("gate:request", async (event, method, params) => {
   if (!trustedSender(event) || !methods.has(method)) return { error: "Ação indisponível." };
-  return bridge.request(method, params);
+  const reply = await bridge.request(method, params);
+  if (method === "projectMap.openFile" && params?.reveal === true && reply?.result?.file) shell.showItemInFolder(reply.result.file);
+  return reply;
 });
 ipcMain.handle("gate:folder", async (event) => {
   if (!trustedSender(event)) return null;

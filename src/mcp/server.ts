@@ -23,6 +23,9 @@ import { composeAgent, projectAgents } from "../core/skills/agents.js";
 import { VERSION } from "../core/version.js";
 import { registerSkillPrompts } from "./prompts.js";
 import { registerUsageResource, registerConfigResource } from "./resources.js";
+import { MemoryStore, memoryInput, memoryRef } from "../core/memory/store.js";
+import { inspectOperation, recoverOperation } from "../core/integrations/recovery.js";
+import { listOperations } from "../core/integrations/operations.js";
 
 const contextShape = {
   event: z.string(),
@@ -48,6 +51,38 @@ export function createMcpServer(
   complete: CompleteFn = defaultComplete,
 ): McpServer {
   const server = new McpServer({ name: "gatewright", version: VERSION });
+
+  server.registerTool("integration_operation", {
+    description: "List/inspect installation operations or reconcile existing resources without reinstalling. Cleanup removes only resources proven to belong to the operation. Obtain human approval of the inspected revision before cleanup.",
+    inputSchema: { action: z.enum(["list", "inspect", "reconcile", "cleanup"]).default("list"), operationId: z.string().optional(), revision: z.string().optional() },
+  }, async ({ action, operationId, revision }) => {
+    if (action === "list") return text(listOperations(cwd));
+    if (!operationId) throw new Error("Informe a operação.");
+    if (action === "inspect") { const { config: _config, ...inspection } = await inspectOperation(cwd, operationId); return text(inspection); }
+    if (!revision) throw new Error("Confira a operação e informe a revisão antes de decidir.");
+    return text(await recoverOperation(cwd, operationId, action, revision));
+  });
+
+  server.registerTool("memory_list", {
+    description: "List local project memories. User memories require explicit includeUser; run scope requires runId. Nothing is automatically included in a task.",
+    inputSchema: { includeUser: z.boolean().optional(), runId: z.string().optional(), query: z.string().optional() },
+  }, (opts) => text(new MemoryStore(cwd).list(opts)));
+  server.registerTool("memory_upsert", {
+    description: "Save an explicitly reviewed memory. Supply version=0 to create, current version to edit; AI suggestions remain marked ai-suggested. Never save secrets.",
+    inputSchema: { record: memoryInput },
+  }, ({ record }) => text(new MemoryStore(cwd).upsert(record)));
+  server.registerTool("memory_delete", {
+    description: "Delete a memory by current version; its historical snapshot remains in past runs.", inputSchema: { ref: memoryRef },
+  }, ({ ref }) => { new MemoryStore(cwd).delete(ref); return text({ deleted: true }); });
+  server.registerTool("memory_resolve", {
+    description: "Resolve explicitly selected versions into immutable task context (20KB combined agent and memory limit).", inputSchema: {
+      refs: z.array(memoryRef).max(32), agentId: z.string().optional(), runId: z.string().optional(),
+    },
+  }, ({ refs, agentId, runId }) => {
+    const agent = agentId ? projectAgents(cwd).find((item) => item.id === agentId) : undefined;
+    if (agentId && !agent) throw new Error("Agente indisponível neste projeto.");
+    return text(new MemoryStore(cwd).resolve(refs, { ...(agentId ? { agentId } : {}), ...(runId ? { runId } : {}), ...(agent ? { basePrompt: composeAgent(cwd, agent) } : {}) }));
+  });
 
   server.registerTool(
     "list_gates",
@@ -108,9 +143,9 @@ export function createMcpServer(
         const cached = proposals.get(confirm);
         if (!cached) return { ...text({ error: "proposal expired or unknown revision" }), isError: true };
         try {
-          await applyIntegration({ cwd, change: cached.change, revision: cached.revision });
+          const applied = await applyIntegration({ cwd, change: cached.change, revision: cached.revision });
           proposals.delete(confirm);
-          return text({ applied: true, revision: confirm });
+          return text({ applied: true, revision: confirm, ...applied });
         } catch (error) {
           proposals.delete(confirm);
           return { ...text({ error: error instanceof Error ? error.message : String(error) }), isError: true };

@@ -10,6 +10,7 @@ import { Journal } from "../journal/journal.js";
 import { ENGINE_EVENT_TYPE } from "../engine/run-journal.js";
 import type { EngineEvent, EngineUsage } from "../engine/types.js";
 import { estimateCost, formatBRL, PRICING } from "./pricing.js";
+import type { RunContext } from "../engine/types.js";
 
 /** Per-model aggregated usage. */
 export interface ModelUsage {
@@ -35,6 +36,14 @@ export interface RunUsage {
   totalCacheRead: number;
   totalCostBrl: number | undefined;
   count: number;
+  attribution?: RunContext;
+  model?: string;
+  source?: "reported" | "estimated" | "unknown" | "mixed";
+}
+
+export interface AttributionUsage {
+  id: string; label: string; knownSumBrl: number | undefined; pricedCount: number; unpricedCount: number;
+  totalTokensIn: number; totalTokensOut: number; runIds: string[];
 }
 
 /** Cost of the usage events recorded on a calendar day in the local time zone. */
@@ -58,6 +67,7 @@ export interface UsageSnapshot {
   totalTokensOut: number;
   totalCacheRead: number;
   totalCostBrl: number | undefined;
+  byAttribution: Record<"agent" | "provider" | "task" | "integration", AttributionUsage[]>;
 }
 
 /** Path to the runs directory for a given cwd. */
@@ -115,7 +125,7 @@ function extractModel(raw: unknown): string | undefined {
  * Aggregate all usage events across run journals under `cwd/.gatewright/runs/`.
  * Pure snapshot — reads current state of all journals; no caching.
  */
-export function aggregateUsage(cwd: string, store: ArtifactStore = new FileArtifactStore()): UsageSnapshot {
+export function aggregateUsage(cwd: string, store: ArtifactStore = new FileArtifactStore(), period: { since?: number; until?: number } = {}): UsageSnapshot {
   const slugs = listRunSlugs(cwd);
 
   const modelMap = new Map<string, ModelUsage>();
@@ -135,6 +145,18 @@ export function aggregateUsage(cwd: string, store: ArtifactStore = new FileArtif
     } catch {
       events = [];
     }
+    events = events.filter(({ at }) => {
+      const time = Date.parse(at);
+      return (period.since === undefined || time >= period.since) && (period.until === undefined || time <= period.until);
+    });
+    let attribution: RunContext | undefined;
+    try {
+      const context = new Journal(store, journalPath).read().find((entry) => entry.type === "RUN_CONTEXT")?.payload as RunContext & { engineId?: string } | undefined;
+      if (context) attribution = { ...(context.agentId ? { agentId: context.agentId } : {}),
+        providerId: context.providerId ?? context.engineId ?? "unattributed", integrationIds: context.integrationIds ?? [],
+        attributionSource: context.attributionSource ?? "inferred", integrationMeaning: "enabled-context" };
+    } catch { /* Legacy or corrupt attribution does not invent a source. */ }
+    const sources = new Set<"reported" | "estimated" | "unknown">();
 
     let runIn = 0;
     let runOut = 0;
@@ -161,6 +183,7 @@ export function aggregateUsage(cwd: string, store: ArtifactStore = new FileArtif
         : model
           ? estimateCost(model, tokensIn + cacheRead, tokensOut, cacheRead / (tokensIn + cacheRead || 1))
           : undefined;
+      sources.add(usage.costUsd !== undefined ? "reported" : costBrl !== undefined ? "estimated" : "unknown");
 
       if (Number.isFinite(time)) {
         latest = Math.max(latest, time);
@@ -219,7 +242,29 @@ export function aggregateUsage(cwd: string, store: ArtifactStore = new FileArtif
         totalCacheRead: runCache,
         totalCostBrl: runCost,
         count: runCount,
+        ...(attribution ? { attribution } : {}),
+        model: [...new Set(events.map((event) => event.model ?? "unknown"))].join(", "),
+        source: sources.size > 1 ? "mixed" : [...sources][0] ?? "unknown",
       });
+    }
+  }
+
+  const dimensions = { agent: new Map<string, AttributionUsage>(), provider: new Map<string, AttributionUsage>(), task: new Map<string, AttributionUsage>(), integration: new Map<string, AttributionUsage>() };
+  for (const run of runList) {
+    const context = run.attribution;
+    const ids = {
+      agent: [context?.agentId ?? "unattributed"], provider: [context?.providerId ?? "unattributed"], task: [run.runSlug],
+      integration: context?.integrationIds?.length ? [...new Set(context.integrationIds)] : ["unattributed"],
+    };
+    for (const dimension of Object.keys(dimensions) as (keyof typeof dimensions)[]) {
+      const weight = 1 / ids[dimension].length;
+      for (const id of ids[dimension]) {
+        const group = dimensions[dimension].get(id) ?? { id, label: id === "unattributed" ? "Sem atribuição" : id, knownSumBrl: undefined, pricedCount: 0, unpricedCount: 0, totalTokensIn: 0, totalTokensOut: 0, runIds: [] };
+        if (run.totalCostBrl !== undefined) group.knownSumBrl = (group.knownSumBrl ?? 0) + run.totalCostBrl * weight;
+        group.pricedCount += run.pricedCount; group.unpricedCount += run.count - run.pricedCount;
+        group.totalTokensIn += run.totalTokensIn * weight; group.totalTokensOut += run.totalTokensOut * weight;
+        group.runIds.push(run.runSlug); dimensions[dimension].set(id, group);
+      }
     }
   }
 
@@ -232,10 +277,11 @@ export function aggregateUsage(cwd: string, store: ArtifactStore = new FileArtif
     totalTokensOut: grandOut,
     totalCacheRead: grandCache,
     totalCostBrl: runList.length ? grandCost : 0,
+    byAttribution: Object.fromEntries(Object.entries(dimensions).map(([dimension, groups]) => [dimension, [...groups.values()]])) as UsageSnapshot["byAttribution"],
   };
 }
 
-/** Convenience: format the snapshot's total cost as BRL, or "R$0.00" when zero/unknown. */
+/** Unknown costs stay distinct from a measured zero. */
 export function formatSnapshotCost(snapshot: UsageSnapshot): string {
-  return formatBRL(snapshot.totalCostBrl ?? 0);
+  return snapshot.totalCostBrl === undefined ? "—" : formatBRL(snapshot.totalCostBrl);
 }

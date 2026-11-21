@@ -1,5 +1,5 @@
 import { createInterface } from "node:readline";
-import { createHash, randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { basename, join } from "node:path";
 import { lstatSync, readFileSync, realpathSync, statSync } from "node:fs";
@@ -7,9 +7,10 @@ import { z } from "zod";
 import { ProjectRegistry } from "../core/project/registry.js";
 import { defaultEngineRegistry } from "../core/engine/default-registry.js";
 import { ensureGateMcpConfig } from "../core/engine/gate-mcp-config.js";
-import { type EngineAdapter } from "../core/engine/types.js";
+import { type EngineAdapter, type RunContext } from "../core/engine/types.js";
 import { openRunJournal } from "../core/engine/run-journal.js";
 import { startRun, type RunHandle } from "../core/engine/runner.js";
+import { listRunHistory } from "../core/run/history.js";
 import { aggregateUsage } from "../core/run/usage.js";
 import { FlowEngine, replayFlow, type FlowInput } from "../core/flow/flow.js";
 import { buildSddFlow } from "../core/flow/sdd-flow.js";
@@ -29,12 +30,16 @@ import { ConfigStore } from "../core/config/config-store.js";
 import { FileArtifactStore } from "../core/artifact-store/artifact-store.js";
 import { applyTerminal, planRevision, planTerminal, terminalConfigStatus, terminalHosts } from "../app/terminal.js";
 import { testGatewrightMcp, testManagedMcp } from "../app/integration-diagnostics.js";
-import { complete, providerAdapter, providers, providerSchema, saveProvider } from "../app/providers.js";
-import { applyChange, changeRevision, checkProposalSources, customizationPrompt, describeChange, parseChange, skillChangeSchema, type Change } from "../app/customize.js";
-import { applyIntegration } from "../core/integrations/configure.js";
-import { finishOperation, listOperations, operationSnapshot, recordStep, startOperation } from "../core/integrations/operations.js";
+import { providerAdapter, providers, providerSchema, saveProvider } from "../app/providers.js";
+import { applyChange, changeRevision, describeChange, skillChangeSchema, type Change } from "../app/customize.js";
+import { applyIntegration, proposeIntegration } from "../core/integrations/configure.js";
+import { listOperations, operationSnapshot } from "../core/integrations/operations.js";
 import { listPending } from "../core/pending/projection.js";
 import { integrationRevision, readHealth, recordHealthAttempt } from "../core/integrations/health.js";
+
+import { inspectOperation, recoverOperation } from "../core/integrations/recovery.js";
+import { generateCodeMap, getCodeMap, readMapFile } from "../core/codemap/map.js";
+import { MemoryStore, memoryInput, memoryRef } from "../core/memory/store.js";
 
 const requestSchema = z.object({ id: z.number(), method: z.string(), params: z.unknown().optional() });
 const projectPath = z.object({ cwd: z.string().min(1) });
@@ -51,7 +56,7 @@ export async function serveDesktop(): Promise<void> {
   let selected: string | undefined;
   let applying = false;
   let flow: {
-    cwd: string; adapter: EngineAdapter; model?: string; agentPrompt?: string; engine: FlowEngine;
+    cwd: string; adapter: EngineAdapter; model?: string; agentPrompt?: string; runContext?: RunContext; engine: FlowEngine;
     journal: Journal;
     pending?: { token: string; text: string; runId: string; revision: string };
   } | undefined;
@@ -90,9 +95,9 @@ export async function serveDesktop(): Promise<void> {
     return { revision, head, status, diff };
   }
 
-  function start(cwd: string, adapter: EngineAdapter, prompt: string, model?: string, systemPrompt?: string) {
+  function start(cwd: string, adapter: EngineAdapter, prompt: string, model?: string, systemPrompt?: string, runContext?: RunContext) {
     const handle = startRun(adapter, {
-      prompt, cwd, mcpConfigPath: adapter.id === "claude-code" ? ensureGateMcpConfig(cwd) : "",
+      prompt, cwd, ...(runContext ? { runContext } : {}), mcpConfigPath: adapter.id === "claude-code" ? ensureGateMcpConfig(cwd) : "",
       ...(model ? { model } : {}), ...(systemPrompt ? { systemPrompt } : {}),
       ...(adapter.id === "claude-code" ? { contextDirs: config.resolve(cwd).linkedProjects ?? [] } : {}),
     }, {
@@ -136,7 +141,7 @@ export async function serveDesktop(): Promise<void> {
       return {};
     }
     const run = start(current.cwd, current.adapter, directive.prompt, current.model,
-      current.agentPrompt ?? buildSkillsSystemPrompt([...projectSkills(current.cwd).values()]));
+      current.agentPrompt ?? buildSkillsSystemPrompt([...projectSkills(current.cwd).values()]), current.runContext);
     void run.done.then((result) => {
       if (flow !== current) return;
       if (result.state !== "PASSED") {
@@ -220,9 +225,10 @@ export async function serveDesktop(): Promise<void> {
               appendTerminal(flowJournal, "version-mismatch");
             } else {
               const adapter = registry.get(engineId);
-              const current: { cwd: string; adapter: EngineAdapter; model?: string; agentPrompt?: string; engine: FlowEngine; journal: Journal; pending?: { token: string; text: string; runId: string; revision: string } } = { cwd, adapter, engine: res.engine, journal: flowJournal };
+              const current: { cwd: string; adapter: EngineAdapter; model?: string; agentPrompt?: string; runContext?: RunContext; engine: FlowEngine; journal: Journal; pending?: { token: string; text: string; runId: string; revision: string } } = { cwd, adapter, engine: res.engine, journal: flowJournal };
               if (savedModel !== undefined) current.model = savedModel;
               if (typeof startEntry.payload.agentPrompt === "string") current.agentPrompt = startEntry.payload.agentPrompt;
+              if (startEntry.payload.runContext) current.runContext = startEntry.payload.runContext;
               flow = current;
 
               const directive = current.engine.peek();
@@ -299,6 +305,50 @@ export async function serveDesktop(): Promise<void> {
         })),
         operations: listOperations(cwd),
         };
+      }
+      case "usage.get": {
+        const { days } = projectPath.extend({ days: z.union([z.literal(7), z.literal(30)]).optional() }).parse(params);
+        const since = days ? new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate() - days + 1).getTime() : undefined;
+        return aggregateUsage(cwd, new FileArtifactStore(), since === undefined ? {} : { since, until: Date.now() });
+      }
+      case "projectMap.get": return getCodeMap(cwd);
+      case "projectMap.refresh": {
+        const { generate } = projectPath.extend({ generate: z.boolean().default(false) }).parse(params);
+        if (!generate) return { map: getCodeMap(cwd) };
+        if (active.size || flow) throw new Error("Encerre a tarefa antes de indexar o projeto.");
+        applying = true;
+        try { return await generateCodeMap(cwd, (data) => send({ event: "integration.progress", cwd, data })); }
+        finally { applying = false; }
+      }
+      case "projectMap.openFile": {
+        const { path } = projectPath.extend({ path: z.string().min(1).max(1000), reveal: z.boolean().optional() }).parse(params);
+        return readMapFile(cwd, path);
+      }
+      case "memory.list": {
+        const opts = projectPath.extend({ includeUser: z.boolean().optional(), query: z.string().optional(), runId: z.string().optional() }).parse(params);
+        return new MemoryStore(cwd).list(opts);
+      }
+      case "memory.upsert": {
+        const { record } = projectPath.extend({ record: memoryInput }).parse(params);
+        return new MemoryStore(cwd).upsert(record);
+      }
+      case "memory.delete": {
+        const { ref } = projectPath.extend({ ref: memoryRef }).parse(params);
+        new MemoryStore(cwd).delete(ref); return null;
+      }
+      case "memory.resolve": {
+        const { refs, agentId, runId } = projectPath.extend({ refs: z.array(memoryRef).max(32), agentId: z.string().optional(), runId: z.string().optional() }).parse(params);
+        const agent = agentId ? projectAgents(cwd).find((item) => item.id === agentId) : undefined;
+        if (agentId && !agent) throw new Error("Agente indisponível neste projeto.");
+        return new MemoryStore(cwd).resolve(refs, { ...(agentId ? { agentId } : {}), ...(runId ? { runId } : {}), ...(agent ? { basePrompt: composeAgent(cwd, agent) } : {}) });
+      }
+      case "run.list": return listRunHistory(cwd);
+      case "run.detail": {
+        const { runId } = projectPath.extend({ runId: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/) }).parse(params);
+        const journal = openRunJournal(cwd, runId).journal;
+        if (!journal.verify().ok) throw new Error("Histórico da tarefa inválido.");
+        return { runId, context: journal.read().find((event) => event.type === "RUN_CONTEXT")?.payload ?? null,
+          events: journal.read().slice(-300) };
       }
       case "terminal.preview": {
         const { host } = hostRequest.parse(params);
@@ -381,13 +431,10 @@ export async function serveDesktop(): Promise<void> {
         }).parse(params);
         const provider = providers(cwd).find((entry) => entry.id === providerId);
         if (!provider) throw new Error("Selecione um provedor configurado.");
-        const input = reference ? `${prompt}\n\nDocumentação fornecida:\n${reference}` : prompt;
-        const result = await complete(providerSchema.parse({ ...provider, model: model || provider.model }), input, AbortSignal.timeout(60_000), customizationPrompt());
-        let change: Change;
-        try { change = parseChange(result.text); }
-        catch { return { message: result.text.slice(0, 1000) }; }
-        checkProposalSources(change, input);
-        const revision = changeRevision(cwd, change);
+        const proposed = await proposeIntegration({ cwd, provider, spec: { kind: "mcp", endpoint: "local", intent: prompt }, prompt,
+          ...(model ? { model } : {}), ...(reference ? { reference } : {}) });
+        if ("message" in proposed) return proposed;
+        const { change, revision } = proposed;
         if (proposals.size >= 20) proposals.clear();
         proposals.set(revision, { cwd, change });
         return { revision, change, plan: describeChange(cwd, change) };
@@ -402,47 +449,27 @@ export async function serveDesktop(): Promise<void> {
         inFlight.add(revision);
         applying = true;
 
-        // P2-004: operation tracking for recipe-type changes.
-        const recipeKinds = new Set(["npm-mcp", "container", "git-project", "graphify"]);
-        const isRecipe = recipeKinds.has(proposal.change.kind);
-        const operationId = isRecipe ? randomUUID() : undefined;
-
         try {
-          if (isRecipe && operationId !== undefined) {
-            const steps = describeChange(cwd, proposal.change).steps.map((label, i) => ({ id: String(i), label }));
-            startOperation(cwd, { id: operationId, revision, recipeKind: proposal.change.kind, steps });
-            send({ event: "integration.progress", cwd, data: { operationId, seq: 0, step: { status: "running" } } });
-          }
-
-          // P2-002: delegate to core applyIntegration (records CONFIRMED/APPLIED/FAILED).
-          // applyIntegration may swallow the final-write failure path; we cannot replicate
-          // the warning return in that case — noted as a known gap vs. original inline journal.
-          try {
-            await applyIntegration({ cwd, change: proposal.change, revision });
-          } catch (error) {
-            if (isRecipe && operationId !== undefined) {
-              finishOperation(cwd, operationId, "failed");
-              send({ event: "integration.progress", cwd, data: { operationId, seq: -1, step: { status: "failed" } } });
-            }
-            throw error;
-          }
-
+          const result = await applyIntegration({ cwd, change: proposal.change, revision,
+            progress: (data) => send({ event: "integration.progress", cwd, data: { ...data, revision, recipeKind: proposal.change.kind } }) });
           proposals.delete(revision);
-
-          if (isRecipe && operationId !== undefined) {
-            const plan = describeChange(cwd, proposal.change);
-            plan.steps.forEach((_label, i) => {
-              recordStep(cwd, operationId, { stepId: String(i), status: "succeeded" });
-            });
-            finishOperation(cwd, operationId, "succeeded");
-            send({ event: "integration.progress", cwd, data: { operationId, seq: plan.steps.length, step: { status: "succeeded" } } });
-          }
-
-          return null;
+          return result;
         } finally {
           applying = false;
           inFlight.delete(revision);
         }
+      }
+      case "integration.operation.inspect": {
+        const { operationId } = projectPath.extend({ operationId: z.string().min(1) }).parse(params);
+        const { config: _config, ...inspection } = await inspectOperation(cwd, operationId);
+        return inspection;
+      }
+      case "integration.operation.recover": {
+        const { operationId, action, revision } = projectPath.extend({ operationId: z.string().min(1), action: z.enum(["reconcile", "cleanup"]), revision: z.string() }).parse(params);
+        if (active.size || flow) throw new Error("Encerre a tarefa antes de recuperar a instalação.");
+        applying = true;
+        try { return await recoverOperation(cwd, operationId, action, revision); }
+        finally { applying = false; }
       }
       case "integration.operation.get": {
         const { operationId } = projectPath.extend({ operationId: z.string().min(1) }).parse(params);
@@ -501,20 +528,24 @@ export async function serveDesktop(): Promise<void> {
         return null;
       case "run":
       case "flow.start": {
-        const { engine, model, prompt, agentId } = projectPath.extend({
-          engine: z.string(), model: z.string().optional(), prompt: z.string().trim().min(1).max(48_000), agentId: z.string().optional(),
+        const { engine, model, prompt, agentId, memories } = projectPath.extend({
+          engine: z.string(), model: z.string().optional(), prompt: z.string().trim().min(1).max(48_000), agentId: z.string().optional(), memories: z.array(memoryRef).max(32).default([]),
         }).parse(params);
         if (active.size || flow) throw new Error("Aguarde ou encerre o trabalho atual antes de iniciar outro.");
         const provider = providers(cwd).find((entry) => `provider:${entry.id}` === engine);
         const adapter = provider ? providerAdapter(provider) : registry.get(engine);
         const agent = agentId ? projectAgents(cwd).find((item) => item.id === agentId) : undefined;
         if (agentId && !agent) throw new Error("O agente não está disponível neste projeto.");
-        const agentPrompt = agent ? composeAgent(cwd, agent) : undefined;
-        if (method === "run") return { runId: start(cwd, adapter, prompt, model, agentPrompt).id };
+        const basePrompt = agent ? composeAgent(cwd, agent) : method === "flow.start" ? buildSkillsSystemPrompt([...projectSkills(cwd).values()]) : "";
+        const memorySnapshot = new MemoryStore(cwd).resolve(memories, { ...(agentId ? { agentId } : {}), basePrompt });
+        const agentPrompt = [basePrompt, memorySnapshot.text].filter(Boolean).join("\n\n");
+        const runContext: RunContext = { ...(agentId ? { agentId } : {}), ...(provider ? { providerId: provider.id } : {}),
+          integrationIds: provider ? [] : [...new Set([...Object.keys(managedMcpServers(cwd)), ...(config.resolve(cwd).modules ?? []).filter((module) => module.enabled && module.kind !== "mcp").map((module) => module.id)])], attributionSource: "run-start", integrationMeaning: "enabled-context", memorySnapshot };
+        if (method === "run") return { runId: start(cwd, adapter, prompt, model, agentPrompt, runContext).id };
         if (provider) throw new Error("Escolha um agente de terminal para executar o fluxo com ferramentas.");
         const steps = buildSddFlow().filter((step) => step.id !== "confirm-ship" && step.id !== "ship");
         const flowJournal = openFlowJournal(cwd);
-        const payload = { ...(model ? { model } : {}), ...(agentPrompt ? { agentPrompt } : {}) };
+        const payload = { ...(model ? { model } : {}), ...(agentPrompt ? { agentPrompt } : {}), runContext };
         const current = { cwd, adapter, ...payload, engine: new FlowEngine(steps, prompt), journal: flowJournal };
         flow = current;
         appendStart(flowJournal, { goal: prompt, flowKind: "sdd", engineId: engine, ...payload });

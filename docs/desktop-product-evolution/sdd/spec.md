@@ -4,6 +4,11 @@
 > Base inspecionada: `328a646` (main) sobre R2 (`10a059b`/`77b789d`/`328a646`). Inventário do código real feito em P0 — ver `design.md` §0 para os contratos atuais.
 > Este documento fixa requisitos rastreáveis e a matriz REQ → contrato → tela → teste → evidência. Os aceites de produto do PRD são autoritativos; aqui eles ganham contrato e tarefa.
 
+## Aceite implementado em 21/11/2026
+
+P0–P7 e P2-004b entregues, com a evidência consolidada em [CHECKPOINT.md](../CHECKPOINT.md) e [tasks.md](tasks.md). A matriz abaixo foi a referência do SDD; os nomes concretos finais e a semântica dos DTOs estão em [TRD.md](../TRD.md#contratos-entregues). Os testes reais correspondentes estão registrados no final de tasks.md. A prévia `?view=` não é o roteamento do Electron: a produção usa navegação React e bridge.
+
+
 ## 1. Objetivo
 
 Transformar as telas aprovadas (prévia em `../ui/dist/index.html`) em fluxos funcionais do desktop Electron, com a lógica no runtime (`src/core`) e no bridge (`src/desktop/bridge.ts`), consumível também por clientes MCP quando aplicável. Preservar as seis áreas de navegação (Projeto, Tarefas, Custos, Integrações, Agentes, Skills); Projeto ganha as abas **Pendências**, **Memória** e **Mapa**. Nenhuma funcionalidade existente pode regredir; MCP e harness continuam funcionando com a janela fechada.
@@ -29,8 +34,8 @@ Transformar as telas aprovadas (prévia em `../ui/dist/index.html`) em fluxos fu
 Os textos de aceite são os do PRD §"Requisitos e aceites". Abaixo, cada grupo recebe o(s) contrato(s) e a fase. A matriz completa REQ→contrato→tela→teste está em §6.
 
 - **SK-01..04** (Skills): busca/filtro por categoria e origem, detalhe com corpo+origem, dependentes com link, criação e ocultação de `_system/`. Contratos: `skills.list`, `skills.detail`. Fase P1.
-- **AG-01..05** (Agentes): ficha opcional persistida, abas Ficha/Skills/Instruções, reordenação salva, composição única (prévia=execução=Flow=MCP), limites no contexto, snapshot imutável no Flow. Contratos: `agents.update`, `agents.delete`, `composeAgent` estendido. Fase P1.
-- **IN-01..06** (Integrações): propor/revisar/aplicar/acompanhar por etapa, estados de saúde, retry que testa de verdade, retomada que reconcilia, ação recuperável em falha parcial, preservar receitas e caminho MCP do R2. Contratos: `integrations.operations`, `integrations.operation.get`, `integrations.retry`, `integration.test` estendido. Fase P2.
+- **AG-01..05** (Agentes): ficha opcional persistida, abas Ficha/Skills/Instruções, reordenação salva, composição única (prévia=execução=Flow=MCP), limites no contexto, snapshot imutável no Flow. Contratos: `agent.update`, `agents.delete`, `composeAgent` estendido. Fase P1.
+- **IN-01..06** (Integrações): propor/revisar/aplicar/acompanhar por etapa, estados de saúde, retry que testa de verdade, retomada que reconcilia, ação recuperável em falha parcial, preservar receitas e caminho MCP do R2. Contratos: snapshot.operations, `integrations.operation.get`,  `integration.test` estendido. Fase P2.
 - **PE-01..03** (Pendências): projeção de aprovações/interrupções/falhas acionáveis, ação+vínculo por linha, retomada revalidada (fecha FDR-007). Contratos: `pending.list`, `pending.open`, `flow.resume` (allowlist), `review`/`review.decide`. Fase P3.
 - **ME-01..05** (Memória): CRUD versionado por tipo e escopo, origem/associação, destinatários+seleção no compositor, snapshot por run, erro de orçamento antes de iniciar. Contratos: `memory.list/upsert/delete/resolve`. Fase P4.
 - **MP-01..04** (Mapa): grafo validado do Graphify com origem/data, mapa+lista equivalentes, seleção revela arquivo+vínculos, relação com diff, ausência oferece conectar/instalar/gerar. Contratos: `projectMap.get`, `projectMap.refresh`, `projectMap.openFile`. Fase P5.
@@ -66,12 +71,12 @@ Smoke do Electron: `npm run test:desktop` (sessão gráfica). Quando o ambiente 
 | SK-03 | dependentes via `projectAgents` | skills→agents | `skills-dependents.test` | Link ao perfil; skill ausente → aviso |
 | SK-04 | `skill.save` (preservado) + filtro `_system/` | skills | `catalog` existente + `system-filter.test` | `_system/` oculto no catálogo e ajuda |
 | AG-01 | `agentSchema` estendido + `updateAgent` | agents | `agent-legacy.test` | Perfil legado edita/executa; campos opcionais persistem |
-| AG-02 | `agent.detail`/snapshot estendido | agents (Ficha/Skills/Instruções) | `agent-tabs.test` | Instruções refletem campos+ordem |
-| AG-03 | `agents.update` (reorder) + `composeAgent` | agents | `agent-reorder.test` | Ordem salva; prévia==execução |
+| AG-02 | snapshot estendido | agents (Ficha/Skills/Instruções) | `agent-tabs.test` | Instruções refletem campos+ordem |
+| AG-03 | `agent.update` (reorder) + `composeAgent` | agents | `agent-reorder.test` | Ordem salva; prévia==execução |
 | AG-04 | `run`/`flow.start` com `agentId` (existe) | agents→tasks | `agent-use-task.test` | Perfil vai ao compositor |
 | AG-05 | `composeAgent` inclui `boundaries` | agents | `agent-compose.test` | Limites no contexto; harness preservado |
-| IN-01..02 | `integrations.operations`, `HealthStatus` | install | `integration-op.test` | Etapas rotuladas; saúde diferenciada |
-| IN-03 | `integrations.retry`, `integration.test` | install | `retry-no-reinstall.test` | Retry testa; não reinstala/duplica |
+| IN-01..02 | snapshot.operations, `HealthStatus` | install | `integration-op.test` | Etapas rotuladas; saúde diferenciada |
+| IN-03 |  `integration.test` | install | `retry-no-reinstall.test` | Retry testa; não reinstala/duplica |
 | IN-04..05 | `integration.operation.get` + evento `integration.progress` | install | `op-reopen.test`, `partial-failure.test` | Reabrir reconstrói; falha parcial recuperável |
 | IN-06 | core R2 (`proposeIntegration`/`applyIntegration`) + MCP | install | `mcp-path.test` (existe) | Receitas e caminho MCP preservados |
 | PE-01..02 | `pending.list` | pending | `pending-projection.test` | Linhas com ação+vínculo; contagem segue filtro |

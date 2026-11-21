@@ -4,6 +4,8 @@ import {
   SquarePen, TriangleAlert, X,
 } from "lucide-react";
 
+import { HelpDrawer } from "./help.jsx";
+
 const gate = window.gatewright;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -24,48 +26,6 @@ async function bridgeRequest(method, params) {
 }
 
 // ── HelpDrawer ────────────────────────────────────────────────────────────────
-
-function HelpDrawer({ title, onClose, children }) {
-  const panelRef = useRef(null);
-  const triggerEl = useRef(typeof document !== "undefined" ? document.activeElement : null);
-
-  useEffect(() => {
-    const panel = panelRef.current;
-    if (!panel) return;
-    const focusable = [...panel.querySelectorAll('button,input,textarea,select,[tabindex="0"]')]
-      .filter((n) => !n.disabled);
-    if (focusable.length) focusable[0].focus();
-
-    function onKey(event) {
-      if (event.key === "Escape") { onClose(); return; }
-      if (event.key !== "Tab") return;
-      const nodes = [...panel.querySelectorAll('button,input,textarea,select,[tabindex="0"]')]
-        .filter((n) => !n.disabled);
-      if (!nodes.length) return;
-      const first = nodes[0], last = nodes[nodes.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault(); last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault(); first.focus();
-      }
-    }
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      triggerEl.current?.focus();
-    };
-  }, []);
-
-  return <div className="aside-overlay" onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-    <section className="drawer" role="dialog" aria-modal="true" aria-labelledby="help-drawer-title" ref={panelRef}>
-      <header>
-        <h2 id="help-drawer-title">{title}</h2>
-        <button className="icon-button" aria-label="Fechar painel" onClick={onClose}><X size={18} /></button>
-      </header>
-      <div className="drawer-content">{children}</div>
-    </section>
-  </div>;
-}
 
 // ── AgentEditDrawer ───────────────────────────────────────────────────────────
 

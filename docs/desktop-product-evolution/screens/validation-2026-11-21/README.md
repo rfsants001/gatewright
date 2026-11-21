@@ -1,37 +1,50 @@
-# Validação da continuação P3
+# Aceite do desktop em 21/11/2026
 
-Executada em 21/11/2026 no Linux, Node 24.16.0 e Electron 45.3.1. Base recebida do Claude em 27a393d. A validação utiliza o aplicativo compilado, seu preload, IPC e bridge reais, com repositório e journals temporários. Os registros do projeto de teste são sintéticos. O ensaio não chama um modelo para executar código.
+A continuação após main 1ac6388 concluiu P2-004b e P4–P7. Os testes usam projetos descartáveis. Capturas são da janela real, com conteúdo de demonstração declarado — sem contas externas, credenciais ou gastos reais.
 
-## Caminhos exercitados
+## Ambiente e resultados
 
-- Abrir uma pasta com espaços e consultar Pendências pelo menu Projeto.
-- Derivar uma aprovação e uma falha de instalação dos journals reais.
-- Filtrar uma aprovação, abrir a revisão e alterar o diff enquanto o diálogo está aberto.
-- Recusar a decisão obsoleta, reabrir o diff e aprovar a versão atual.
-- Remover a aprovação resolvida da projeção e conservar a falha de instalação.
-- Abrir o diagnóstico da operação correta pelo seu ID.
-- Alcançar o fim da página em 780 × 580 sem overflow horizontal global.
-- Encerrar e reabrir o Electron na mesma pasta com revisão de Flow pendente. O formulário de aprovação recuperado aparece e permite encerrar o fluxo.
-- Encerrar e reabrir novamente com um Flow no início de uma etapa de run. A janela aguarda uma ação explícita. A abertura não acrescenta uma execução ao journal.
+| Verificação | Resultado |
+| --- | --- |
+| Node / Electron / SO | Node 24.16.0 · Electron 45.3.1 · Linux com sessão gráfica |
+| Typecheck, build e suíte | `npm run check` com GATEWRIGHT_PROJECTS/GATEWRIGHT_HOME temporários; **961 testes / 127 arquivos passaram** |
+| Inicialização | `npm run test:desktop` passou com caminho contendo espaços |
+| Pendências / Flow | `npm run test:desktop:pending` passou; revisão vencida rejeitada, decisão atual aplicada, diagnóstico correto, reinícios com ask/run recuperados sem execução automática |
+| Evolução integrada | `npm run test:desktop:evolution` passou; memória criada pela UI, agente e memória recebidos pelo provedor HTTP local, snapshot preservado após editar e reiniciar, custo → contexto → tarefa, mapa/lista/diff, contenção de arquivo e remoção de recurso pertencente |
+| Acessibilidade / tamanho | Sem overflow horizontal global; scroll vertical alcança o fim; 1440×960, 1120×860, 780×580; dialog contém foco, fecha com Escape e retorna ao acionador |
+| Memória concorrente | Quatro processos disputam a mesma revisão: exatamente um salva, outros recebem conflito |
+| Graphify real | Python 3.14.4 + graphifyy[mcp] 0.9.114 instalado em /tmp; applyIntegration → inspectOperation (versão e registro verificados) → cleanup; generateCodeMap executou o extrator real sem LLM |
+
+A suíte também cobre isolamento A/B e pessoal, recipients, escopo de tarefa, tombstone, teto UTF-8, MCP de memória, cumulativo de uso, legado, rateio de integrações, schema/limites/cache de mapa, paths Windows, symlink, Git e rename. O teste Ink de Flow agora aguarda a montagem da pergunta com o atalho de leitura `a`, que não aprova decisões; elimina perda de input causada por assinatura de efeito ainda não montada sob carga.
 
 ## Repetir
 
-Da raiz do checkout, executar o comando abaixo em uma sessão gráfica.
+Da raiz do checkout, em sessão gráfica:
 
 ```sh
+npm run check
+npm run test:desktop
 npm run test:desktop:pending
+npm run test:desktop:evolution
 ```
 
-Para guardar capturas em uma pasta escolhida, executar o script depois do build.
+Para guardar screenshots:
 
 ```sh
 node desktop/pending-smoke.mjs docs/desktop-product-evolution/screens/validation-2026-11-21
+node desktop/evolution-smoke.mjs docs/desktop-product-evolution/screens/validation-2026-11-21/evolution
 ```
 
-O script usa um perfil de Electron temporário, uma porta de diagnóstico local aleatória e um registro temporário de projetos. A pasta e os processos do teste são removidos ao terminar.
+Os smokes criam perfis e registro de projetos temporários, usam diagnóstico local em porta aleatória e removem processos e projetos ao terminar. A porta e os diretórios não são parte da configuração de produção. O CI executa os workflows novos no Linux/Xvfb e a inicialização também em macOS/Windows.
 
-## Evidência e limites
+## Conteúdo das capturas
 
-As capturas pending-overview.png e pending-electron.png são da janela real com dados do projeto descartável. Os testes do bridge também cobrem revisão de pendência vencida e confirmação de retomada repetida. Execução autenticada em hosts reais e reconciliação de efeitos externos após crash continuam nos aceites das trilhas correspondentes.
+`pending-overview.png` e `pending-electron.png` mostram pendências reais derivadas de journals de fixture. `evolution/` contém Project, Tasks, Costs, Integrations, Agents, Skills, Memory e Map. Os banners WebP atuais do README usam essas capturas.
 
-P2-004b permanece pendente. A visualização da operação mostra apenas os eventos e as evidências que o instalador efetivamente registrou.
+O provedor local retorna uma resposta fixa com tokens de teste. O modelo sem preço conserva custo desconhecido. Há seis journals históricos com valores declarados de fixture para exercitar os gráficos preenchidos e a convivência com custo parcial. O mapa da UI é uma fixture representativa; a fixture produzida pelo Graphify real e seus comandos estão em src/core/codemap/fixtures/README.md. Nenhum valor representa fatura ou conta autenticada.
+
+## Limites
+
+Os fluxos novos foram validados localmente no Linux. Não houve execução autenticada em Claude Code, Codex, Gemini CLI ou OpenCode, nem uma cobrança real de provedor/proxy ou teste de Docker neste ambiente. Esses contratos têm testes automatizados, e o ensaio de cada serviço autenticado depende do ambiente. Não declarar essas condições como aprovadas.
+
+P2-004b foi implementada e o Graphify foi instalado/removido de verdade. Operações antigas sem ownership não são removidas automaticamente. Um lock abandonado antes de gravar owner.json exige conferência manual. A recuperação consulta recursos e nunca repete a instalação; remoção requer revisão atual e prova de propriedade. Custos de integração são rateio de contexto habilitado, não uso de ferramenta observado ou tarifa de SaaS.

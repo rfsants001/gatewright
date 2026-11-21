@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, rmSync, statSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { delimiter, dirname, isAbsolute, join, relative, sep } from "node:path";
 import { z } from "zod";
 import { FileArtifactStore } from "../core/artifact-store/artifact-store.js";
@@ -8,9 +8,11 @@ import { integrationName, newManagedMcpModule } from "../core/integrations/manag
 import { defaultExecutor } from "../core/provision/provisioner.js";
 import type { Executor } from "../core/provision/types.js";
 
+import type { InstallReporter } from "../core/integrations/install-report.js";
+
 const configs = new ConfigStore(new FileArtifactStore());
 
-function managedDirectory(cwd: string, name: string): string {
+function managedDirectory(cwd: string, name: string, reporter?: InstallReporter): string {
   integrationName.parse(name);
   let base = realpathSync(cwd);
   for (const segment of [".gatewright", "integrations"]) {
@@ -20,13 +22,26 @@ function managedDirectory(cwd: string, name: string): string {
   }
   const target = join(base, name);
   mkdirSync(target);
+  if (reporter) {
+    writeFileSync(join(target, ".gatewright-owner.json"), JSON.stringify({ operationId: reporter.operationId, cwd: realpathSync(cwd), name }), { flag: "wx" });
+    reporter.report({ stepId: "resource", label: "Reservar diretório da integração", status: "succeeded", evidence: { kind: "directory", path: target, name, owner: reporter.operationId } });
+  }
   return target;
 }
 
-async function step(executor: Executor, label: string, command: string, args: string[], cwd?: string): Promise<string> {
-  const result = await executor({ label, command, args, ...(cwd ? { cwd } : {}) });
-  if (!result.ok) throw new Error(`${label} falhou. Confira a instalação de ${command} e a origem aprovada.`);
-  return result.stdout ?? result.output.trim();
+async function step(executor: Executor, label: string, command: string, args: string[], cwd?: string, reporter?: InstallReporter): Promise<string> {
+  const stepId = createHash("sha256").update(label).digest("hex").slice(0, 12);
+  reporter?.report({ stepId, label, status: "running" });
+  try {
+    const result = await executor({ label, command, args, ...(cwd ? { cwd } : {}) });
+    if (!result.ok) throw new Error(`${label} falhou. Confira a instalação de ${command} e a origem aprovada.`);
+    reporter?.report({ stepId, label, status: "succeeded" });
+    return result.stdout ?? result.output.trim();
+  } catch (error) { reporter?.report({ stepId, label, status: "failed", errorCode: "INSTALL_STEP_FAILED" }); throw error; }
+}
+function registered(reporter: InstallReporter | undefined, name: string, version: string) {
+  try { reporter?.report({ stepId: "register", label: "Registrar integração no projeto", status: "succeeded", evidence: { name, version } }); }
+  catch { /* Config is already committed. Recovery reads the owned resource and package record. */ }
 }
 
 export const npmPackage = z.string().regex(/^(?:@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*@\d+\.\d+\.\d+(?:-[a-z0-9.-]+)?$/).max(214);
@@ -58,13 +73,13 @@ function npmEntrypoint(): string {
   throw new Error("Instale o npm junto ao Node e inclua o diretório no PATH do Gatewright.");
 }
 
-export async function installNpmMcp(cwd: string, request: NpmRecipe, checkRevision: () => void, executor = defaultExecutor): Promise<void> {
+export async function installNpmMcp(cwd: string, request: NpmRecipe, checkRevision: () => void, executor = defaultExecutor, reporter?: InstallReporter): Promise<void> {
   const npm = npmEntrypoint();
-  const target = managedDirectory(cwd, request.name);
+  const target = managedDirectory(cwd, request.name, reporter);
   try {
     await step(executor, "Instalar pacote MCP", process.execPath, [
       npm, "install", "--prefix", target, "--ignore-scripts", "--no-audit", "--no-fund", "--save-exact", "--", request.package,
-    ], target);
+    ], target, reporter);
     const split = request.package.lastIndexOf("@");
     const packageName = request.package.slice(0, split);
     const version = request.package.slice(split + 1);
@@ -87,6 +102,7 @@ export async function installNpmMcp(cwd: string, request: NpmRecipe, checkRevisi
     configs.write("project", {
       modules: [module], packages: [{ id: request.name, installedAt: new Date().toISOString(), version, via: request.package }],
     }, cwd);
+    registered(reporter, request.name, version);
   } catch (error) {
     rmSync(target, { recursive: true, force: true });
     throw error;
@@ -97,20 +113,22 @@ export function containerMcpUrl(request: ContainerRecipe): string {
   return `http://127.0.0.1:${request.hostPort}${request.mcpPath}`;
 }
 
-export async function installContainer(cwd: string, request: ContainerRecipe, checkRevision: () => void, executor = defaultExecutor): Promise<void> {
+export async function installContainer(cwd: string, request: ContainerRecipe, checkRevision: () => void, executor = defaultExecutor, reporter?: InstallReporter): Promise<void> {
   const module = newManagedMcpModule(cwd, request.name, { type: "http", url: containerMcpUrl(request) });
   const suffix = createHash("sha256").update(realpathSync(cwd)).digest("hex").slice(0, 12);
   const name = `gatewright-${request.name}-${suffix}`;
   const id = await step(executor, "Criar contêiner", "docker", [
-    "create", "--name", name, "--publish", `127.0.0.1:${request.hostPort}:${request.port}`, request.image,
-  ]);
+    "create", "--name", name, ...(reporter ? ["--label", `gatewright.operation=${reporter.operationId}`] : []), "--publish", `127.0.0.1:${request.hostPort}:${request.port}`, request.image,
+  ], undefined, reporter);
   if (!/^[a-f0-9]{64}$/.test(id)) throw new Error(`O Docker não retornou o ID esperado para ${name}. Confira o contêiner no Docker.`);
+  reporter?.report({ stepId: "resource", label: "Identificar contêiner criado", status: "succeeded", evidence: { kind: "container", containerId: id, name: request.name, owner: reporter.operationId } });
   try {
-    await step(executor, "Iniciar contêiner", "docker", ["start", id]);
+    await step(executor, "Iniciar contêiner", "docker", ["start", id], undefined, reporter);
     checkRevision();
     configs.write("project", {
       modules: [module], packages: [{ id: request.name, installedAt: new Date().toISOString(), via: request.image, containerId: id }],
     }, cwd);
+    registered(reporter, request.name, request.image);
   } catch (error) {
     const cleanup = await executor({ label: "Limpar contêiner criado", command: "docker", args: ["rm", "--force", id] });
     if (!cleanup.ok) throw new Error(`A instalação falhou e o Docker não conseguiu remover o contêiner ${name}.`, { cause: error });
@@ -120,14 +138,14 @@ export async function installContainer(cwd: string, request: ContainerRecipe, ch
 
 export async function installGitProject(
   cwd: string, request: { name: string; url: string; commit: string; mcpUrl?: string | undefined }, checkRevision: () => void,
-  executor = defaultExecutor,
+  executor = defaultExecutor, reporter?: InstallReporter,
 ): Promise<void> {
   const modules = request.mcpUrl ? [newManagedMcpModule(cwd, request.name, { type: "http", url: request.mcpUrl })] : [];
-  const target = managedDirectory(cwd, request.name);
+  const target = managedDirectory(cwd, request.name, reporter);
   try {
-    await step(executor, "Preparar checkout", "git", ["init", "--template=", "--", target]);
-    await step(executor, "Baixar revisão", "git", ["-C", target, "-c", "protocol.allow=never", "-c", "protocol.https.allow=always", "fetch", "--no-tags", "--depth=1", "--", request.url, request.commit]);
-    await step(executor, "Materializar revisão", "git", ["-C", target, "-c", "core.hooksPath=.git/no-hooks", "checkout", "--detach", request.commit, "--"]);
+    await step(executor, "Preparar checkout", "git", ["init", "--template=", "--", target], undefined, reporter);
+    await step(executor, "Baixar revisão", "git", ["-C", target, "-c", "protocol.allow=never", "-c", "protocol.https.allow=always", "fetch", "--no-tags", "--depth=1", "--", request.url, request.commit], undefined, reporter);
+    await step(executor, "Materializar revisão", "git", ["-C", target, "-c", "core.hooksPath=.git/no-hooks", "checkout", "--detach", request.commit, "--"], undefined, reporter);
     checkRevision();
     const current = configs.read("project", cwd);
     configs.write("project", {
@@ -135,6 +153,7 @@ export async function installGitProject(
       packages: [{ id: request.name, installedAt: new Date().toISOString(), version: request.commit, via: request.url }],
       ...(modules.length ? { modules } : {}),
     }, cwd);
+    registered(reporter, request.name, request.commit);
   } catch (error) {
     rmSync(target, { recursive: true, force: true });
     throw error;
@@ -142,20 +161,21 @@ export async function installGitProject(
 }
 
 export async function installGraphify(
-  cwd: string, version: string, checkRevision: () => void, executor = defaultExecutor,
+  cwd: string, version: string, checkRevision: () => void, executor = defaultExecutor, reporter?: InstallReporter,
 ): Promise<void> {
   const graph = join(realpathSync(cwd), "graphify-out", "graph.json");
-  const environment = managedDirectory(cwd, "graphify");
+  const environment = managedDirectory(cwd, "graphify", reporter);
   try {
     const interpreter = process.platform === "win32"
       ? join(environment, "Scripts", "python.exe") : join(environment, "bin", "python");
     const module = newManagedMcpModule(cwd, "graphify", { type: "stdio", command: interpreter, args: ["-m", "graphify.serve", graph] });
-    await step(executor, "Criar ambiente do Graphify", "uv", ["venv", environment]);
-    await step(executor, "Instalar Graphify", "uv", ["pip", "install", "--python", interpreter, `graphifyy[mcp]==${version}`]);
+    await step(executor, "Criar ambiente do Graphify", "uv", ["venv", "--allow-existing", environment], undefined, reporter);
+    await step(executor, "Instalar Graphify", "uv", ["pip", "install", "--python", interpreter, `graphifyy[mcp]==${version}`], undefined, reporter);
     checkRevision();
     configs.write("project", {
       modules: [module], packages: [{ id: "graphify", installedAt: new Date().toISOString(), version, via: "graphifyy[mcp]" }],
     }, cwd);
+    registered(reporter, "graphify", version);
   } catch (error) {
     rmSync(environment, { recursive: true, force: true });
     throw error;

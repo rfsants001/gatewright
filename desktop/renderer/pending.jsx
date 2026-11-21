@@ -80,15 +80,32 @@ export function PendingPage({ cwd, version, request, onOpen }) {
   </>;
 }
 
-export function OperationDetails({ operation, onClose }) {
-  const labels = { pending: "Pendente", running: "Em andamento", succeeded: "Concluída", failed: "Falhou", partial: "Parcial", unknown: "Verificar estado", skipped: "Ignorada" };
+export function OperationDetails({ operation: initialOperation, onClose, cwd, request, onChanged }) {
+  const [operation, setOperation] = useState(initialOperation), [inspection, setInspection] = useState(null), [error, setError] = useState(""), [working, setWorking] = useState(false), [confirm, setConfirm] = useState(false);
+  async function inspect() {
+    setWorking(true); setError("");
+    const result = await request("integration.operation.inspect", { cwd, operationId: operation.id });
+    setWorking(false); if (result.ok) setInspection(result.data); else setError(result.error);
+  }
+  async function recover(action) {
+    setWorking(true); setError("");
+    const result = await request("integration.operation.recover", { cwd, operationId: operation.id, action, revision: inspection.revision });
+    setWorking(false);
+    if (result.ok) { setOperation(result.data); setInspection(null); setConfirm(false); onChanged?.(); } else setError(result.error);
+  }
+
+  const labels = { pending: "Pendente", running: "Em andamento", succeeded: "Concluída", failed: "Falhou", partial: "Parcial", reverted: "Recursos removidos / encerrada", unknown: "Verificar estado", skipped: "Ignorada" };
   return <section className="surface operation-details" aria-label="Diagnóstico da operação">
     <header className="panel-heading"><div><h2>Diagnóstico da instalação</h2><p>{operation.recipeKind} · {operation.id}</p></div><button onClick={onClose}>Fechar detalhes</button></header>
     <div className="padded"><dl className="meta-grid"><div><dt>Estado registrado</dt><dd>{labels[operation.status]}</dd></div><div><dt>Última atualização</dt><dd>{new Date(operation.updatedAt).toLocaleString("pt-BR")}</dd></div></dl>
       <ol className="op-steps">{operation.steps.map((step) => <li className="op-step" key={step.id}><div><strong>{step.label}</strong><p>{labels[step.status]}</p>{step.errorCode && <p className="form-error">{step.errorCode}</p>}
         {step.evidence && <dl className="operation-evidence">{Object.entries(step.evidence).map(([key, value]) => <div key={key}><dt>{key}</dt><dd><code>{value}</code></dd></div>)}</dl>}
       </div></li>)}</ol>
-      <p>Confira os recursos registrados e o diagnóstico abaixo antes de preparar uma nova instalação.</p>
+      <p>Confira os recursos registrados antes de preparar uma nova instalação.</p>
+      {request && <button disabled={working} onClick={inspect}>{working ? "Consultando…" : "Conferir recursos reais"}</button>}
+      {error && <p role="alert" className="form-error">{error}</p>}
+      {inspection && <div className="section"><h3>{inspection.resource.name}</h3><p>{inspection.resource.detail}</p><p>{inspection.resource.verified ? "Recurso e versão conferidos." : "A instalação ainda não foi confirmada."}</p><div className="actions"><button disabled={working} onClick={() => recover("reconcile")}>Registrar estado verificado</button><button className="danger" disabled={working || !inspection.canCleanup} onClick={() => setConfirm(true)}>Remover recursos desta operação</button></div></div>}
+      {confirm && <div className="notice" role="alert"><p>Remover {inspection.resource.name} e o vínculo criado por esta operação? Esta ação apaga o diretório ou contêiner identificado.</p><div className="actions"><button onClick={() => setConfirm(false)}>Manter recurso</button><button className="danger" disabled={working} onClick={() => recover("cleanup")}>Confirmar remoção</button></div></div>}
     </div>
   </section>;
 }

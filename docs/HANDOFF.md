@@ -1,21 +1,13 @@
 # Retomar o Gatewright
 
-Atualizado em 21/11/2026. A base recebida do Claude foi 27a393d. A continuação de código d0441e4 concluiu a ligação da tela de Pendências e a validação de retomada pela janela do Electron.
+Atualizado em 21/11/2026. A continuação após main 1ac6388 concluiu P2-004b e P4–P7 da evolução do desktop.
 
-## Ponto de partida
+Comece em [CHECKPOINT.md](desktop-product-evolution/CHECKPOINT.md), [sdd/tasks.md](desktop-product-evolution/sdd/tasks.md) e [TRD.md](desktop-product-evolution/TRD.md#contratos-entregues). Confira git status/log e o CI antes de alterar. Não reinicie as fases já concluídas.
 
-Comece em docs/desktop-product-evolution/CHECKPOINT.md e sdd/tasks.md. O pacote mantém o PRD, TRD, telas de referência, fases e prompt de retomada. O próximo domínio é P4, Memória e contexto. A entrega atual usa a branch main. Confira git status e os commits posteriores antes de editar.
+Memória tem versões, isolamento, seleção explícita e snapshot imutável no run/Flow. O histórico de tarefas independe de custo. O mapa lê e gera Graphify, relaciona Git e abre arquivo/diff com contenção canônica. Custos compartilham período e agrupam por agente, provedor, tarefa e integração, preservando origem/desconhecido. A instalação compartilha receitas, reporters e mutex entre desktop/MCP; a recuperação verifica propriedade e versão antes de remover. Ajuda usa dialog modal nativo.
 
-## Implementado e validado
+A evidência e os comandos estão no [registro de validação](desktop-product-evolution/screens/validation-2026-11-21/README.md). O ensaio Electron executa um provedor HTTP local de teste e confere contexto recebido e histórico original após editar/reiniciar. Graphify 0.9.114 foi instalado, gerou código e foi removido por sua operação em diretórios temporários.
 
-Skills e Agentes oferecem catálogo pesquisável, ficha ampliada e composição ordenada. Integrações tem proposta, confirmação, operações persistidas e diagnóstico. Projeto → Pendências consulta os journals, abre a revisão correta e apresenta falhas de instalação com o ID da operação. A decisão de review exige o snapshot atual.
+A continuação de ambiente é validar hosts e serviços autenticados quando disponíveis, sem afirmar que assinaturas/proxies de terceiros já foram testados. Inicialização multiplataforma está no CI; fluxos completos desta entrega foram ensaiados no Linux. Operação antiga sem prova de propriedade não é removida automaticamente. Consulte os limites no checkpoint.
 
-O Flow recupera sua revisão na abertura do projeto e pede uma ação explícita para retomar um run interrompido. Uma segunda chamada de retomada durante execução ativa é recusada. Runs do Flow seguem seu próprio caminho de revisão.
-
-npm run check passou em 946 testes. Os comandos npm run test:desktop e npm run test:desktop:pending passaram no Linux com projeto descartável. O registro e as capturas ficam em docs/desktop-product-evolution/screens/validation-2026-11-21/README.md.
-
-## Próximas entregas
-
-P4 implementa memória versionada e seleção de contexto. P5 conecta o mapa de código do Graphify. P6 entrega atribuição de custos. P7 consolida ajuda, acessibilidade e aceite completo. P2-004b ainda precisa de progresso fino, evidência por efeito, reconciliação e compensação dos instaladores. Ensaios autenticados por host, telemetria externa e prova de bloqueio no OpenCode mantêm aceites separados.
-
-Os documentos desta evolução ficam em docs/desktop-product-evolution. A vault e .specs continuam como referências locais. Commits sem Co-authored-by.
+Documentos em docs/desktop-product-evolution, commits sem Co-authored-by. .specs e vault permanecem fora dos commits.

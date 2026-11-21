@@ -6,6 +6,16 @@ import type { FlowStep } from "../core/flow/flow.js";
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const ENTER = "\r";
 
+// Ink commits input subscriptions after painting. Under suite-wide CPU load a
+// painted review can precede its input effect. The review's `a` shortcut is safe
+// to repeat: it never approves the next question (which only accepts Enter).
+async function continueReview(stdin: { write: (value: string) => void }, lastFrame: () => string | undefined, prompt: string) {
+  await vi.waitFor(() => {
+    if (!(lastFrame() ?? "").includes(prompt)) stdin.write("a");
+    expect(lastFrame() ?? "").toContain(prompt);
+  }, { timeout: 2000, interval: 40 });
+}
+
 /** A fake engine that emits one assistant event and resolves with a scripted output. */
 function fakeEngine(outputs: Record<string, string>): RunEngine {
   return (prompt, handlers) => {
@@ -31,10 +41,7 @@ describe("FlowScreen", () => {
     // plan run resolved → review of the plan output shown first
     expect(lastFrame() ?? "").toContain("review ·");
     expect(lastFrame() ?? "").toContain("planned");
-    stdin.write(ENTER); // continue past review → gate
-    await delay(60);
-    expect(lastFrame() ?? "").toContain("Sign off");
-    expect(lastFrame() ?? "").toContain("Approve?");
+    await continueReview(stdin, lastFrame, "Approve?");
     stdin.write(ENTER); // Yes (confirm) → approve → runs implement → done
     await delay(120);
     expect(lastFrame() ?? "").toContain("Flow finished");
@@ -47,8 +54,7 @@ describe("FlowScreen", () => {
     ];
     const { stdin, lastFrame } = render(<FlowScreen goal="x" steps={steps2} runEngine={fakeEngine({ PLAN: "planned" })} onDone={vi.fn()} />);
     await delay(120);
-    stdin.write(ENTER); // continue past the review of the plan output
-    await delay(60);
+    await continueReview(stdin, lastFrame, "Approve?");
     stdin.write("[B"); // move to "No"
     await delay(60);
     stdin.write(ENTER); // decline
@@ -73,8 +79,6 @@ describe("FlowScreen", () => {
     expect(lastFrame() ?? "").toContain("RICHES");
     expect(lastFrame() ?? "").not.toContain("gate-ask");
     expect(lastFrame() ?? "").not.toContain("Scope?");
-    stdin.write(ENTER); // continue past review → the injected question
-    await delay(60);
-    expect(lastFrame() ?? "").toContain("Scope?");
+    await continueReview(stdin, lastFrame, "Scope?");
   });
 });

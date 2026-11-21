@@ -2,9 +2,13 @@
 
 Você vai continuar o Gatewright como responsável pela implementação da lógica e da integração das telas. O usuário aprovou a evolução visual e pediu que o Codex desenhasse as páginas e preparasse PRD e TRD. Seu trabalho começa criando um SDD a partir deste pacote, depois executando a implementação por fases com checkpoints persistidos.
 
-## Retomada em 21/11/2026
+## Entrega integrada em 21/11/2026
 
-O SDD e as fases P0, P1 e P3 estão implementados. A P2 tem entrega funcional com a subtarefa P2-004b ainda pendente. Consulte CHECKPOINT.md e sdd/tasks.md antes de iniciar. O próximo trabalho novo é P4, Memória e contexto. O teste real do Electron para Pendências e retomada está documentado em screens/validation-2026-11-21/README.md.
+P0–P7 e P2-004b implementadas no aplicativo. A validação atual está em [CHECKPOINT.md](CHECKPOINT.md) e [no registro do Electron](screens/validation-2026-11-21/README.md). O material em `ui/` continua sendo uma referência isolada com fixtures; as telas de produção estão em `desktop/renderer/`.
+
+A entrega inclui memória com versões e seleção explícita, snapshot imutável de contexto, histórico de tarefas com ou sem medição, mapa Graphify com arquivo/diff, custos por atribuição, recuperação de recursos pertencentes à operação e ajuda por tela/ação/erro. A validação autenticada de serviços de terceiros e dos hosts em cada sistema operacional permanece uma matriz de ambiente, sem promessa de compatibilidade universal.
+
+Não reinicie P4–P7: a implementação já existe. Leia o checkpoint e os resultados dos testes, confira os commits posteriores e trabalhe somente em regressões ou na matriz de hosts/serviços que estiverem disponíveis. Preserve os snapshots, a propriedade de recursos, o orçamento de contexto e a semântica de custos. A orquestração Sonnet/Haiku descrita abaixo continua sendo orientação para a sua execução; os limites de aprovação e validação permanecem iguais.
 
 ## Leitura inicial obrigatória
 

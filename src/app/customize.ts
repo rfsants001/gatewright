@@ -126,16 +126,16 @@ export function describeChange(cwd: string, change: Change) {
   }
 }
 
-export async function applyChange(cwd: string, change: Change, revision: string, executor?: Executor): Promise<void> {
+export async function applyChange(cwd: string, change: Change, revision: string, executor?: Executor, reporter?: import("../core/integrations/install-report.js").InstallReporter): Promise<void> {
   const checkRevision = () => {
     if (changeRevision(cwd, change) !== revision) throw new Error("O destino mudou. Gere e revise uma nova proposta.");
   };
   checkRevision();
   switch (change.kind) {
-    case "git-project": return installGitProject(cwd, change, checkRevision, executor);
-    case "graphify": return installGraphify(cwd, change.version, checkRevision, executor);
-    case "npm-mcp": return installNpmMcp(cwd, change, checkRevision, executor);
-    case "container": return installContainer(cwd, change, checkRevision, executor);
+    case "git-project": return installGitProject(cwd, change, checkRevision, executor, reporter);
+    case "graphify": return installGraphify(cwd, change.version, checkRevision, executor, reporter);
+    case "npm-mcp": return installNpmMcp(cwd, change, checkRevision, executor, reporter);
+    case "container": return installContainer(cwd, change, checkRevision, executor, reporter);
     case "mcp-http": registerManagedMcp(cwd, change.name, { type: "http", url: change.url }); return;
     case "jev":
       configs.write("project", {

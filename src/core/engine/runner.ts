@@ -110,6 +110,10 @@ export function startRun(adapter: EngineAdapter, opts: EngineRunOptions, handler
 
   // Build the command first (a stub engine throws here before we touch the process).
   const cmd = adapter.buildHeadlessCommand(opts);
+  rj.journal.append({ type: "RUN_CONTEXT", at: now(), payload: {
+    engineId: adapter.id, model: opts.model, prompt: opts.prompt,
+    systemPrompt: opts.systemPrompt, ...(opts.runContext ?? { attributionSource: "inferred" }),
+  } });
   if (deps.runBindingStore && deps.sessionKey) {
     deps.runBindingStore.update(opts.cwd, (bindings) => {
       bindings[deps.sessionKey!] = slug;

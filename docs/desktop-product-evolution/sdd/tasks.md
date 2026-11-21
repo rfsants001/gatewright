@@ -32,9 +32,9 @@
   - Done when: comportamento observável idêntico; confirmação consumida não dispara 2 receitas; teste `op-concurrent`. Dep: P2-001. → `refactor(integrations): bridge delegates to shared R2 configurator`
 - [x] **P2-003** `HealthStatus` + `integration.test` estendido (tentativa/horário/fase/erro/latência; retry testa sem reinstalar; evidência expira por revisão). Evento `integration.progress {cwd,operationId,seq,step}`.
   - Done when: instalado-não-verificado distinto; retry não reinstala/duplica; teste `retry-no-reinstall`/`partial-failure`. Dep: P2-001. → `feat(integrations): health status and real connection retry`
-- [~] **P2-004** `integration.operation.get` (reabrir reconstrói pelo id) + ação recuperável/remoção por recurso pertencente. Allowlist.
+- [x] **P2-004** `integration.operation.get` (reabrir reconstrói pelo id) + ação recuperável/remoção por recurso pertencente. Allowlist.
   - Done when: reabrir projeto recupera estado; remover/reverter identifica recursos da operação; teste `op-reopen`. Dep: P2-001. → `feat(integrations): reopen and recover operations`
-  - **Parcial (entregue):** operação persistida por recipe, `integration.operation.get`, `snapshot.operations` p/ reabrir, eventos `integration.progress` (status grosso), lock por revisão. **Deferido (P2-004b):** streaming por-etapa fino (threading de um reporter de passo pelos installers `integration-install.ts`), evidência rica por efeito (containerId/pasta/versão lidos do resultado do installer), e remoção/compensação por recurso pertencente. `applyIntegration` é atômico hoje → só status grosso succeeded/failed. Retomar operação interrompida reconciliando recurso real também entra aqui.
+  - **Entregue na continuação:** reporters dos instaladores, evidências por recurso, inspeção/reconciliação e cleanup confirmado. Ver P2-004b e o TRD atualizado.
 - [x] **P2-005** Renderer: tela Integrações (etapas rotuladas, coluna origem/versão/destino/escopo/pré-requisitos/verificações, falha parcial + testar conexão). Ajuda (autenticação, revisão vencida). Captura.
   - Done when: progresso real de uma receita + recuperação reproduzível; IN aceites. Dep: P2-002..004. → `feat(desktop): integration install and health screen`
 
@@ -50,45 +50,57 @@
   - Done when: deriva de revisões/runs/operações; item resolvido some; filtrar não altera entidades; teste `pending-projection`. Dep: P2, P3-001. → `feat(pending): projection and screen over runtime sources`
   - Entrega de 21/11: tela Projeto → Pendências, filtros e contagens, pending.open com revisão atual, ação de diff para o run correto e diagnóstico por operationId. Revisão de Flow avança sua versão e seus outputs não duplicam revisões avulsas. Regressão e smoke real do Electron registrados em ../screens/validation-2026-11-21/README.md.
 
+- [x] **P2-004b** Reporters por comando/recurso, ownership de diretório/contêiner, receita persistida, inspeção e reconciliação sem reinstalar, limpeza confirmada por revisão e mutex compartilhado desktop/MCP. `recovery.test.ts`; instalação/verificação/remoção real do Graphify 0.9.114; fluxo de remoção exercitado no Electron. `reverted` encerra a pendência. Operações históricas sem ownership exigem conferência manual.
+
 ## P4 — Memória e contexto  (REQ ME-01..05)  — Dep: P1, P3
 
-- [ ] **P4-001** `src/core/memory/` — `MemoryStore` (Journal+ArtifactStore), schema versionado, escopos user/project/run, migração explícita, tombstone de exclusão.
+- [x] **P4-001** `src/core/memory/` — `MemoryStore` (Journal+ArtifactStore), schema versionado, escopos user/project/run, migração explícita, tombstone de exclusão.
   - Done when: CRUD versionado; isolamento de projeto; teste `memory-crud`/`memory-isolation`. → `feat(memory): versioned record store with scopes`
-- [ ] **P4-002** `memory.resolve` → `MemorySnapshot` (IDs/versões/texto) no preparo do run; checagem de orçamento de contexto antes de iniciar; imutável após início.
+- [x] **P4-002** `memory.resolve` → `MemorySnapshot` (IDs/versões/texto) no preparo do run; checagem de orçamento de contexto antes de iniciar; imutável após início.
   - Done when: editar pós-início não muda prompt; excesso de contexto erra antes de iniciar; teste `memory-snapshot`/`memory-budget`. Dep: P4-001. → `feat(memory): run snapshot and context budget`
-- [ ] **P4-003** Bridge+MCP `memory.list/upsert/delete/resolve` (mesmos limites de escopo); destinatários por perfil; sugestão de IA exige salvar versão revisada. Allowlist.
+- [x] **P4-003** Bridge+MCP `memory.list/upsert/delete/resolve` (mesmos limites de escopo); destinatários por perfil; sugestão de IA exige salvar versão revisada. Allowlist.
   - Done when: desktop e caminho MCP compartilham resolução; teste `memory-mcp`. Dep: P4-001. → `feat(memory): bridge and MCP contracts`
-- [ ] **P4-004** Renderer: tela Memória (escopos, busca, lista, origem/destinatários, drawer criar/editar, exclusão com decisão) + seleção no compositor da tarefa. Ajuda de privacidade. Captura.
+- [x] **P4-004** Renderer: tela Memória (escopos, busca, lista, origem/destinatários, drawer criar/editar, exclusão com decisão) + seleção no compositor da tarefa. Ajuda de privacidade. Captura.
   - Done when: criar→selecionar→usar no run→recuperar no histórico com versão original; ME aceites. Dep: P4-002..003. → `feat(desktop): memory screen and task context selection`
 
 ## P5 — Mapa de código e diff  (REQ MP-01..04)  — Dep: P2 + Graphify funcional
 
-- [ ] **P5-001** Conferir schema real de `graphify-out/graph.json` na versão suportada; fixar fixture representativa se o CLI não rodar no ambiente (registrar pendência de host).
+- [x] **P5-001** Conferir schema real de `graphify-out/graph.json` na versão suportada; fixar fixture representativa se o CLI não rodar no ambiente (registrar pendência de host).
   - Done when: exemplo real ou fixture + nota de limitação no CHECKPOINT. → `test(codemap): capture real graphify graph fixture`
-- [ ] **P5-002** `src/core/codemap/` — adapter/parser + normalização, limites antes de parsear, última-versão-válida, `truncated`.
+- [x] **P5-002** `src/core/codemap/` — adapter/parser + normalização, limites antes de parsear, última-versão-válida, `truncated`.
   - Done when: grafo válido/inválido/grande/desatualizado cobertos; preserva última válida; teste `codemap-adapter`. Dep: P5-001. → `feat(codemap): graphify adapter with limits`
-- [ ] **P5-003** Relação diff↔grafo (paths normalizados Linux/macOS/Windows, renomes) + `projectMap.openFile` (canônico, dentro da pasta, ação Electron). `projectMap.get`/`refresh` (progresso P2).
+- [x] **P5-003** Relação diff↔grafo (paths normalizados Linux/macOS/Windows, renomes) + `projectMap.openFile` (canônico, dentro da pasta, ação Electron). `projectMap.get`/`refresh` (progresso P2).
   - Done when: nó ligado a arquivo alterado; abrir fora da pasta bloqueado; teste `codemap-diff`/`codemap-refresh`. Dep: P5-002, P2. → `feat(codemap): diff relation and guarded open file`
-- [ ] **P5-004** Renderer: tela Mapa (alternância mapa/lista equivalente por teclado, seleção+relações, detalhe do diff, ausência oferece conectar/instalar/gerar). Ajuda (gráfico ausente). Captura.
+- [x] **P5-004** Renderer: tela Mapa (alternância mapa/lista equivalente por teclado, seleção+relações, detalhe do diff, ausência oferece conectar/instalar/gerar). Ajuda (gráfico ausente). Captura.
   - Done when: módulo selecionável em lista e mapa; refresh observável; MP aceites. Dep: P5-003. → `feat(desktop): project map screen`
 
 ## P6 — Custos por atribuição  (REQ CU-01..04)  — Dep: P1, P2
 
-- [ ] **P6-001** Gravar metadados de atribuição no início do run (`meta`: agentId/providerId/integrationIds/attributionSource). Distinguir uso efetivo × contexto habilitado.
+- [x] **P6-001** Gravar metadados de atribuição no início do run (`meta`: agentId/providerId/integrationIds/attributionSource). Distinguir uso efetivo × contexto habilitado.
   - Done when: run novo carrega metadados; legado sem metadados continua válido; teste `run-attribution-meta`. → `feat(costs): record attribution metadata at run start`
-- [ ] **P6-002** `aggregateUsage` estendido (agrupar por agent/provider/task/integration; DTO `{knownSumBrl,pricedCount,unpricedCount}`; "Sem atribuição"; sem dupla contagem por integração). Reusa reconciliação cumulativa.
+- [x] **P6-002** `aggregateUsage` estendido (agrupar por agent/provider/task/integration; DTO `{knownSumBrl,pricedCount,unpricedCount}`; "Sem atribuição"; sem dupla contagem por integração). Reusa reconciliação cumulativa.
   - Done when: soma filtrada == total; múltiplas integrações não duplicam; zero/parcial/estimado/reportado preservados; teste `usage-group`/`usage-attribution`. Dep: P6-001. → `feat(costs): attribution grouping without double counting`
-- [ ] **P6-003** Renderer: Custos (seletor de dimensão, barras do novo agrupamento + gráficos por dia/modelo existentes, tabela, drawer do run com fonte+metadados+"Abrir tarefa", período único). Ajuda (custo desconhecido). Captura.
+- [x] **P6-003** Renderer: Custos (seletor de dimensão, barras do novo agrupamento + gráficos por dia/modelo existentes, tabela, drawer do run com fonte+metadados+"Abrir tarefa", período único). Ajuda (custo desconhecido). Captura.
   - Done when: navegação gráfico→tarefa pela janela; período único em todas as vistas; CU aceites. Dep: P6-002. → `feat(desktop): cost attribution screen`
 
 ## P7 — Ajuda e aceite completo  (REQ AJ-01..03 + estados)  — Dep: P1..P6
 
-- [ ] **P7-001** Consolidar conteúdo de ajuda por `{screenId,action,errorCode}` + drawer (foco contido, Escape, retorno ao acionador, projeto preservado). Revisar links/erros de todas as fases.
+- [x] **P7-001** Consolidar conteúdo de ajuda por `{screenId,action,errorCode}` + drawer (foco contido, Escape, retorno ao acionador, projeto preservado). Revisar links/erros de todas as fases.
   - Done when: navegar ajuda não perde projeto; teste `help-drawer`; AJ aceites. → `feat(desktop): contextual help drawer`
-- [ ] **P7-002** Estados comuns por área (dados/carregando/vazio específico/erro recuperável/parcial, `aria-busy`), revisão a11y em 1440×960/1120×860/780×580, descartar resposta de projeto trocado.
+- [x] **P7-002** Estados comuns por área (dados/carregando/vazio específico/erro recuperável/parcial, `aria-busy`), revisão a11y em 1440×960/1120×860/780×580, descartar resposta de projeto trocado.
   - Done when: janela pequena alcança ações por teclado; estados cobertos; teste de estados. → `feat(desktop): shared states and accessibility pass`
-- [ ] **P7-003** Regressão final: `GATEWRIGHT_PROJECTS=tmp npm run check` + `npm run test:desktop` (smoke) + screenshots reais; registrar hosts/versões e pendências de host; atualizar README conforme autorização vigente.
+- [x] **P7-003** Regressão final: `GATEWRIGHT_PROJECTS=tmp npm run check` + `npm run test:desktop` (smoke) + screenshots reais; registrar hosts/versões e pendências de host; atualizar README conforme autorização vigente.
   - Done when: checks verdes (ou limitações registradas), evidências capturadas, handoff no CHECKPOINT. → `docs(desktop): evolution acceptance and README update`
 
 ## Dependências resumidas
 P0 → P1 → {P2 → (P3, P5), P6}; P4 depende de P1+P3; P7 depende de todas. P3-004 e P5/P6 consomem a operação persistente da P2.
+
+## Evidência integrada de P4–P7 (21/11/2026)
+
+- Memória: `src/core/memory/store.test.ts` cobre CRUD, isolamento A/B, opt-in pessoal, versões, tombstone, destinatários, escopo de tarefa, orçamento e quatro processos disputando a mesma versão (um vencedor). `src/mcp/server.test.ts` cobre CRUD/resolução via MCP real em memória.
+- Snapshot e UI: `desktop/evolution-smoke.mjs` cria uma memória pela janela, seleciona-a com um agente, executa contra servidor HTTP local de teste, verifica instruções recebidas e snapshot antes/depois da edição e do reinício. Histórico cobre também tarefas sem uso.
+- Mapa: fixture produzida de verdade pelo Graphify 0.9.114 e schema 1 cobertos em `src/core/codemap/map.test.ts`; limites, cache válido, caminhos Windows, escape, symlink, binário, diff e renomes. Geração real pelo serviço compartilhado e UI de mapa/lista/diff exercitadas.
+- Custos: `src/core/run/attribution.test.ts` cobre cumulativo, período, legado desconhecido e igualdade da soma entre dimensões, sem duplicar integrações. Tela agrupa e chega ao contexto/tarefa no smoke do Electron.
+- Ajuda/estados: dialog nativo, foco contido, Escape/retorno, descarte de resposta após desmontar/trocar projeto e scroll em 1440×960, 1120×860 e 780×580. Screenshots e limites do ensaio em `../screens/validation-2026-11-21/README.md`.
+- Regressão final: `npm run check` passou em 961 testes / 127 arquivos. Os três smokes do Electron e a instalação, geração, verificação e remoção reais do Graphify passaram no Linux.
+- A matriz autenticada de hosts e serviços de terceiros é validação de ambiente. Sua ausência não é representada como teste aprovado nem como suporte universal.

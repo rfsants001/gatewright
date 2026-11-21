@@ -45,6 +45,11 @@ jobs:
           sudo chown root:root node_modules/electron/dist/chrome-sandbox
           sudo chmod 4755 node_modules/electron/dist/chrome-sandbox
           xvfb-run -a npm run test:desktop
+      - name: Validate desktop workflows on Linux
+        if: runner.os == 'Linux'
+        run: |
+          xvfb-run -a npm run test:desktop:pending
+          xvfb-run -a npm run test:desktop:evolution
       - name: Open a project on macOS or Windows
         if: runner.os != 'Linux'
         run: npm run test:desktop

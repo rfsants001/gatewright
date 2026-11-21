@@ -1,5 +1,14 @@
 # Gatewright — especificação das telas propostas
 
+## Entrega integrada em 21/11/2026
+
+P0–P7 e P2-004b implementadas no aplicativo. A validação atual está em [CHECKPOINT.md](CHECKPOINT.md) e [no registro do Electron](screens/validation-2026-11-21/README.md). O material em `ui/` continua sendo uma referência isolada com fixtures; as telas de produção estão em `desktop/renderer/`.
+
+A entrega inclui memória com versões e seleção explícita, snapshot imutável de contexto, histórico de tarefas com ou sem medição, mapa Graphify com arquivo/diff, custos por atribuição, recuperação de recursos pertencentes à operação e ajuda por tela/ação/erro. A validação autenticada de serviços de terceiros e dos hosts em cada sistema operacional permanece uma matriz de ambiente, sem promessa de compatibilidade universal.
+
+As capturas de produção estão em `screens/validation-2026-11-21/evolution/`. Projeto contém Resumo, Pendências, Memória e Mapa. Tarefas oferece seleção explícita de versões e histórico; Custos compartilha um período único e abre o contexto da tarefa. Integrações mantém histórico reabrível e decisão separada para remoção. A ajuda usa dialog nativo do Electron/Chromium para foco modal e Escape.
+
+
 ## Entregáveis visuais
 
 A prévia navegável está em `ui/dist/index.html`. Para recompilar a partir da raiz do projeto, executar `node docs/desktop-product-evolution/ui/build.mjs`. A pasta `ui/` contém React, fixtures e estilos da proposta. A pasta `screens/` contém capturas para consulta no SDD.

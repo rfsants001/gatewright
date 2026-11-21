@@ -2,7 +2,7 @@
   "name": "gatewright",
   "version": "0.1.0",
   "type": "module",
-  "description": "Open-source AI control plane + MCP: centralize models, skills, commands, budget and config in one point, consumable by any tool via MCP — with governance and observability built in.",
+  "description": "Open-source AI control plane + MCP: centralize models, skills, commands, budget and config in one point, consumable by any tool via MCP \u2014 with governance and observability built in.",
   "keywords": [
     "ai",
     "mcp",
@@ -54,7 +54,8 @@
     "desktop:dev": "npm run build && npm run desktop --",
     "test:desktop": "node desktop/smoke.mjs",
     "test:desktop:pending": "npm run build && node desktop/pending-smoke.mjs",
-    "desktop:install": "node desktop/install-launcher.mjs"
+    "desktop:install": "node desktop/install-launcher.mjs",
+    "test:desktop:evolution": "npm run build && node desktop/evolution-smoke.mjs"
   },
   "devDependencies": {
     "@types/figlet": "^1.7.0",

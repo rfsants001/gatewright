@@ -17,12 +17,12 @@ No Linux, rode `npm run desktop:install` para criar a entrada no menu. O atalho 
 
 ## Usar
 
-- **Projeto** abre uma pasta, mostra projetos recentes e detecta hosts. A prévia da conexão informa os arquivos que serão atualizados. Em **Pendências**, consulte aprovações, retomadas de Flow e falhas de instalação. Cada ação abre a revisão do run correspondente ou o diagnóstico da operação, conferindo a revisão atual da pendência.
-- **Tarefas** executa um objetivo, transmite os eventos e permite cancelar. O Flow SDD guia planejamento, aprovação, implementação e revisão. Ao reabrir o projeto, uma revisão pendente é recuperada e uma etapa interrompida aguarda a ação **Retomar**. A aprovação do diff registra a decisão vinculada ao snapshot atual.
-- **Custos** exibe o uso registrado nos journals do projeto, com custo por dia, por modelo e tokens por execução. Valores ausentes ou parciais são sinalizados. Hosts abertos por fora precisam de uma fonte de telemetria para que seu consumo apareça aqui.
+- **Projeto** abre uma pasta, mostra projetos recentes e detecta hosts. A prévia da conexão informa os arquivos que serão atualizados. Em **Memória**, guarde decisões por projeto, usuário ou execução, com versões e destinatários. Selecione explicitamente o contexto em Tarefas; memórias pessoais ficam ocultas até opt-in. Em **Mapa**, leia ou gere Graphify local, busque símbolos e abra relações, arquivo e diff. Em **Pendências**, consulte aprovações, retomadas de Flow e falhas de instalação. Cada ação abre a revisão do run correspondente ou o diagnóstico da operação, conferindo a revisão atual da pendência.
+- **Tarefas** executa um objetivo, transmite os eventos e permite cancelar. O histórico preserva objetivo, instruções e versões de memória, inclusive sem medição. Agente + memórias compartilham 20 KB UTF-8 e são congelados no início. O Flow SDD guia planejamento, aprovação, implementação e revisão. Ao reabrir o projeto, uma revisão pendente é recuperada e uma etapa interrompida aguarda a ação **Retomar**. A aprovação do diff registra a decisão vinculada ao snapshot atual.
+- **Custos** exibe o uso registrado nos journals do projeto, com custo por dia, modelo e atribuição a agente, provedor, tarefa ou integração. O período de 7/30 dias vale para toda a análise. A seleção de grupo filtra as execuções e permite abrir contexto/tarefa. Integrações significam contexto habilitado com rateio explícito, não custo do SaaS. Valores ausentes ou parciais são sinalizados. Hosts abertos por fora precisam de uma fonte de telemetria para que seu consumo apareça aqui.
 - **Skills** oferece busca, filtros de categoria e origem, corpo de instruções e os agentes dependentes. Crie playbooks no projeto em formato SKILL.md.
 - **Agentes** mantém perfis com responsabilidades, entrada, saída e limites opcionais. Ordene as skills, confira as instruções combinadas e use o perfil numa tarefa. O mesmo compositor alimenta os prompts MCP.
-- **Integrações** cadastra provedores de API ou proxy e recebe pedidos em linguagem natural. A pessoa revisa a proposta antes de aplicar as receitas de MCP, npm, Docker, Git, Graphify ou Jev. Operações e resultados de diagnóstico são persistidos. O progresso fino dos instaladores e a compensação de recursos ainda estão em P2-004b. O campo de credencial recebe o nome de uma variável de ambiente disponível ao desktop.
+- **Integrações** cadastra provedores de API ou proxy e recebe pedidos em linguagem natural. A pessoa revisa a proposta antes de aplicar as receitas de MCP, npm, Docker, Git, Graphify ou Jev. Operações e resultados de diagnóstico são persistidos. O histórico mostra etapas e recursos reais. Confira a operação e a revisão atual antes de remover recursos; ownership e versão são verificados. Reconciliar não reinstala. O estado revertido sai das pendências; operações antigas sem prova de propriedade precisam de conferência manual. O campo de credencial recebe o nome de uma variável de ambiente disponível ao desktop.
 
 ## Compatibilidade do piloto
 
@@ -57,3 +57,17 @@ A próxima fase é Memória e contexto de tarefa. Mapa do projeto, atribuição 
 ## Verificar Pendências e retomada
 
 Use `npm run test:desktop:pending` em sessão gráfica. O comando compila o aplicativo e exercita a janela, IPC e bridge com um projeto descartável. Ele cobre filtros, revisão vencida, diagnóstico por operação, janela compacta e reabertura de um Flow aguardando revisão ou retomada. O smoke de abertura nos sistemas continua em `npm run test:desktop`.
+
+## Ensaios da evolução
+
+```sh
+npm run test:desktop
+npm run test:desktop:pending
+npm run test:desktop:evolution
+```
+
+Os smokes usam projetos e perfis temporários em sessão gráfica. O último exercita memória → agente → provedor HTTP local → snapshot → custo → mapa/diff → recuperação → reinício e scroll. Não usa uma assinatura externa. Evidências, versões e limites em [validação de 21/11](desktop-product-evolution/screens/validation-2026-11-21/README.md).
+
+Graphify instalado pelo app usa `uv venv --allow-existing` e versão fixada. A geração de código executa `python -m graphify extract . --code-only --no-cluster --out .`, produzindo graphify-out/graph.json. A UI lê `nodes` + `edges`/`links`; preserva o último mapa válido se a nova leitura falhar. Exibe até 4.000 nós/12.000 relações de um artefato de até 20 MB; a lista permite acessar resultados fora dos 160 desenhados por vez. Arquivo maior que 512 KB ou binário precisa do editor.
+
+MCP de memória: memory_list/upsert/delete/resolve. Operações: integration_operation (list/inspect/reconcile/cleanup). A remoção requer aprovação humana da revisão inspecionada e prova de propriedade.

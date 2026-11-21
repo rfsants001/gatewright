@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img alt="status" src="https://img.shields.io/badge/status-alpha-orange">
+  <img alt="status" src="https://img.shields.io/badge/status-alpha-fd82c6">
   <img alt="node" src="https://img.shields.io/badge/node-%E2%89%A522.12-339933?logo=node.js&logoColor=white">
   <img alt="typescript" src="https://img.shields.io/badge/TypeScript-strict%20ESM-3178c6?logo=typescript&logoColor=white">
   <img alt="ci" src="https://github.com/rfsants001/gatewright/actions/workflows/ci.yml/badge.svg">
@@ -20,7 +20,7 @@
 <p align="center">
   Gatewright wraps agents like <em>Claude Code</em> and <em>Codex</em> in a set of repo-local <strong>gates</strong> —
   scope control, completion verification, diff proportion, secret protection, handoff quality, budget —
-  so an agent stays on task instead of drifting. It ships as a CLI (<code>gate</code>) with an interactive TUI,
+  so an agent stays on task instead of drifting. It ships as an <strong>Electron desktop</strong>, a CLI (<code>gate</code>) with an interactive TUI,
   a local <strong>MCP server</strong>, and an <strong>event-sourced core</strong> that makes every decision replayable.
 </p>
 
@@ -34,7 +34,7 @@ The terminal remains a supported surface. Connect each project's MCP and support
 
 ### Desktop screenshots
 
-The banners illustrate the desktop with a demo project. Connections, run output, and usage figures are sample data. The Pending view below was captured from the Electron acceptance test.
+These banners use current screenshots from the Electron acceptance tests with a disposable project. The provider response, memories, agent and graph are declared test data. A local HTTP provider exercises the real process, protocol and context path; no external subscription is billed.
 
 #### Project
 
@@ -42,25 +42,41 @@ Open a repository, switch between recent projects, and review the MCP and hook c
 
 ![Project workspace with four detected terminal hosts, a seven-day cost chart, and recent projects](docs/screenshots/gatewright-project.webp)
 
-![Project Pending tab in Electron showing a run awaiting review and an integration operation awaiting diagnosis](docs/desktop-product-evolution/screens/validation-2026-11-21/pending-overview.png)
+#### Pending work
+
+Reviews, recovered flows and interrupted installation operations are derived from project journals. Opening an action revalidates its revision before presenting the corresponding review or diagnostic.
+
+![Electron Pending view with a version-bound review and an installation diagnostic](docs/screenshots/gatewright-pending.webp)
+
+#### Memory
+
+Store decisions, preferences and lessons with explicit scope, recipients and versions. Personal records stay hidden until you opt in. Select memories in Tasks: the exact content is frozen with the agent instructions at run start, so later edits or deletion leave the original history intact. The combined context limit is 20 KB in UTF-8.
+
+![Current Memory page with a versioned project decision and explicit personal-memory opt-in](docs/screenshots/gatewright-memory.webp)
+
+#### Project map
+
+Read or generate a local Graphify code map, search symbols and inspect relations in map or list view. Follow a node to its file and Git diff. Invalid refreshes preserve the last valid artifact; canonical path checks keep file access within the project.
+
+![Current Graphify map showing symbols, relations and changed-file inspection](docs/screenshots/gatewright-map.webp)
 
 #### Tasks
 
-Choose a terminal tool or provider and, optionally, a saved agent. Run a task directly or start a guided SDD flow with a supported terminal host. Follow the log and open the diff when the task finishes.
+Choose a terminal tool or provider and, optionally, a saved agent. Run a task directly or start a guided SDD flow with a supported terminal host. Select memory versions, follow the log and open the diff when the task finishes. Task history preserves the original instructions, context and output even when no cost was recorded.
 
-![Tasks screen showing Gemini CLI and a saved API reviewer, with a completed run and the option to open its diff](docs/screenshots/gatewright-tasks.webp)
+![Current Tasks screen showing an API reviewer, selected memory, a completed local-provider run and persistent history](docs/screenshots/gatewright-tasks.webp)
 
 #### Costs
 
-Compare daily costs over 7 or 30 days and see which models account for the most recorded spend. The recent runs table breaks out input, output, and cached tokens and flags partial or missing cost data.
+Compare costs over a shared 7/30-day period by day, model, agent, provider, task or integration. Select a group to filter runs and inspect their original context. Reported, estimated, missing and partial values keep their provenance. Integration attribution splits enabled context equally; it does not claim a SaaS invoice or observed tool-level billing.
 
-![Costs screen with token totals, daily and per-model charts, and a recent-runs table](docs/screenshots/gatewright-costs.webp)
+![Current Costs screen with one analysis period, daily/model charts, attribution groups and task investigation](docs/screenshots/gatewright-costs.webp)
 
 #### Integrations
 
-Set up a model provider or describe an integration in plain language. Review the proposed steps before applying supported recipes for MCP endpoints, versioned npm packages, local Docker services, Git checkouts, Graphify, or Jev. Use the diagnostics to check host configuration and test MCP connections.
+Set up a model provider or describe an integration in plain language. Review the proposed steps before applying supported recipes for MCP endpoints, versioned npm packages, local Docker services, Git checkouts, Graphify, or Jev. Use the diagnostics to check host configuration and test MCP connections. Reopen installation history to inspect step evidence, reconcile existing resources or approve removal of resources proven to belong to that operation. Reconciliation never reinstalls.
 
-Connected terminal clients can also request integration proposals through `integrate_tool` and apply a reviewed proposal using its revision. The `set_module_enabled` tool enables or disables a registered module. See [integration tools](#integration-tools) for the request format.
+Connected terminal clients can inspect and recover operations through `integration_operation` and share versioned context through `memory_list`, `memory_upsert`, `memory_delete` and `memory_resolve`. They can also request integration proposals through `integrate_tool` and apply a reviewed proposal using its revision. The `set_module_enabled` tool enables or disables a registered module. See [integration tools](#integration-tools) for the request format.
 
 ![Integrations screen showing provider setup, AI proposals, terminal configuration, and MCP connection checks](docs/screenshots/gatewright-integrations.webp)
 
@@ -68,13 +84,13 @@ Connected terminal clients can also request integration proposals through `integ
 
 Give an agent a name and objective, then select skills in the order it should follow them. Preview the combined instructions, save the profile, and select it in Tasks or access it through an MCP prompt.
 
-![Agent composer showing ordered skill selection, combined instructions, and saved agent profiles](docs/screenshots/gatewright-agents.webp)
+![Current Agents page with the saved API reviewer and ordered skill composition](docs/screenshots/gatewright-agents.webp)
 
 #### Skills
 
-Write a reusable playbook in Markdown and describe when to use it. Gatewright saves it as a project-local `SKILL.md` that you can use in the agent composer or expose as an MCP prompt.
+Write a reusable playbook in Markdown and describe when to use it. Gatewright saves it as a project-local `SKILL.md` that you can use in the agent composer or expose as an MCP prompt. The catalog supports search, category/source filters, full instructions and dependent-agent links.
 
-![Skills screen showing a Markdown playbook form next to the project catalog](docs/screenshots/gatewright-skills.webp)
+![Current searchable Skills catalog with origin and agent dependencies](docs/screenshots/gatewright-skills.webp)
 
 
 ## The problem
@@ -531,3 +547,14 @@ itself**: it governs its own development through the same gates it ships.
 
 Released under the **MIT License**. Curated skills adapted from third-party sources retain their
 original attribution (see `skills/NOTICE.md`).
+
+## Desktop acceptance checks
+
+```sh
+npm run check
+npm run test:desktop
+npm run test:desktop:pending
+npm run test:desktop:evolution
+```
+
+The desktop smokes require a graphical session (CI uses Xvfb on Linux) and disposable projects. The evolution smoke verifies context delivery to a controlled local provider, immutable history, cost attribution, map/file/diff navigation, owned-resource recovery, keyboard focus, vertical scroll and restart. Graphify 0.9.114 installation, generation and cleanup were also exercised locally. See [the acceptance record](docs/desktop-product-evolution/screens/validation-2026-11-21/README.md) for evidence and environment limits. Authenticated third-party hosts/proxies still need validation in their own environment; startup CI covers Linux, macOS and Windows.

@@ -1,12 +1,12 @@
 # Gatewright — pacote de design e implementação por fases
 
-Preparado em 20/11/2026 sobre a base b2dfd32. Este pacote contém a evolução visual aprovada em conversa e as referências para o Claude criar o SDD e implementar a lógica. O código publicado do aplicativo permanece na base inspecionada.
+Preparado em 20/11/2026 sobre a base b2dfd32. Este pacote contém a evolução visual aprovada em conversa e as referências para o Claude criar o SDD e implementar a lógica. A implementação atual está no aplicativo Electron; consulte o checkpoint antes de alterar contratos.
 
-## Estado da implementação em 21/11/2026
+## Entrega integrada em 21/11/2026
 
-O Claude entregou a biblioteca de skills, a ficha de agentes, a tela de integrações e a ligação da retomada do Flow. O Codex continuou a partir do commit 27a393d e concluiu a tela de Pendências sobre a projeção existente. A próxima fase é P4, Memória e contexto. P2-004b ainda trata do progresso fino, da reconciliação e da compensação dos efeitos dos instaladores.
+P0–P7 e P2-004b implementadas no aplicativo. A validação atual está em [CHECKPOINT.md](CHECKPOINT.md) e [no registro do Electron](screens/validation-2026-11-21/README.md). O material em `ui/` continua sendo uma referência isolada com fixtures; as telas de produção estão em `desktop/renderer/`.
 
-A prévia em ui/ permanece como referência de design. A tela de Pendências já roda no Electron e foi exercitada com journals temporários pela entrada normal do aplicativo. [Registro do ensaio](screens/validation-2026-11-21/README.md)
+A entrega inclui memória com versões e seleção explícita, snapshot imutável de contexto, histórico de tarefas com ou sem medição, mapa Graphify com arquivo/diff, custos por atribuição, recuperação de recursos pertencentes à operação e ajuda por tela/ação/erro. A validação autenticada de serviços de terceiros e dos hosts em cada sistema operacional permanece uma matriz de ambiente, sem promessa de compatibilidade universal.
 
 ## Abrir as páginas
 
