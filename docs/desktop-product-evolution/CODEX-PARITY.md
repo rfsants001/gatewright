@@ -1,6 +1,6 @@
 # Codex com escrita governada — entrega e retomada
 
-Atualizado em 21/11/2026, sobre main `537470f`. Preservados os commits do Claude `1f7792c` (pacotes) e `537470f` (dogfooding). Consulte o log para o commit final desta continuação. Documentação canônica em docs; .specs/vault fora dos commits, sem Co-authored-by.
+Atualizado em 21/11/2026, sobre main `537470f`. Preservados os commits do Claude `1f7792c` (pacotes) e `537470f` (dogfooding). Código e ícones publicados em `3006b4d`; consulte o log para atualizações posteriores de evidência. Documentação canônica em docs; .specs/vault fora dos commits, sem Co-authored-by.
 
 ## Produto e aceite
 
@@ -41,9 +41,10 @@ Ambiente: Linux/Nobara, Node 24.16.0, Electron 45.3.1; protocolo real Codex 0.16
 
 - `npm run check`: **974 testes / 130 arquivos** com GATEWRIGHT_HOME e GATEWRIGHT_PROJECTS temporários. O registro pessoal não deve ser usado pelo bridge durante a suíte.
 - Smokes Electron de abertura, Pendências e evolução: projeto descartável, IPC e bridge reais. A extensão Codex usa uma CLI controlada e MCP Gatewright real: confiança pendente, edição, comando de teste, revisão aprovada, tokens/cache/modelo, Flow e cancelamento. Fixtures em `desktop/codex-fixture.mjs`; não são importadas pela produção.
-- CLI Codex real, conta e CODEX_HOME isolados, backend HTTP local com respostas fixas: MCP carregado, ferramenta check_gate executada e leitura de `.env` bloqueada pelo hook nativo. A revisão dos hooks ocorreu pelo fluxo interativo nativo, somente no projeto descartável.
+- CLI Codex real, sem credenciais reais e com CODEX_HOME isolado, backend HTTP local com respostas fixas: MCP carregado, ferramenta check_gate executada e leitura de `.env` bloqueada pelo hook nativo. A revisão dos hooks ocorreu pelo fluxo interativo nativo, somente no projeto descartável.
 - **Limite do ensaio nativo:** comandos de edição/teste retornaram `error building bubblewrap command: app-server socket directory must be a user-owned directory with mode 0700` neste ambiente. Nenhum bypass foi aplicado. Portanto, escrita autenticada com modelo real continua pendente do piloto; o sucesso da CLI controlada não comprova esse aceite.
 - `npm run dist:linux`: AppImage e `.deb` reconstruídos com logo atual. O `.deb` contém a entrada io.gatewright.Desktop.desktop e ícones hicolor 16–512. Atalho Linux testado em XDG temporário e atualizado para o usuário.
+- Janela do executável Linux empacotado abriu em perfil descartável: preload, IPC, bridge, abertura de projeto e snapshot funcionaram.
 - Runtime Linux empacotado iniciado como Node fora da janela: handshake MCP com **11 ferramentas e 31 prompts de skills**. PNG 1024, ICO com sete resoluções e ICNS foram decodificados; isso não substitui aceite de instaladores no Windows/macOS.
 
 Para repetir a suíte sem tocar no registro pessoal, crie um diretório temporário e defina GATEWRIGHT_HOME e GATEWRIGHT_PROJECTS apontando para ele antes de `npm run check`. Os smokes desktop já criam seus próprios perfis descartáveis.
