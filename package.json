@@ -53,6 +53,7 @@
     "desktop": "node dist/cli/gate.js desktop",
     "desktop:dev": "npm run build && npm run desktop --",
     "test:desktop": "node desktop/smoke.mjs",
+    "test:desktop:pending": "npm run build && node desktop/pending-smoke.mjs",
     "desktop:install": "node desktop/install-launcher.mjs"
   },
   "devDependencies": {

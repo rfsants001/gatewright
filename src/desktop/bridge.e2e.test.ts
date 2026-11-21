@@ -15,6 +15,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { execFileSync } from "node:child_process";
 import { openRunJournal } from "../core/engine/run-journal.js";
+import { ControlStateMachine } from "../core/control/control-state-machine.js";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -339,5 +340,43 @@ describe("bridge — review / review.decide invariant", () => {
     const decideReply = await bridge.rpc("review.decide", { cwd: tmpDir, revision: "deadbeef".repeat(8), approved: true });
     expect(decideReply.error).toBeDefined();
     expect(decideReply.error).toMatch(/A revisão mudou/);
+  });
+});
+
+describe("bridge — pending action center", () => {
+  it("opens the selected run, records its review, and removes the resolved item", async () => {
+    const runId = "run-12345678-1234-4234-9234-123456789abc";
+    seedJournal(tmpDir, runId);
+    const journal = openRunJournal(tmpDir, runId).journal;
+    const control = new ControlStateMachine(journal);
+    control.transition("RUNNING");
+    control.transition("PASSED");
+    await bridge.rpc("open", { cwd: tmpDir });
+    const first = await bridge.rpc("pending.list", { cwd: tmpDir });
+    const items = first.result as Array<{ kind: string; entity: string; revision: string }>;
+    expect(items).toHaveLength(1);
+    const selected = items[0]!;
+    const opened = await bridge.rpc("pending.open", { cwd: tmpDir, ...selected });
+    expect(opened.error).toBeUndefined();
+    const detail = opened.result as { kind: string; runId: string; review: { revision: string } };
+    expect(detail.runId).toBe(runId);
+    const decision = await bridge.rpc("review.decide", { cwd: tmpDir, revision: detail.review.revision, approved: true });
+    expect(decision.error).toBeUndefined();
+    expect((await bridge.rpc("pending.list", { cwd: tmpDir })).result).toEqual([]);
+    expect((await bridge.rpc("pending.open", { cwd: tmpDir, ...selected })).error).toContain("pendência mudou");
+  });
+
+  it("revalidates a pending item before opening it", async () => {
+    const runId = "run-12345678-1234-4234-9234-123456789abc";
+    seedJournal(tmpDir, runId);
+    const journal = openRunJournal(tmpDir, runId).journal;
+    const control = new ControlStateMachine(journal);
+    control.transition("RUNNING");
+    control.transition("PASSED");
+    await bridge.rpc("open", { cwd: tmpDir });
+    const items = (await bridge.rpc("pending.list", { cwd: tmpDir })).result as Array<Record<string, unknown>>;
+    journal.append({ type: "NOTE", at: new Date().toISOString(), payload: { changed: true } });
+    const result = await bridge.rpc("pending.open", { cwd: tmpDir, ...items[0] });
+    expect(result.error).toContain("pendência mudou");
   });
 });

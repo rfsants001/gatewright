@@ -104,6 +104,21 @@ export async function serveDesktop(): Promise<void> {
     return handle;
   }
 
+  function pendingItems(cwd: string) {
+    return listPending(cwd).filter((item) =>
+      !active.size || (item.kind !== "resumable-run" && item.kind !== "resumable-ask"));
+  }
+
+  function prepareReview(cwd: string, runId: string) {
+    if (active.has(runId)) throw new Error("Aguarde o fim da execução antes de revisar.");
+    const journal = openRunJournal(cwd, runId).journal;
+    if (!journal.read().length) throw new Error("Execução não encontrada.");
+    const snapshot = review(cwd, runId);
+    if (reviews.size >= 20) reviews.clear();
+    reviews.set(snapshot.revision, { cwd, runId });
+    return snapshot;
+  }
+
   function advance(current: NonNullable<typeof flow>, last?: { runId: string; text: string }): { runId?: string } {
     const directive = current.engine.peek();
     if (directive.type === "done") {
@@ -435,13 +450,7 @@ export async function serveDesktop(): Promise<void> {
       }
       case "review": {
         const { runId } = projectPath.extend({ runId: z.uuid().or(z.string().regex(/^run-[a-f0-9-]{36}$/)) }).parse(params);
-        if (active.has(runId)) throw new Error("Aguarde o fim da execução antes de revisar.");
-        const journal = openRunJournal(cwd, runId).journal;
-        if (!journal.head() || !journal.read().length) throw new Error("Execução não encontrada.");
-        const snapshot = review(cwd, runId);
-        if (reviews.size >= 20) reviews.clear();
-        reviews.set(snapshot.revision, { cwd, runId });
-        return snapshot;
+        return prepareReview(cwd, runId);
       }
       case "review.decide": {
         const { revision, approved } = projectPath.extend({ revision: z.string(), approved: z.boolean() }).parse(params);
@@ -515,6 +524,7 @@ export async function serveDesktop(): Promise<void> {
       case "flow.resume": {
         const current = flow;
         if (!current || current.cwd !== cwd) throw new Error("Nenhum fluxo para retomar.");
+        if (active.size) throw new Error("O fluxo já tem uma execução em andamento.");
         const directive = current.engine.peek();
         if (directive.type !== "run") throw new Error("Nenhum fluxo para retomar.");
         const next = advance(current);
@@ -522,7 +532,33 @@ export async function serveDesktop(): Promise<void> {
         return next;
       }
       case "pending.list": {
-        return listPending(cwd);
+        return pendingItems(cwd);
+      }
+      case "pending.open": {
+        const { kind, entity, revision } = projectPath.extend({
+          kind: z.enum(["review", "resumable-run", "resumable-ask", "integration-failure"]),
+          entity: z.string().min(1), revision: z.string().min(1),
+        }).parse(params);
+        const item = pendingItems(cwd).find((entry) =>
+          entry.kind === kind && entry.entity === entity && entry.revision === revision);
+        if (!item) throw new Error("A pendência mudou. Atualize a lista antes de continuar.");
+        if (kind === "review") return { kind, runId: entity, review: prepareReview(cwd, entity) };
+        if (kind === "integration-failure") {
+          const operation = operationSnapshot(cwd, entity);
+          if (!operation) throw new Error("A operação mudou. Atualize a lista antes de continuar.");
+          return { kind, operation };
+        }
+        const current = flow;
+        if (!current || current.cwd !== cwd) throw new Error("Reabra o projeto para recuperar o fluxo.");
+        const directive = current.engine.peek();
+        if (directive.type === "done") throw new Error("O fluxo já foi encerrado.");
+        if (directive.type === "ask") {
+          const pending = current.pending;
+          if (!pending) throw new Error("A revisão não foi recuperada. Encerre ou reabra o fluxo.");
+          const next = advance(current, { runId: pending.runId, text: pending.text });
+          return { kind, title: directive.step.title, ...next };
+        }
+        return { kind, title: directive.step.title };
       }
       default: throw new Error("Ação desconhecida.");
     }

@@ -6,6 +6,7 @@ import {
   Layers, Network, Play, Plus, Plug, RefreshCw, Shield, Square, Terminal, TriangleAlert, X,
 } from "lucide-react";
 import { AgentsPage, SkillsPage } from "./library.jsx";
+import { OperationDetails, PendingPage } from "./pending.jsx";
 import { CostTimeline, Usage } from "./usage.jsx";
 
 const gate = window.gatewright;
@@ -820,6 +821,9 @@ function ProposeForm({ providers, providerId, setProviderId, generating, propose
 
 function App() {
   const [page, setPage] = useState("project");
+  const [projectSection, setProjectSection] = useState("overview");
+  const [focusedOperation, setFocusedOperation] = useState(null);
+  const [pendingVersion, setPendingVersion] = useState(0);
   const [cwd, setCwd] = useState("");
   const cwdRef = useRef("");
   const refreshId = useRef(0);
@@ -874,6 +878,7 @@ function App() {
     const result = await request("snapshot", { cwd: project });
     if (version !== refreshId.current) return;
     if (result.ok && project === cwdRef.current) setData(result.data);
+    if (project === cwdRef.current) setPendingVersion((value) => value + 1);
     setLoading(false);
   }
 
@@ -886,6 +891,8 @@ function App() {
     const rf = result.data.resumableFlow ?? null;
     cwdRef.current = project;
     setCwd(project);
+    setProjectSection("overview");
+    setFocusedOperation(null);
     setData(empty);
     setAgentId("");
     setRunId("");
@@ -966,6 +973,7 @@ function App() {
           setResumedRun(null);
           setInFlow(false);
           notify(message.data || "Fluxo concluído. O diff está disponível para revisão.", message.event === "flow.error" ? "error" : "success");
+          void refresh();
           break;
         case "integration.progress": {
           // Guard: cwd already checked above. Apply seq guard per operationId.
@@ -1044,9 +1052,10 @@ function App() {
     });
   }
 
-  async function review() {
-    const result = await request("review", { cwd, runId });
-    if (!result.ok) return;
+  async function review(targetRunId = runId, snapshot) {
+    const project = cwd;
+    const result = snapshot ? { ok: true, data: snapshot } : await request("review", { cwd: project, runId: targetRunId });
+    if (!result.ok || cwdRef.current !== project) return;
     const { diff, status, revision } = result.data;
     const changes = [status, diff].filter(Boolean).join("\n\n") || "Sem alterações no repositório.";
     async function decide(approved) {
@@ -1054,8 +1063,9 @@ function App() {
       if (decision.ok) {
         setModal(null);
         notify(approved ? "Revisão aprovada e registrada." : "Recusa registrada na execução.", "success");
+        void refresh(project);
       } else if (decision.error?.startsWith("A revisão mudou.")) {
-        setModal((current) => ({ ...current, confirm: null, reject: null, reload: review }));
+        setModal((current) => ({ ...current, confirm: null, reject: null, reload: () => review(targetRunId) }));
       }
     }
     notify("Diff disponível para revisão.");
@@ -1065,6 +1075,24 @@ function App() {
         <span className={line.startsWith("+") ? "addition" : line.startsWith("-") ? "deletion" : line.startsWith("@@") ? "location" : undefined} key={index}>{line}{"\n"}</span>)}</pre>,
       confirm: () => decide(true), reject: () => decide(false),
     });
+  }
+
+  async function openPending(item) {
+    const project = cwd;
+    const result = await request("pending.open", {
+      cwd: project, kind: item.kind, entity: item.entity, revision: item.revision,
+    });
+    if (!result.ok || cwdRef.current !== project) return;
+    const detail = result.data;
+    if (detail.kind === "review") {
+      await review(detail.runId, detail.review);
+    } else if (detail.kind === "integration-failure") {
+      setFocusedOperation(detail.operation);
+      setPage("settings");
+    } else if (detail.kind === "resumable-run") {
+      setInFlow(true);
+      setResumedRun({ title: detail.title });
+    }
   }
 
   async function saveProvider(provider) {
@@ -1136,10 +1164,11 @@ function App() {
   }
 
   async function resumeFlow() {
+    const pending = resumedRun;
     setResumedRun(null);
     const result = await request("flow.resume", { cwd });
     if (!result.ok) {
-      setInFlow(false);
+      setResumedRun(pending);
     } else if (result.data?.runId) {
       setRunId(result.data.runId);
     }
@@ -1178,19 +1207,26 @@ function App() {
       </div>
     </header>
     <main id="main" key={page} tabIndex={0}><div className="content">
-      {page === "project" ? <Project {...{ cwd, data, loading, recents, busy, open, choose, connect, navigate: setPage }} />
+      {page === "project" && cwd && <nav className="subnav project-sections" aria-label="Áreas do projeto">
+        {[["overview", "Resumo"], ["pending", "Pendências"]].map(([id, label]) => <button key={id}
+          aria-current={projectSection === id ? "page" : undefined} onClick={() => setProjectSection(id)}>{label}</button>)}
+      </nav>}
+      {page === "project" ? projectSection === "pending" && cwd
+        ? <PendingPage key={cwd} cwd={cwd} version={pendingVersion} request={bridgeRequest} onOpen={openPending} />
+        : <Project {...{ cwd, data, loading, recents, busy, open, choose, connect, navigate: setPage }} />
         : !cwd ? <Empty title="Abra um projeto" action={<button className="primary" onClick={choose}>Abrir pasta…</button>}>
           Escolha a pasta do repositório para continuar.
         </Empty> : page === "execution" ? <Execution {...{
           options, engine: selectedEngine, setEngine, agents: data.agents, agent: agentId, setAgent: setAgentId, model, setModel, task, setTask, state, busy, running: state === "RUNNING",
-          canReview: !!runId && !busy, log, start, cancel, review,
+          canReview: !!runId && !busy, log, start, cancel, review: () => review(),
         }} /> : page === "usage" ? <Usage usage={data.usage} heading={<PageHeading title="Custos do projeto">Veja os valores e tokens registrados pelo Gatewright.</PageHeading>} /> : page === "agents" ? <AgentsPage cwd={cwd} cwdRef={cwdRef} catalog={data.skillDetails} agents={data.agents} preview={previewAgent}
           save={(agent) => saveLibrary("agent.save", "agent", agent, "Agente salvo no projeto.")}
           useAgent={(id) => { setAgentId(id); setPage("execution"); }} openSkills={() => setPage("skills")}
           refresh={() => refresh()} />
           : page === "skills" ? <SkillsPage cwd={cwd} cwdRef={cwdRef} catalog={data.skillDetails} save={(skill) => saveLibrary("skill.save", "skill", skill, "Skill salva no projeto.")}
           onNavigateAgent={(id) => { setPage("agents"); }} />
-          : <IntegrationsPage key={cwd} {...{ cwd, cwdRef, data, operations: data.operations ?? [], opsRef, saveProvider, propose, testIntegration, connect, bridgeRequest, refresh }} />}
+          : <>{focusedOperation && <OperationDetails operation={focusedOperation} onClose={() => setFocusedOperation(null)} />}
+            <IntegrationsPage key={cwd} {...{ cwd, cwdRef, data, operations: data.operations ?? [], opsRef, saveProvider, propose, testIntegration, connect, bridgeRequest, refresh }} /></>}
     </div></main>
     <footer className={`statusbar ${footerNotice.tone}`} role="status">{footerNotice.tone === "success" ? <CircleCheck size={13} aria-hidden="true" /> : <span aria-hidden="true" />}{footerNotice.text}</footer>
     {modal && <Modal modal={modal} notice={notice} onClose={() => setModal(null)} />}

@@ -333,11 +333,14 @@ describe("bridge — flow resume (FDR-006)", () => {
       // just assert that flow.resume returns without error and that a flow.run
       // event is emitted (which is the proof execution started).
       const resumePromise = bridge.rpc("flow.resume", { cwd: tmpDir });
+      const duplicatePromise = bridge.rpc("flow.resume", { cwd: tmpDir });
       const flowRunEvent = await bridge.waitForEvent("flow.run", 8000);
       expect(typeof flowRunEvent.data).toBe("string"); // the runId
 
       const resumeReply = await resumePromise;
       expect(resumeReply.error).toBeUndefined();
+      const duplicateReply = await duplicatePromise;
+      expect(duplicateReply.error).toContain("execução em andamento");
     },
     15000,
   );

@@ -13,7 +13,7 @@ const methods = new Set([
   "skills.list", "skills.detail", "integration.test", "integration.operation.get",
   "customize.propose", "customize.apply", "run", "cancel", "review", "review.decide",
   "flow.start", "flow.answer", "flow.stop", "flow.resume",
-  "pending.list",
+  "pending.list", "pending.open",
 ]);
 
 class Bridge {

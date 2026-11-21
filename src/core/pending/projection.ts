@@ -108,9 +108,9 @@ function pendingFlow(cwd: string): PendingItem | undefined {
     const startEntry = segment[0] as FlowStartEntry;
     const { goal, engineId } = startEntry.payload;
 
-    // Stable revision = sha256 of the start entry's hash (or its serialised payload as fallback).
+    // Identity belongs to the flow; revision follows its current journal state.
     const entity = (startEntry as { hash?: string }).hash ?? sha256(JSON.stringify(startEntry.payload));
-    const revision = sha256(entity);
+    const revision = journal.head();
 
     // Build FlowInputs from the segment.
     const inputs: FlowInput[] = [];
@@ -158,9 +158,18 @@ function pendingFlow(cwd: string): PendingItem | undefined {
 
 function pendingReviews(cwd: string): PendingItem[] {
   const slugs = listRunSlugs(cwd);
+  const flowRunIds = new Set<string>();
+  try {
+    for (const entry of readEntries(openFlowJournal(cwd))) {
+      if (entry.type === FLOW_RUN_TYPE && entry.payload.runId) flowRunIds.add(entry.payload.runId);
+    }
+  } catch {
+    // A damaged Flow journal must not hide independently recorded run reviews.
+  }
   const items: PendingItem[] = [];
   for (const slug of slugs) {
     try {
+      if (flowRunIds.has(slug)) continue;
       if (runTerminalState(cwd, slug) !== "PASSED") continue;
       if (hasReviewDecision(cwd, slug)) continue;
 
@@ -194,7 +203,7 @@ function pendingIntegrationFailures(cwd: string): PendingItem[] {
       .map((op) => ({
         kind: "integration-failure" as const,
         entity: op.id,
-        revision: op.revision,
+        revision: sha256(JSON.stringify(op)),
         title: op.recipeKind,
         action: "Ver diagnóstico",
         link: { view: "install", id: op.id },

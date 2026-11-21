@@ -2,7 +2,7 @@
 // No live engine / network. All journals are seeded directly on disk.
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
@@ -201,7 +201,7 @@ describe("listPending", () => {
     const item = items[0]!;
     expect(item.kind).toBe("integration-failure");
     expect(item.entity).toBe(id);
-    expect(item.revision).toBe(revision);
+    expect(item.revision).not.toBe(revision);
     expect(item.action).toBe("Ver diagnóstico");
     expect(item.link.view).toBe("install");
     expect(item.link.id).toBe(id);
@@ -271,5 +271,32 @@ describe("listPending", () => {
     appendReviewDecision(tmpDir, slug);
 
     expect(listPending(tmpDir).some((i) => i.kind === "review")).toBe(false);
+  });
+
+  it("changes the flow revision after progress while retaining its identity", () => {
+    const journal = openFlowJournal(tmpDir);
+    appendStart(journal, { goal: "review scope", flowKind: "sdd", engineId: "claude-code" });
+    const before = listPending(tmpDir)[0]!;
+    appendRun(journal, { stepId: FIRST_RUN_STEP.id, output: GATE_ASK_OUTPUT });
+    const after = listPending(tmpDir)[0]!;
+    expect(after.entity).toBe(before.entity);
+    expect(after.revision).not.toBe(before.revision);
+    expect(after.kind).toBe("resumable-ask");
+  });
+
+  it("keeps a Flow run inside its own review instead of presenting two approvals", () => {
+    const runId = "run-" + randomUUID();
+    seedRun(tmpDir, runId, "PASSED");
+    const journal = openFlowJournal(tmpDir);
+    appendStart(journal, { goal: "review scope", flowKind: "sdd", engineId: "claude-code" });
+    appendRun(journal, { stepId: FIRST_RUN_STEP.id, output: GATE_ASK_OUTPUT, runId });
+    expect(listPending(tmpDir).map((item) => item.kind)).toEqual(["resumable-ask"]);
+  });
+
+  it("preserves standalone reviews when the Flow journal cannot be read", () => {
+    const runId = "run-" + randomUUID();
+    seedRun(tmpDir, runId, "PASSED");
+    writeFileSync(join(tmpDir, ".gatewright", "flow-state.json"), "{invalid");
+    expect(listPending(tmpDir).map((item) => item.entity)).toEqual([runId]);
   });
 });

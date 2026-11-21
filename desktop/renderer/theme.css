@@ -418,3 +418,35 @@ summary { color: var(--accent); cursor: pointer; }
 @media (max-width: 920px) {
   .install-split { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Project action center */
+.project-sections { margin-bottom: 20px; }
+.pending-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-bottom: 1px solid var(--line); }
+.pending-summary > div { padding: 16px 18px; }
+.pending-summary > div + div { border-left: 1px solid var(--line); }
+.pending-summary span { color: var(--muted); font-size: 11px; }
+.pending-summary strong { display: block; margin-top: 5px; font-size: 25px; line-height: 1.2; }
+.pending-filters { margin: 0; padding-inline: 8px; overflow-x: auto; }
+.pending-filters small { margin-left: 6px; color: var(--soft); }
+.pending-list { list-style: none; padding: 0; margin: 0; }
+.pending-list li { display: flex; align-items: center; gap: 14px; padding: 17px 18px; }
+.pending-list li + li { border-top: 1px solid var(--line); }
+.pending-copy { flex: 1; min-width: 0; }
+.pending-copy strong { font-weight: 560; overflow-wrap: anywhere; }
+.pending-copy p { margin-top: 4px; font-size: 12px; }
+.pending-copy code { display: block; margin-top: 5px; color: var(--soft); font-size: 10px; overflow-wrap: anywhere; }
+.pending-icon { color: var(--progress); }
+.error-icon { color: var(--error); }
+.pending-empty { padding: 44px 24px; text-align: center; }
+.pending-empty > svg { color: var(--success); margin-bottom: 12px; }
+.pending-empty h2 { font-size: 17px; margin-bottom: 7px; }
+.pending-count { margin-top: 12px; color: var(--soft); font-size: 11px; }
+.operation-details { margin-bottom: 18px; }
+.operation-evidence { margin-top: 8px; }
+.operation-evidence dt { color: var(--soft); font-size: 11px; }
+.operation-evidence dd { margin: 0; overflow-wrap: anywhere; }
+@media (max-width: 800px) {
+  .pending-list li { flex-wrap: wrap; gap: 10px; }
+  .pending-list li > button { margin-left: 29px; }
+  .pending-summary > div { padding-inline: 12px; }
+}
