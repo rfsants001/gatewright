@@ -35,7 +35,7 @@
 - [~] **P2-004** `integration.operation.get` (reabrir reconstrói pelo id) + ação recuperável/remoção por recurso pertencente. Allowlist.
   - Done when: reabrir projeto recupera estado; remover/reverter identifica recursos da operação; teste `op-reopen`. Dep: P2-001. → `feat(integrations): reopen and recover operations`
   - **Parcial (entregue):** operação persistida por recipe, `integration.operation.get`, `snapshot.operations` p/ reabrir, eventos `integration.progress` (status grosso), lock por revisão. **Deferido (P2-004b):** streaming por-etapa fino (threading de um reporter de passo pelos installers `integration-install.ts`), evidência rica por efeito (containerId/pasta/versão lidos do resultado do installer), e remoção/compensação por recurso pertencente. `applyIntegration` é atômico hoje → só status grosso succeeded/failed. Retomar operação interrompida reconciliando recurso real também entra aqui.
-- [ ] **P2-005** Renderer: tela Integrações (etapas rotuladas, coluna origem/versão/destino/escopo/pré-requisitos/verificações, falha parcial + testar conexão). Ajuda (autenticação, revisão vencida). Captura.
+- [x] **P2-005** Renderer: tela Integrações (etapas rotuladas, coluna origem/versão/destino/escopo/pré-requisitos/verificações, falha parcial + testar conexão). Ajuda (autenticação, revisão vencida). Captura.
   - Done when: progresso real de uma receita + recuperação reproduzível; IN aceites. Dep: P2-002..004. → `feat(desktop): integration install and health screen`
 
 ## P3 — Pendências e retomada  (REQ PE-01..03, fecha FDR-007)

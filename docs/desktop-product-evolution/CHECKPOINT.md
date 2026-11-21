@@ -11,20 +11,20 @@
 
 ## Estado atual
 
-**P0, P1 e o núcleo+bridge de P2 concluídos e commitados.** Falta **P2-005** (renderer da tela de Integrações/saúde) e **P2-004b** (deferido: streaming por-etapa fino + evidência rica + remoção por recurso). Próxima ação: **P2-005**.
+**P0, P1 e P2 concluídas e commitadas** (P2-004b deferido). Próxima fase: **P3 (Pendências e retomada — fecha FDR-007)**, começando pela onda FDR-007 (P3-001/002/003), depois P3-004 (projeção `pending.list` + tela).
 
 ### Registro por subtarefa
 
 | Campo | Valor |
 | --- | --- |
-| Commit e branch atuais | `6337ad0` (HEAD) · branch `main` |
-| Alterações locais | tasks.md P2-001/002/003 `[x]`, P2-004 `[~]` parcial; este CHECKPOINT. `.specs/` é gitignored |
-| Última tarefa concluída | **P2 núcleo+bridge** — `dca7c51` (operations.ts), `6f34740` (health.ts + diagnóstico com latência/DiagnosticResult), `6337ad0` (bridge: consolida customize→applyIntegration + lock por revisão; operação persistida por recipe + `integration.operation.get` + `snapshot.operations` + eventos `integration.progress`; `integration.test` grava health e retorna HealthStatus) |
-| Tarefa em andamento | nenhuma — iniciar P2-005 (renderer) |
-| Decisões | Ver `sdd/design.md` §8. P2: operação só p/ kinds de receita (npm-mcp/container/git-project/graphify); status grosso (applyIntegration é atômico); warning do último write de journal não é replicável via core (gap documentado no bridge) |
-| Verificação | `npm run typecheck` + `npm test` = **926 testes verdes** (122 arquivos). Nota: `src/ui/flow-screen.test.tsx` (ink/TUI) é **flaky** sob carga paralela — passa isolado; re-rodar se falhar sozinho |
-| Próxima ação exata | **P2-005**: renderer da tela Integrações (`?view=install`) — etapas rotuladas da operação (consumir `snapshot.operations` + evento `integration.progress` + `integration.operation.get`), coluna origem/versão/destino/escopo/pré-requisitos, saúde (`integration.test` agora retorna `HealthStatus` com verification/latencyMs/errorCode/actions), falha parcial + "testar conexão" (não reinstala). Ajuda (autenticação, revisão vencida). Ver `screens/05-instalacao.png` e `06-falha-parcial.png`, prévia `ui/preview.jsx` `?view=install`, `sdd/design.md` §2 |
-| Bloqueios | **Validação visual/pixel pendente** (P1 e P2 — precisa `npm run desktop:dev` em sessão gráfica). **P2-004b deferido**: streaming por-etapa pelos installers + evidência rica + remoção/compensação por recurso + retomada reconciliando recurso real. P5 pode precisar de Graphify real (host) |
+| Commit e branch atuais | `a909c24` (HEAD) · branch `main` |
+| Alterações locais | tasks.md P2 `[x]` (P2-004 `[~]`); este CHECKPOINT. `.specs/` é gitignored |
+| Última tarefa concluída | **P2 inteira** — `dca7c51` (operations.ts), `6f34740` (health.ts+diagnóstico), `6337ad0` (bridge apply-flow), `a909c24` (renderer IntegrationsPage: review→apply por operação+eventos progress com seq-guard, health+testar conexão, falha parcial, ajuda) |
+| Tarefa em andamento | nenhuma — iniciar P3 (FDR-007) |
+| Decisões | Ver `sdd/design.md` §8 e §3 (FDR-007) |
+| Verificação | `npm run typecheck` + `npm run build` + `npm test` = **926 testes verdes** (122 arquivos). `src/ui/flow-screen.test.tsx` (ink) **flaky** sob carga — re-rodar isolado se falhar sozinho |
+| Próxima ação exata | **P3-001/002/003 (FDR-007)**: (1) `flow.resume` na allowlist `desktop/main.mjs` + `Bridge.busy`/guarda de fechamento considerando flow restaurado + `inFlow` no resume; (2) entregar `flow.ask` recuperado só após a pasta selecionada (hoje emitido durante `open` antes de `cwdRef` — enfileirar ou entregar via retorno de `open`); (3) UI em `app.jsx`: `resumableFlow.atKind:"run"` mostra título + Retomar(`flow.resume`)/Encerrar(`flow.stop`), run só após confirmação; `atKind:"ask",pendingAsk:false` mostra problema+encerrar. Ref: `.specs/features/flow-durable-resume/tasks.md` FDR-007, `sdd/design.md` §3, inventário no histórico. Estende `src/desktop/bridge.resume.test.ts` + e2e Electron mesma cwd entre reinícios. Depois **P3-004**: `src/core/pending/projection.ts` (`pending.list` sobre Flow+runs+operações failed/partial) + bridge `pending.list` + allowlist + tela Pendências (`?view=pending`) |
+| Bloqueios | **Validação visual/pixel pendente** (P1/P2). **P2-004b deferido**. e2e de restart do Electron pode precisar de sessão gráfica. P5 pode precisar de Graphify real |
 
 ## Atualizar ao avançar
 
