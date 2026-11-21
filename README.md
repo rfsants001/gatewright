@@ -58,6 +58,8 @@ Compare daily costs over 7 or 30 days and see which models account for the most 
 
 Set up a model provider or describe an integration in plain language. Review the proposed steps before applying supported recipes for MCP endpoints, versioned npm packages, local Docker services, Git checkouts, Graphify, or Jev. Use the diagnostics to check host configuration and test MCP connections.
 
+Connected terminal clients can also request integration proposals through `integrate_tool` and apply a reviewed proposal using its revision. The `set_module_enabled` tool enables or disables a registered module. See [integration tools](#integration-tools) for the request format.
+
 ![Integrations screen showing provider setup, AI proposals, terminal configuration, and MCP connection checks](docs/screenshots/gatewright-integrations.webp)
 
 #### Agents
@@ -106,7 +108,7 @@ interactive TUI sits on top for when you'd rather drive it by hand.
 - 🧭 **Guided SDD flows** — plan, review, and implement with human approval between steps. The desktop also lets you review the final diff.
 - 🧩 **Pluggable modules** — Jev, advisors, savers, models and MCP are swappable `ModuleState`s. Disable a built-in or plug an external one through config — **no compiled adapter**.
 - 🧠 **Jev, a local-AI advisor** — optional, budget-aware, local-first judgment for the fuzzy calls a rule can't settle. It *advises*; it never hard-blocks. Jev is one implementation of a pluggable **Advisor** port.
-- 🔌 **Local MCP server** — exposes the gate catalog and checks as MCP tools your agent can call.
+- 🔌 **Local MCP server** — exposes gate checks, integration proposals, and module controls as tools, plus skills and saved agents as prompts.
 - 📼 **Event-sourced core** — hash-chained journal, portable artifact store, run-binding, crash recovery, replay. Usage is aggregated into a **daily cost chart** in the desktop.
 - 🗂️ **31 curated skills** — reusable SKILL.md playbooks (SDD, code review, debugging, refactors, …) injected into runs.
 - 🌳 **Worktree-per-run isolation**, session leases with fencing, and native reconciliation of the agent's own tool calls.
@@ -300,9 +302,9 @@ A silent exit means *allow*; a `systemMessage` injects advice; a block decision 
 
 ### 2. Run the MCP server
 
-Expose the gate catalog and checks as MCP tools (`list_gates`, `check_gate`, `configure_jev`,
-`get_jev_config`), skills as **MCP prompts** (`gate.<name>`), and usage/config as **MCP resources**
-(`gate://usage`, `gate://config`) over stdio:
+Expose gates, Jev configuration, integration proposals, and module controls over stdio.
+Skills appear as **MCP prompts** (`gate.<name>`), saved agents as `gate.agent.<id>`,
+and usage and configuration as **MCP resources** (`gate://usage`, `gate://config`).
 
 ```sh
 gate serve
@@ -317,6 +319,37 @@ Register it with your agent (e.g. `.mcp.json`):
   }
 }
 ```
+
+#### Integration tools
+
+| Tool | What it does |
+| --- | --- |
+| `integrate_tool` | Uses a configured provider to propose a project change. Returns the change, plan, and revision. A subsequent call with that revision applies it. |
+| `set_module_enabled` | Enables or disables a project module by ID. The built-in Jev accepts `id: "jev"`. |
+
+For example, call `integrate_tool` with a provider ID saved in the project and the documented endpoint of the MCP you want to connect.
+
+```json
+{
+  "providerId": "proxy-equipe",
+  "spec": {
+    "kind": "mcp",
+    "endpoint": "https://docs.example.com/mcp",
+    "intent": "Connect the catalog documentation MCP as catalog-docs."
+  }
+}
+```
+
+Review the returned `change` and `plan`. After approval, call the same tool with
+`{ "confirm": "<returned revision>" }`. The MCP client is responsible for obtaining the person's
+approval before making that call. Changes to the target configuration invalidate the revision,
+and restarting the MCP server clears pending proposals. Applied changes and failures are recorded
+in the project's integrations journal.
+
+An external advisor can be proposed using `spec.kind: "advisor"` and its endpoint. It receives
+`{ "feature": "...", "summary": "..." }`, plus `model` when configured, and returns
+`{ "verdict": "approve|discard|abstain", "confidence": 0.9, "rationale": "..." }`.
+The advisor is advisory. HTTP errors, timeouts, or invalid responses produce an abstention.
 
 #### Manual validation checklist (MCP provider — R1)
 
