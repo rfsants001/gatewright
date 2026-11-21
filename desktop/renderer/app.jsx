@@ -580,10 +580,12 @@ function App() {
         </Empty> : page === "execution" ? <Execution {...{
           options, engine: selectedEngine, setEngine, agents: data.agents, agent: agentId, setAgent: setAgentId, model, setModel, task, setTask, state, busy, running: state === "RUNNING",
           canReview: !!runId && !busy, log, start, cancel, review,
-        }} /> : page === "usage" ? <Usage usage={data.usage} heading={<PageHeading title="Custos do projeto">Veja os valores e tokens registrados pelo Gatewright.</PageHeading>} /> : page === "agents" ? <AgentsPage catalog={data.skillDetails} agents={data.agents} preview={previewAgent}
+        }} /> : page === "usage" ? <Usage usage={data.usage} heading={<PageHeading title="Custos do projeto">Veja os valores e tokens registrados pelo Gatewright.</PageHeading>} /> : page === "agents" ? <AgentsPage cwd={cwd} cwdRef={cwdRef} catalog={data.skillDetails} agents={data.agents} preview={previewAgent}
           save={(agent) => saveLibrary("agent.save", "agent", agent, "Agente salvo no projeto.")}
-          useAgent={(id) => { setAgentId(id); setPage("execution"); }} openSkills={() => setPage("skills")} />
-          : page === "skills" ? <SkillsPage catalog={data.skillDetails} save={(skill) => saveLibrary("skill.save", "skill", skill, "Skill salva no projeto.")} />
+          useAgent={(id) => { setAgentId(id); setPage("execution"); }} openSkills={() => setPage("skills")}
+          refresh={() => refresh()} />
+          : page === "skills" ? <SkillsPage cwd={cwd} cwdRef={cwdRef} catalog={data.skillDetails} save={(skill) => saveLibrary("skill.save", "skill", skill, "Skill salva no projeto.")}
+          onNavigateAgent={(id) => { setPage("agents"); }} />
           : <Settings key={cwd} {...{ data, saveProvider, propose, testIntegration, connect }} />}
     </div></main>
     <footer className={`statusbar ${footerNotice.tone}`} role="status">{footerNotice.tone === "success" ? <CircleCheck size={13} aria-hidden="true" /> : <span aria-hidden="true" />}{footerNotice.text}</footer>
