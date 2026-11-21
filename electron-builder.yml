@@ -1,0 +1,34 @@
+appId: io.gatewright.Desktop
+productName: Gatewright
+
+directories:
+  output: release/
+
+# asar: false — the app spawns `electron-as-node dist/cli/gate.js bridge` as a child
+# process. With asar enabled the spawned path would be inside the asar archive and
+# inaccessible to spawn(). Acceptable for alpha; revisit with asarUnpack once stable.
+asar: false
+
+files:
+  - dist/**
+  - package.json
+
+linux:
+  target:
+    - AppImage
+    - deb
+    - rpm
+  category: Development
+  icon: build/icon.png
+
+win:
+  target:
+    - nsis
+  icon: build/icon.png
+
+mac:
+  target:
+    - dmg
+  # No code signing for alpha builds. Remove this line before shipping to end users.
+  identity: null
+  icon: build/icon.png

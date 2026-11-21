@@ -15,6 +15,25 @@ O caminho do projeto é opcional. Coloque-o entre aspas se contiver espaços, co
 
 No Linux, rode `npm run desktop:install` para criar a entrada no menu. O atalho usa o checkout e o Node existentes. Se mover o checkout ou trocar o caminho do Node, reinstale o atalho e reaplique as conexões dos hosts. Com `gate` instalado no PATH, use `gate desktop` para abrir a janela e `gate dashboard` para usar a interface de terminal.
 
+## Instalar / compilar da fonte
+
+Para gerar pacotes instaláveis a partir do código-fonte, é necessário ter Node 22.12+, Git e as dependências nativas do sistema para o electron-builder (`rpmbuild` para RPM, `dpkg-dev` para deb — normalmente já presentes em distribuições Linux populares).
+
+```sh
+npm ci
+npm run dist:linux   # produz AppImage e .deb em release/
+```
+
+Os artefatos ficam em `release/` (ignorado pelo git). O script `dist:linux` gera AppImage (sem instalação, basta tornar executável) e pacote `.deb` (Debian/Ubuntu/Nobara com `dpkg`). O formato `.rpm` é gerado em CI (Ubuntu, RPM 4) via `dist:linux:all`; localmente em Fedora/Nobara com RPM 6 o `rpmbuild` falha por incompatibilidade com fpm 1.9.x — use o AppImage nesse caso.
+
+Para Windows e macOS, os artefatos são gerados pelo workflow de CI a cada tag `v*` e ficam disponíveis como artefatos da action no GitHub (aba _Actions → Release → build on <os>_). Não há assinatura de código nos builds alpha; o macOS pode exibir aviso de Gatekeeper.
+
+Para testar o empacotamento sem instalar (descompactado, mais rápido):
+
+```sh
+npm run pack   # cria release/linux-unpacked/ sem gerar instaladores
+```
+
 ## Usar
 
 - **Projeto** abre uma pasta, mostra projetos recentes e detecta hosts. A prévia da conexão informa os arquivos que serão atualizados. Em **Memória**, guarde decisões por projeto, usuário ou execução, com versões e destinatários. Selecione explicitamente o contexto em Tarefas; memórias pessoais ficam ocultas até opt-in. Em **Mapa**, leia ou gere Graphify local, busque símbolos e abra relações, arquivo e diff. Em **Pendências**, consulte aprovações, retomadas de Flow e falhas de instalação. Cada ação abre a revisão do run correspondente ou o diagnóstico da operação, conferindo a revisão atual da pendência.

@@ -4,11 +4,12 @@ import { createInterface } from "node:readline";
 import { resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-const [node, gate, initialProject] = process.argv.slice(2);
+// In dev (not packaged): launched by `gate desktop` → process.argv = [node, gate, initialProject?]
+// In packaged app: resolve node/gate from the app bundle; initialProject comes from a future launcher integration.
 const renderer = fileURLToPath(new URL("./renderer/index.html", import.meta.url));
 const rendererUrl = pathToFileURL(renderer).href;
 const methods = new Set([
-  "projects", "open", "snapshot", "terminal.preview", "terminal.apply", "provider.save",
+  "projects", "open", "snapshot", "terminal.preview", "terminal.apply", "terminal.test", "provider.save",
   "skill.save", "agent.preview", "agent.save", "agent.update", "agent.delete",
   "skills.list", "skills.detail", "integration.test", "integration.operation.get", "integration.operation.inspect", "integration.operation.recover",
   "customize.propose", "customize.apply", "run", "cancel", "review", "review.decide",
@@ -24,10 +25,11 @@ class Bridge {
   #flow = false;
   #closed = false;
 
-  constructor(window) {
+  constructor(window, node, gate) {
     this.#child = spawn(node, [gate, "bridge"], {
       stdio: ["pipe", "pipe", "inherit"],
       windowsHide: true,
+      env: app.isPackaged ? { ...process.env, ELECTRON_RUN_AS_NODE: "1" } : process.env,
     });
     this.#child.stdin.on("error", () => this.#disconnect(window));
     this.#child.on("error", () => this.#disconnect(window));
@@ -85,7 +87,17 @@ class Bridge {
   }
 }
 
-if (!node || !gate) throw new Error("Inicie o aplicativo com gate desktop.");
+// Resolve node/gate depending on whether we're running packaged or in dev.
+let node, gate, initialProject;
+if (app.isPackaged) {
+  // Packaged: use the Electron binary as node (via ELECTRON_RUN_AS_NODE) and the bundled gate.js.
+  node = process.execPath;
+  gate = fileURLToPath(new URL("../cli/gate.js", import.meta.url));
+} else {
+  // Dev (launched via `gate desktop`): argv = [execPath, gate.js, initialProject?]
+  [node, gate, initialProject] = process.argv.slice(2);
+  if (!node || !gate) throw new Error("Inicie o aplicativo com gate desktop.");
+}
 
 app.setName("Gatewright");
 nativeTheme.themeSource = "dark";
@@ -129,7 +141,7 @@ function createWindow() {
       spellcheck: false,
     },
   });
-  bridge = new Bridge(window);
+  bridge = new Bridge(window, node, gate);
   window.webContents.session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
   window.webContents.session.setPermissionCheckHandler(() => false);
   window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
