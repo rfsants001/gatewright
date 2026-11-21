@@ -10,6 +10,11 @@ export const agentSchema = z.object({
   goal: z.string().trim().min(1).max(1000),
   skills: z.array(z.string().min(1).max(100)).min(1).max(12)
     .refine((skills) => new Set(skills).size === skills.length),
+  responsibilities: z.string().trim().max(1000).optional(),
+  expectedInput: z.string().trim().max(1000).optional(),
+  expectedOutput: z.string().trim().max(1000).optional(),
+  boundaries: z.string().trim().max(1000).optional(),
+  schemaVersion: z.literal(2).optional(),
 }).strict();
 export type AgentProfile = z.infer<typeof agentSchema>;
 
@@ -34,7 +39,13 @@ export function composeAgent(cwd: string, profile: AgentProfile): string {
     if (!skill) throw new Error(`A skill "${name}" não está disponível neste projeto.`);
     return `## ${name}\n${skill.body}`;
   });
-  const text = [`Perfil: ${profile.name}\nObjetivo: ${profile.goal}`, ...instructions].join("\n\n");
+  const profileBlock = `Perfil: ${profile.name}\nObjetivo: ${profile.goal}`;
+  const extraParts: string[] = [];
+  if (profile.responsibilities) extraParts.push(`## Responsabilidades\n${profile.responsibilities}`);
+  if (profile.expectedInput) extraParts.push(`## Entrada esperada\n${profile.expectedInput}`);
+  if (profile.expectedOutput) extraParts.push(`## Saída esperada\n${profile.expectedOutput}`);
+  if (profile.boundaries) extraParts.push(`## Limites\n${profile.boundaries}`);
+  const text = [profileBlock, ...extraParts, ...instructions].join("\n\n");
   if (Buffer.byteLength(text, "utf8") > 20_000) {
     throw new Error("As instruções combinadas excedem o limite de 20 KB. Escolha menos skills.");
   }
@@ -46,4 +57,20 @@ export function saveAgent(cwd: string, profile: AgentProfile): void {
   const previous = projectAgents(cwd);
   if (previous.some((agent) => agent.id === profile.id)) throw new Error("Já existe um agente com esse identificador.");
   config.write("project", { agents: [...previous, profile] }, cwd);
+}
+
+export function updateAgent(cwd: string, profile: AgentProfile): void {
+  composeAgent(cwd, profile);
+  const previous = projectAgents(cwd);
+  const idx = previous.findIndex((agent) => agent.id === profile.id);
+  if (idx === -1) throw new Error("Agente não encontrado para atualizar.");
+  const updated = previous.slice();
+  updated[idx] = profile;
+  config.write("project", { agents: updated }, cwd);
+}
+
+export function deleteAgent(cwd: string, id: string): void {
+  const previous = projectAgents(cwd);
+  const updated = previous.filter((agent) => agent.id !== id);
+  config.write("project", { agents: updated }, cwd);
 }
