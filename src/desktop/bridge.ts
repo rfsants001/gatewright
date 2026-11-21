@@ -54,6 +54,11 @@ export async function serveDesktop(): Promise<void> {
     journal: Journal;
     pending?: { token: string; text: string; runId: string; revision: string };
   } | undefined;
+  type AskPayload = { token: string; title: string; questions: unknown[]; output: string; diff: string };
+  type ResumableFlow =
+    | { title: string; atKind: "ask"; pendingAsk: true; ask: AskPayload }
+    | { title: string; atKind: "ask"; pendingAsk: false }
+    | { title: string; atKind: "run" };
   const send = (value: unknown) => process.stdout.write(JSON.stringify(value) + "\n");
 
   function assertProject(value: unknown): string {
@@ -160,7 +165,7 @@ export async function serveDesktop(): Promise<void> {
       selected = cwd;
 
       // ── FDR-004: attempt durable resume ───────────────────────────────────
-      let resumableFlow: { title: string; atKind: "ask" | "run"; pendingAsk?: boolean } | undefined;
+      let resumableFlow: ResumableFlow | undefined;
       try {
         const flowJournal = openFlowJournal(cwd);
         const entries = readEntries(flowJournal);
@@ -230,8 +235,10 @@ export async function serveDesktop(): Promise<void> {
                       .update(JSON.stringify([snapshot.revision, directive.step.id, directive.questions]))
                       .digest("hex");
                     current.pending = { token, text: lastRunOutput, runId: lastRunId, revision: snapshot.revision };
-                    send({ event: "flow.ask", cwd, data: { token, title: directive.step.title, questions: directive.questions, output: stripQuestions(lastRunOutput), diff: snapshot.diff } });
-                    resumableFlow = { title: directive.step.title, atKind: "ask", pendingAsk: true };
+                    // P3-002: deliver ask payload in the open reply, NOT as an event.
+                    // Live (non-recovered) flow.ask emissions in advance() remain unchanged.
+                    const askPayload: AskPayload = { token, title: directive.step.title, questions: directive.questions, output: stripQuestions(lastRunOutput), diff: snapshot.diff };
+                    resumableFlow = { title: directive.step.title, atKind: "ask", pendingAsk: true, ask: askPayload };
                   } catch {
                     // review() failed (repo changed/unreadable) — resume without pending ask.
                     resumableFlow = { title: directive.step.title, atKind: "ask", pendingAsk: false };

@@ -12,7 +12,7 @@ const methods = new Set([
   "skill.save", "agent.preview", "agent.save", "agent.update", "agent.delete",
   "skills.list", "skills.detail", "integration.test", "integration.operation.get",
   "customize.propose", "customize.apply", "run", "cancel", "review", "review.decide",
-  "flow.start", "flow.answer", "flow.stop",
+  "flow.start", "flow.answer", "flow.stop", "flow.resume",
 ]);
 
 class Bridge {
@@ -40,6 +40,8 @@ class Bridge {
         if (!pending) return;
         this.#pending.delete(message.id);
         if (pending.method === "flow.start" && message.error) this.#flow = false;
+        // P3-001: treat a restored flow as live work so busy() and close guard protect it.
+        if (pending.method === "open" && message.result?.resumableFlow) this.#flow = true;
         pending.resolve(message);
         return;
       }

@@ -100,6 +100,27 @@ function FlowQuestions({ data, notice, onAnswer, onStop }) {
   </dialog>;
 }
 
+function ResumedRunPanel({ title, onResume, onStop }) {
+  const dialog = useRef(null);
+  const [pending, setPending] = useState(false);
+  useEffect(() => { dialog.current.showModal(); }, []);
+  async function act(fn) {
+    setPending(true);
+    try { await fn(); } finally { setPending(false); }
+  }
+  return <dialog ref={dialog} aria-labelledby="resumed-run-title" onCancel={(event) => event.preventDefault()}>
+    <header className="dialog-heading">
+      <h2 id="resumed-run-title">{title}</h2>
+      <p>O Gatewright foi fechado enquanto este passo estava em execução. Deseja retomar ou encerrar?</p>
+    </header>
+    <div className="dialog-content" />
+    <footer className="dialog-actions">
+      <button className="danger" disabled={pending} onClick={() => act(onStop)}>Encerrar</button>
+      <button className="primary" disabled={pending} onClick={() => act(onResume)}>Retomar</button>
+    </footer>
+  </dialog>;
+}
+
 function Project({ cwd, data, loading, recents, busy, open, choose, connect, navigate }) {
   const otherProjects = recents.filter((item) => item.path !== cwd);
   const detected = data.hosts.filter((host) => host.installed).length;
@@ -820,6 +841,7 @@ function App() {
   const [state, setState] = useState("IDLE");
   const [starting, setStarting] = useState(false);
   const [inFlow, setInFlow] = useState(false);
+  const [resumedRun, setResumedRun] = useState(null); // { title } when atKind:"run" is recovered
   const [runId, setRunId] = useState("");
   const [log, setLog] = useState("");
   const busy = starting || inFlow || state === "RUNNING";
@@ -859,6 +881,9 @@ function App() {
     const result = await request("open", { cwd: path });
     if (!result.ok) return;
     const project = result.data.cwd;
+    // P3-003: capture resumableFlow BEFORE setting cwdRef so the cwd guard on events
+    // won't discard anything that arrives after we set cwdRef.current.
+    const rf = result.data.resumableFlow ?? null;
     cwdRef.current = project;
     setCwd(project);
     setData(empty);
@@ -866,8 +891,39 @@ function App() {
     setRunId("");
     setLog("");
     setState("IDLE");
+    setModal(null);
+    setQuestions(null);
+    setResumedRun(null);
+    if (rf) {
+      setInFlow(true);
+      if (rf.atKind === "ask") {
+        if (rf.pendingAsk && rf.ask) {
+          // Deliver the recovered ask directly — same state path as a live flow.ask event.
+          setQuestions(rf.ask);
+          notify("Revisão pendente recuperada.", "neutral");
+        } else {
+          // review() failed on resume — can't reconstruct; offer encerrar.
+          setModal({
+            title: "Revisão não recuperada",
+            summary: "Não foi possível reconstruir a revisão pendente.",
+            body: <p>Não foi possível reconstruir a revisão pendente. Encerre o fluxo para liberar o projeto.</p>,
+            label: "Encerrar fluxo",
+            confirm: async () => {
+              await request("flow.stop", { cwd: project });
+              setModal(null);
+            },
+          });
+          notify("Revisão pendente não recuperada.", "error");
+        }
+      } else {
+        // atKind === "run"
+        setResumedRun({ title: rf.title });
+        notify("Fluxo interrompido encontrado. Clique em Retomar para continuar.", "neutral");
+      }
+    } else {
+      setInFlow(false);
+    }
     setPage("project");
-    notify("Projeto aberto.", "success");
     void listProjects();
     void refresh(project);
   }
@@ -907,6 +963,7 @@ function App() {
         case "flow.done":
         case "flow.error":
           setQuestions(null);
+          setResumedRun(null);
           setInFlow(false);
           notify(message.data || "Fluxo concluído. O diff está disponível para revisão.", message.event === "flow.error" ? "error" : "success");
           break;
@@ -952,8 +1009,10 @@ function App() {
   }
 
   async function cancel() {
-    if (inFlow) await request("flow.stop", { cwd });
-    else if (runId) {
+    if (inFlow) {
+      setResumedRun(null);
+      await request("flow.stop", { cwd });
+    } else if (runId) {
       const result = await request("cancel", { runId });
       if (result.ok) notify("Cancelamento solicitado.");
     }
@@ -1076,6 +1135,16 @@ function App() {
     }
   }
 
+  async function resumeFlow() {
+    setResumedRun(null);
+    const result = await request("flow.resume", { cwd });
+    if (!result.ok) {
+      setInFlow(false);
+    } else if (result.data?.runId) {
+      setRunId(result.data.runId);
+    }
+  }
+
   const execNotice = (() => {
     if (starting) return { text: inFlow ? "Iniciando fluxo SDD…" : "Iniciando execução…", tone: "neutral" };
     if (state === "RUNNING") return { text: "Execução em andamento.", tone: "neutral" };
@@ -1126,6 +1195,7 @@ function App() {
     <footer className={`statusbar ${footerNotice.tone}`} role="status">{footerNotice.tone === "success" ? <CircleCheck size={13} aria-hidden="true" /> : <span aria-hidden="true" />}{footerNotice.text}</footer>
     {modal && <Modal modal={modal} notice={notice} onClose={() => setModal(null)} />}
     {questions && <FlowQuestions key={questions.token} data={questions} notice={notice} onAnswer={answer} onStop={cancel} />}
+    {resumedRun && !questions && <ResumedRunPanel title={resumedRun.title} onResume={resumeFlow} onStop={cancel} />}
   </div>;
 }
 

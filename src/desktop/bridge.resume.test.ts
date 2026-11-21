@@ -228,7 +228,7 @@ afterEach(async () => {
 describe("bridge — flow resume (FDR-006)", () => {
   // ── Case 1: ASK survives ─────────────────────────────────────────────────────
   it(
-    "ASK SURVIVES: open emits flow.ask with token and flow.answer accepts it",
+    "ASK SURVIVES: open reply carries ask payload (no flow.ask event); flow.answer accepts it",
     async () => {
       // Seed the run journal so review() can read a revision hash.
       seedRunJournal(tmpDir, RUN_ID);
@@ -254,28 +254,37 @@ describe("bridge — flow resume (FDR-006)", () => {
 
       const result = openReply.result as {
         cwd: string;
-        resumableFlow?: { title: string; atKind: string; pendingAsk?: boolean };
+        resumableFlow?: {
+          title: string;
+          atKind: string;
+          pendingAsk?: boolean;
+          ask?: { token: string; title: string; questions: Array<{ id: string }>; output: string; diff: string };
+        };
       };
 
-      // open() must report atKind === "ask" with pendingAsk === true.
+      // P3-002: open() must report atKind === "ask" with pendingAsk === true AND the full ask payload.
       expect(result.resumableFlow).toBeDefined();
       expect(result.resumableFlow!.atKind).toBe("ask");
       expect(result.resumableFlow!.pendingAsk).toBe(true);
+      expect(result.resumableFlow!.ask).toBeDefined();
+      const ask = result.resumableFlow!.ask!;
+      expect(typeof ask.token).toBe("string");
+      expect(ask.token.length).toBeGreaterThan(0);
 
-      // A flow.ask event must have been emitted carrying a token.
-      const askEvent = await bridge.waitForEvent("flow.ask", 5000);
-      const askData = askEvent.data as { token: string; questions: Array<{ id: string }> };
-      expect(typeof askData.token).toBe("string");
-      expect(askData.token.length).toBeGreaterThan(0);
-
-      // The questions must include the one we seeded.
-      const questionIds = askData.questions.map((q) => q.id);
+      // The questions must include the one we seeded — delivered in the reply, not an event.
+      const questionIds = ask.questions.map((q) => q.id);
       expect(questionIds).toContain(GATE_ASK_QUESTION_ID);
 
-      // Answer the ask — the engine must accept it (no error).
+      // P3-002: NO flow.ask event must be emitted during open (the race is gone).
+      // Wait a brief moment then confirm the events list has no flow.ask.
+      await new Promise<void>((r) => setTimeout(r, 300));
+      const askEvents = bridge.events.filter((e) => e.event === "flow.ask");
+      expect(askEvents).toHaveLength(0);
+
+      // Answer the ask using the token from the reply — the engine must accept it (no error).
       const answerReply = await bridge.rpc("flow.answer", {
         cwd: tmpDir,
-        token: askData.token,
+        token: ask.token,
         answers: { [GATE_ASK_QUESTION_ID]: "staging" },
       });
       // The key assertion: no error means the :ask/:redo were reconstructed by replay.
