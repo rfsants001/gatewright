@@ -26,14 +26,15 @@
 
 ## P2 — Operações de integração e saúde  (REQ IN-01..06)
 
-- [ ] **P2-001** Domínio `IntegrationOperation` (`src/core/integrations/operations.ts`): journal por-id, eventos `OP_STEP`, snapshot por `project`, evidência por efeito.
+- [x] **P2-001** Domínio `IntegrationOperation` (`src/core/integrations/operations.ts`): journal por-id, eventos `OP_STEP`, snapshot por `project`, evidência por efeito.
   - Done when: criar/avançar/reconstituir operação em fixture; etapa `running` reconciliável; teste `integration-op`. → `feat(integrations): persistent operation with step journal`
-- [ ] **P2-002** Consolidar `customize.propose/apply` do bridge sobre `proposeIntegration/applyIntegration` (core R2) preservando mensagens/guard/cache/journal. Lock por revisão contra confirmação concorrente (bridge + cache MCP de `integrate_tool`).
+- [x] **P2-002** Consolidar `customize.propose/apply` do bridge sobre `proposeIntegration/applyIntegration` (core R2) preservando mensagens/guard/cache/journal. Lock por revisão contra confirmação concorrente (bridge + cache MCP de `integrate_tool`).
   - Done when: comportamento observável idêntico; confirmação consumida não dispara 2 receitas; teste `op-concurrent`. Dep: P2-001. → `refactor(integrations): bridge delegates to shared R2 configurator`
-- [ ] **P2-003** `HealthStatus` + `integration.test` estendido (tentativa/horário/fase/erro/latência; retry testa sem reinstalar; evidência expira por revisão). Evento `integration.progress {cwd,operationId,seq,step}`.
+- [x] **P2-003** `HealthStatus` + `integration.test` estendido (tentativa/horário/fase/erro/latência; retry testa sem reinstalar; evidência expira por revisão). Evento `integration.progress {cwd,operationId,seq,step}`.
   - Done when: instalado-não-verificado distinto; retry não reinstala/duplica; teste `retry-no-reinstall`/`partial-failure`. Dep: P2-001. → `feat(integrations): health status and real connection retry`
-- [ ] **P2-004** `integration.operation.get` (reabrir reconstrói pelo id) + ação recuperável/remoção por recurso pertencente. Allowlist.
+- [~] **P2-004** `integration.operation.get` (reabrir reconstrói pelo id) + ação recuperável/remoção por recurso pertencente. Allowlist.
   - Done when: reabrir projeto recupera estado; remover/reverter identifica recursos da operação; teste `op-reopen`. Dep: P2-001. → `feat(integrations): reopen and recover operations`
+  - **Parcial (entregue):** operação persistida por recipe, `integration.operation.get`, `snapshot.operations` p/ reabrir, eventos `integration.progress` (status grosso), lock por revisão. **Deferido (P2-004b):** streaming por-etapa fino (threading de um reporter de passo pelos installers `integration-install.ts`), evidência rica por efeito (containerId/pasta/versão lidos do resultado do installer), e remoção/compensação por recurso pertencente. `applyIntegration` é atômico hoje → só status grosso succeeded/failed. Retomar operação interrompida reconciliando recurso real também entra aqui.
 - [ ] **P2-005** Renderer: tela Integrações (etapas rotuladas, coluna origem/versão/destino/escopo/pré-requisitos/verificações, falha parcial + testar conexão). Ajuda (autenticação, revisão vencida). Captura.
   - Done when: progresso real de uma receita + recuperação reproduzível; IN aceites. Dep: P2-002..004. → `feat(desktop): integration install and health screen`
 

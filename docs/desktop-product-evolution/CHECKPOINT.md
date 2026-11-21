@@ -11,20 +11,20 @@
 
 ## Estado atual
 
-**P0 e P1 concluídas e commitadas.** Próxima fase: **P2 (Operações de integração e saúde)**, começando por **P2-001** (domínio `IntegrationOperation` em `src/core/integrations/operations.ts`).
+**P0, P1 e o núcleo+bridge de P2 concluídos e commitados.** Falta **P2-005** (renderer da tela de Integrações/saúde) e **P2-004b** (deferido: streaming por-etapa fino + evidência rica + remoção por recurso). Próxima ação: **P2-005**.
 
 ### Registro por subtarefa
 
 | Campo | Valor |
 | --- | --- |
-| Commit e branch atuais | `d7c4d82` (HEAD) · branch `main` |
-| Alterações locais | tasks.md P0/P1 marcados `[x]`; este CHECKPOINT. `.specs/` é gitignored |
-| Última tarefa concluída | **P1 inteira** — `367ee77` (agents.ts P1-001/002/003), `107ca75` (skills-query.ts P1-004 núcleo), `e59fbf7` (bridge+IPC skills.list/detail, agent.update/delete), `d7c4d82` (renderer Skills+Agentes+ajuda, inclui fix do `skills.detail` p/ body no detalhe) |
-| Tarefa em andamento | nenhuma — iniciar P2-001 |
-| Decisões | Ver `sdd/design.md` §8 |
-| Verificação | `npm run typecheck` + `npm run build` + `npm test` = **901 testes verdes** (119 arquivos) |
-| Próxima ação exata | P2-001: criar `src/core/integrations/operations.ts` (journal por-id, eventos `OP_STEP`, snapshot via `Journal.project`, evidência por efeito). Depois P2-002 (consolidar customize no core R2 + lock por revisão), P2-003 (HealthStatus + integration.test estendido + evento `integration.progress`), P2-004 (operation.get + recuperação), P2-005 (renderer) |
-| Bloqueios | **Validação visual/pixel de P1 pendente** (precisa de sessão gráfica interativa — `npm run desktop:dev`); lógica de bridge já coberta por teste. P5 pode precisar de Graphify real (host) |
+| Commit e branch atuais | `6337ad0` (HEAD) · branch `main` |
+| Alterações locais | tasks.md P2-001/002/003 `[x]`, P2-004 `[~]` parcial; este CHECKPOINT. `.specs/` é gitignored |
+| Última tarefa concluída | **P2 núcleo+bridge** — `dca7c51` (operations.ts), `6f34740` (health.ts + diagnóstico com latência/DiagnosticResult), `6337ad0` (bridge: consolida customize→applyIntegration + lock por revisão; operação persistida por recipe + `integration.operation.get` + `snapshot.operations` + eventos `integration.progress`; `integration.test` grava health e retorna HealthStatus) |
+| Tarefa em andamento | nenhuma — iniciar P2-005 (renderer) |
+| Decisões | Ver `sdd/design.md` §8. P2: operação só p/ kinds de receita (npm-mcp/container/git-project/graphify); status grosso (applyIntegration é atômico); warning do último write de journal não é replicável via core (gap documentado no bridge) |
+| Verificação | `npm run typecheck` + `npm test` = **926 testes verdes** (122 arquivos). Nota: `src/ui/flow-screen.test.tsx` (ink/TUI) é **flaky** sob carga paralela — passa isolado; re-rodar se falhar sozinho |
+| Próxima ação exata | **P2-005**: renderer da tela Integrações (`?view=install`) — etapas rotuladas da operação (consumir `snapshot.operations` + evento `integration.progress` + `integration.operation.get`), coluna origem/versão/destino/escopo/pré-requisitos, saúde (`integration.test` agora retorna `HealthStatus` com verification/latencyMs/errorCode/actions), falha parcial + "testar conexão" (não reinstala). Ajuda (autenticação, revisão vencida). Ver `screens/05-instalacao.png` e `06-falha-parcial.png`, prévia `ui/preview.jsx` `?view=install`, `sdd/design.md` §2 |
+| Bloqueios | **Validação visual/pixel pendente** (P1 e P2 — precisa `npm run desktop:dev` em sessão gráfica). **P2-004b deferido**: streaming por-etapa pelos installers + evidência rica + remoção/compensação por recurso + retomada reconciliando recurso real. P5 pode precisar de Graphify real (host) |
 
 ## Atualizar ao avançar
 
