@@ -40,11 +40,11 @@
 
 ## P3 — Pendências e retomada  (REQ PE-01..03, fecha FDR-007)
 
-- [ ] **P3-001** `flow.resume` na allowlist de `main.mjs`; `Bridge.busy`/fechamento consideram flow restaurado; `inFlow` no resume.
+- [x] **P3-001** `flow.resume` na allowlist de `main.mjs`; `Bridge.busy`/fechamento consideram flow restaurado; `inFlow` no resume.
   - Done when: `flow.resume` chega ao bridge; guarda de fechamento reflete trabalho restaurado; teste de allowlist. → `fix(desktop): allow flow.resume and busy on restored flow`
-- [ ] **P3-002** Corrigir ordem de eventos do `flow.ask` recuperado (entregar via retorno do `open`/enfileirar até seleção da pasta); `app.jsx open()` consome `resumableFlow` antes de escrever `cwdRef`.
+- [x] **P3-002** Corrigir ordem de eventos do `flow.ask` recuperado (entregar via retorno do `open`/enfileirar até seleção da pasta); `app.jsx open()` consome `resumableFlow` antes de escrever `cwdRef`.
   - Done when: `flow.ask` recuperado não é descartado na abertura/troca de pasta; `pendingAsk:false` mostra problema+encerrar; estende `bridge.resume.test`. Dep: P3-001. → `fix(flow): deliver recovered ask after project selected (FDR-007)`
-- [ ] **P3-003** UI de retomada em `app.jsx` (`atKind:"run"` título+Retomar/Encerrar, run só após confirmação; reconciliação de incerteza pós-crash).
+- [x] **P3-003** UI de retomada em `app.jsx` (`atKind:"run"` título+Retomar/Encerrar, run só após confirmação; reconciliação de incerteza pós-crash).
   - Done when: retomar não dispara 2ª execução; run ativo/diff alterado/Flow encerrado cobertos; e2e Electron mesma cwd entre reinícios. Dep: P3-002. → `feat(desktop): resume paused flow from window (FDR-007)`
 - [ ] **P3-004** Projeção `pending.list` (`src/core/pending/projection.ts`) + bridge `pending.list` + tela Pendências (contagem por tipo, filtros, ação+vínculo).
   - Done when: deriva de revisões/runs/operações; item resolvido some; filtrar não altera entidades; teste `pending-projection`. Dep: P2, P3-001. → `feat(pending): projection and screen over runtime sources`
