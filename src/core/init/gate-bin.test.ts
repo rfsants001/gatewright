@@ -1,7 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { gateHookCommand, gateServeInvocation, isGateHookCommand } from "./gate-bin.js";
 
 describe("gate-bin", () => {
+  afterEach(() => vi.unstubAllEnvs());
+  it("keeps the Electron Node mode when hooks/MCP start from an external terminal", () => {
+    vi.stubEnv("ELECTRON_RUN_AS_NODE", "1");
+    expect(gateHookCommand("codex")).toContain("ELECTRON_RUN_AS_NODE=1");
+    expect(gateServeInvocation("/project").env).toEqual({ ELECTRON_RUN_AS_NODE: "1" });
+  });
   it("hook command is an absolute node invocation (no PATH dependency)", () => {
     const cmd = gateHookCommand();
     expect(cmd).toContain("gate.js");

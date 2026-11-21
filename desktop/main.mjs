@@ -8,6 +8,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 // In packaged app: resolve node/gate from the app bundle; initialProject comes from a future launcher integration.
 const renderer = fileURLToPath(new URL("./renderer/index.html", import.meta.url));
 const rendererUrl = pathToFileURL(renderer).href;
+const appIcon = fileURLToPath(new URL("./icon.png", import.meta.url));
 const methods = new Set([
   "projects", "open", "snapshot", "terminal.preview", "terminal.apply", "terminal.test", "provider.save",
   "skill.save", "agent.preview", "agent.save", "agent.update", "agent.delete",
@@ -100,6 +101,8 @@ if (app.isPackaged) {
 }
 
 app.setName("Gatewright");
+if (process.platform === "linux") app.setDesktopName("io.gatewright.Desktop.desktop");
+if (process.platform === "win32") app.setAppUserModelId("io.gatewright.Desktop");
 nativeTheme.themeSource = "dark";
 
 let window;
@@ -126,6 +129,7 @@ ipcMain.handle("gate:initial-project", (event) => trustedSender(event) && initia
 
 function createWindow() {
   window = new BrowserWindow({
+    icon: appIcon,
     title: "Gatewright",
     width: 1240,
     height: 820,
@@ -171,6 +175,7 @@ function createWindow() {
 // Let the ESM entrypoint finish evaluating before Electron emits ready.
 void app.whenReady().then(() => {
   Menu.setApplicationMenu(null);
+  if (process.platform === "darwin") app.dock?.setIcon(appIcon);
   createWindow();
 });
 app.on("window-all-closed", () => { if (process.platform !== "darwin") app.quit(); });

@@ -1,5 +1,7 @@
 # Fases de implementação e retomada
 
+> Continuação de 21/11: P0–P7 e P2-004b estão concluídas. Codex com escrita governada, empacotamento e ícones atuais foram acrescentados depois. Leia [o adendo Codex](CODEX-PARITY.md) e o checkpoint antes de retomar; o texto de planejamento abaixo preserva a referência das fases originais.
+
 ## Entrega integrada em 21/11/2026
 
 P0–P7 e P2-004b implementadas no aplicativo. A validação atual está em [CHECKPOINT.md](CHECKPOINT.md) e [no registro do Electron](screens/validation-2026-11-21/README.md). O material em `ui/` continua sendo uma referência isolada com fixtures; as telas de produção estão em `desktop/renderer/`.

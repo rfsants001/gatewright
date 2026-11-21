@@ -1,5 +1,7 @@
 # Gatewright — PRD da evolução do desktop
 
+> Continuação de 21/11: P0–P7 e P2-004b estão concluídas. Codex com escrita governada, empacotamento e ícones atuais foram acrescentados depois. Leia [o adendo Codex](CODEX-PARITY.md) e o checkpoint antes de retomar; o texto de planejamento abaixo preserva a referência das fases originais.
+
 Data de referência 20/11/2026. Base observada `b2dfd32` sobre os commits R2 `10a059b`, `77b789d` e `328a646`. O SDD e a entrega integrada estão em `sdd/`; esta introdução preserva a base de planejamento. As telas propostas estão em `ui/dist/index.html`. Os dados e as ações da prévia são simulados.
 
 ## Entrega integrada em 21/11/2026

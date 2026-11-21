@@ -1,5 +1,7 @@
 # Gatewright — TRD da evolução do desktop
 
+> Continuação de 21/11: P0–P7 e P2-004b estão concluídas. Codex com escrita governada, empacotamento e ícones atuais foram acrescentados depois. Leia [o adendo Codex](CODEX-PARITY.md) e o checkpoint antes de retomar; o texto de planejamento abaixo preserva a referência das fases originais.
+
 Referência técnica para o SDD. A inspeção foi feita em 20/11/2026 sobre `b2dfd32`. Confira o checkpoint e as assinaturas atuais antes de qualquer continuação. As estruturas abaixo são propostas a refinar, e cada alteração precisa preservar dados e chamadores existentes.
 
 ## Entrega integrada em 21/11/2026

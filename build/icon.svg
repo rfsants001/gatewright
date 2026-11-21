@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 32 32">
+  <title>Gatewright</title>
+  <g transform="translate(2 2)">
+    <rect x=".5" y=".5" width="27" height="27" rx="7" fill="#2b1727" stroke="#63354f"/>
+    <path d="M5.18 8.06h10.8l3.6 3.6H9.14v8.64l-3.96-3.42zM12.56 14.72H23v4.68L19.22 23v-4.5h-6.66z" fill="#fd82c6"/>
+  </g>
+</svg>

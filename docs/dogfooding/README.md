@@ -2,6 +2,12 @@
 
 Objetivo: usar o Gatewright de verdade no dia a dia (configurar Claude Code e Codex, instalar pacotes, rodar tarefas) e **registrar tudo** para, no fim da semana/mês, termos **dados reais** — pra decidir o que melhorar e pra alimentar o "build in public".
 
+## Preparar o piloto
+
+Siga [Preparar o Codex](../DESKTOP.md#preparar-o-codex) e registre a versão da CLI. A confiança do projeto e dos hooks é revisada no próprio Codex. Registre no diário uma tarefa pequena com edição, teste, revisão do diff e tokens. A entrada em cache é contada uma única vez. Modelos sem preço exibem custo desconhecido; isso não representa custo zero.
+
+MCP/hooks e o consumo são evidências distintas: uma sessão iniciada por fora do Gatewright ainda não tem coleta integral automática de telemetria. Para usar o terminal com a janela fechada, prefira pacote permanente ou checkout; caminhos de AppImage podem desaparecer ao fechar.
+
 ## Regra de ouro
 Logar **na hora**, não de memória. Uma linha já vale. O log é append-only: nunca apague, só acrescente. Dado cru > dado bonito.
 

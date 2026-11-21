@@ -92,6 +92,8 @@ function listRunSlugs(cwd: string): string[] {
 function readUsageEvents(journalPath: string, store: ArtifactStore): Array<{ usage: EngineUsage; model: string | undefined; at: string }> {
   const journal = new Journal(store, journalPath);
   const events = journal.read();
+  const header = events.find((entry) => entry.type === "RUN_CONTEXT")?.payload as { model?: unknown } | undefined;
+  const configuredModel = typeof header?.model === "string" ? header.model : undefined;
   const out: Array<{ usage: EngineUsage; model: string | undefined; at: string }> = [];
   for (const e of events) {
     if (e.type !== ENGINE_EVENT_TYPE) continue;
@@ -100,7 +102,7 @@ function readUsageEvents(journalPath: string, store: ArtifactStore): Array<{ usa
     const raw = payload.raw as { type?: string; message?: { model?: unknown }; modelUsage?: Record<string, unknown> } | undefined;
     const models = Object.keys(raw?.modelUsage ?? {});
     const model = payload.usage.model ?? (models.length === 1 ? models[0] : undefined)
-      ?? extractModel(raw) ?? extractModel(raw?.message);
+      ?? extractModel(raw) ?? extractModel(raw?.message) ?? configuredModel;
     if (payload.usage.cumulative || raw?.type === "result") {
       const partialModels = new Set(out.map((entry) => entry.model).filter(Boolean));
       const inferred = partialModels.size === 1 ? [...partialModels][0] : undefined;

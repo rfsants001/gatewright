@@ -1,5 +1,7 @@
 # SDD · Evolução do desktop Gatewright — Design
 
+> Continuação de 21/11: P0–P7 e P2-004b estão concluídas. Codex com escrita governada, empacotamento e ícones atuais foram acrescentados depois. Leia [o adendo Codex](../CODEX-PARITY.md) e o checkpoint antes de retomar; o texto de planejamento abaixo preserva a referência das fases originais.
+
 > Companheiro de `spec.md`. §0 fixa os contratos **reais** inventariados em P0 (com `file:line`). §1+ descreve o design por fase: DTOs, schemas Zod, eventos, caminhos persistidos, snapshots, migração, concorrência, e o que o código já cobre × o que falta.
 
 ## Contratos finais da entrega de 21/11/2026

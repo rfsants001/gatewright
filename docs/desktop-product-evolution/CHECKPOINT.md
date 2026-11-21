@@ -1,6 +1,6 @@
 # Checkpoint da implementação
 
-Atualizado em 21/11/2026 pelo Codex, a partir de main `1ac6388` (P3 concluída). A entrega `feat(desktop): deliver memory, code maps, costs and recovery` conclui P2-004b e P4–P7. Conferir git status/log para identificar o commit desta entrega e qualquer trabalho posterior antes de editar.
+Atualizado em 21/11/2026 pelo Codex. P2-004b e P4–P7 foram concluídas em `a6ab1bf`. O Claude acrescentou empacotamento (`1f7792c`) e dogfooding (`537470f`) sobre `1fdf24c`; ambos foram preservados. A continuação entrega Codex com escrita governada e ícones nativos da marca. Conferir git status/log e [CODEX-PARITY.md](CODEX-PARITY.md) antes de editar.
 
 ## Estado atual
 
@@ -20,7 +20,7 @@ P0–P7 e P2-004b implementadas. O aplicativo tem seis áreas principais; Projet
 ## Validação
 
 - Node 24.16.0, Electron 45.3.1, Linux com sessão gráfica.
-- `npm run check` com GATEWRIGHT_PROJECTS e GATEWRIGHT_HOME temporários passou em **961 testes / 127 arquivos**, incluindo geração/supersessão do mapa. Comandos em screens/validation-2026-11-21/README.md.
+- `npm run check` com GATEWRIGHT_PROJECTS e GATEWRIGHT_HOME temporários passou em **974 testes / 130 arquivos**, incluindo geração/supersessão do mapa. Comandos em screens/validation-2026-11-21/README.md.
 - `npm run test:desktop`, `npm run test:desktop:pending` e `npm run test:desktop:evolution`.
 - Graphify 0.9.114: ambiente Python temporário, instalação via applyIntegration, verificação via inspectOperation e cleanup via recoverOperation. Geração real via generateCodeMap, com `extract . --code-only --no-cluster --out .`.
 - Correções descobertas pelos ensaios reais: `uv venv --allow-existing` para preservar o marcador de ownership; `--out .` para evitar graphify-out/graphify-out; estado do projeto no rodapé; histórico sem dependência de medição; operação compensada não continua pendente.
@@ -36,15 +36,15 @@ Operações anteriores sem receita e prova de ownership não permitem remoção 
 
 O fechamento das fases deste pacote não encerra toda a visão do produto. A leitura do código após os smokes confirmou:
 
-1. `src/app/providers.ts` ainda faz completação textual em API/proxy direto, sem ciclo de tool calling/MCP. `src/core/engine/adapters/stream-host.ts` inicia Codex com sandbox read-only.
+1. `src/app/providers.ts` ainda faz completação textual em API/proxy direto, sem ciclo de tool calling/MCP. O Codex já usa `workspace-write` com verificação de confiança antes de executar; detalhes no adendo Codex.
 2. Sessões iniciadas fora do aplicativo ainda dependem de coleta de telemetria para aparecer integralmente nos custos.
 3. `src/core/run/pricing.ts` tem tabela embutida para famílias Claude e conversão BRL local fixa; preços extensíveis para outros modelos/proxies e atualização da conversão não foram entregues nesta fase.
 4. Falta aceite autenticado nos hosts/serviços reais, inclusive prova de bloqueio no OpenCode e operação MCP/harness com a janela fechada. O smoke controlado não substitui esse ensaio.
-5. Instaladores nativos com runtime empacotado, assinatura e atualização precisam de entrega própria; hoje a execução depende de Node/checkout e o instalador existente é um atalho Linux.
+5. Pacotes instaláveis e runtime foram entregues; faltam assinatura, atualização e aceite dos instaladores Windows/macOS. AppImage utiliza caminhos de montagem temporários: para MCP/hooks externos com a janela fechada, prefira instalação permanente ou checkout estável.
 6. CI validou inicialização nos três SOs; a matriz funcional completa nova foi exercitada no Linux.
 
 ## Próxima ação exata para o Claude
 
-Conferir git status, commits posteriores e o CI da entrega a6ab1bf. Não reimplementar P4–P7. Para a visão completa, priorizar em nova continuação autorizada a execução com ferramentas nos caminhos API/proxy e a política de escrita do Codex; em seguida telemetria/preços e distribuição. Executar a matriz autenticada quando houver ambiente disponível. Cada frente precisa de critérios próprios e evidência real, preservando snapshots, versões, orçamento e ownership.
+Conferir git status, commits posteriores e CI. Ler CODEX-PARITY.md e o roteiro de dogfooding antes de mudar o adapter: Codex com escrita e pacotes já estão implementados. Não reimplementar P4–P7. A próxima evidência é o uso autenticado de Claude/Codex no Linux do usuário. Para a visão completa, priorizar em nova continuação autorizada a execução com ferramentas nos caminhos API/proxy; em seguida telemetria/preços e distribuição assinada. Executar a matriz autenticada quando houver ambiente disponível. Cada frente precisa de critérios próprios e evidência real, preservando snapshots, versões, orçamento e ownership.
 
 Commits na main, sem Co-authored-by. Não incluir .specs nem a vault. As referências locais podem apontar para este arquivo.

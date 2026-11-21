@@ -11,24 +11,32 @@ asar: false
 
 files:
   - dist/**
+  - skills/**
+  - scripts/jev/**
+  - README.md
+  - LICENSE
+  - CHANGELOG.md
   - package.json
 
 linux:
+  executableName: io.gatewright.Desktop
   target:
     - AppImage
     - deb
     - rpm
   category: Development
-  icon: build/icon.png
+  icon: build/icons
+  desktop:
+    StartupWMClass: io.gatewright.Desktop
 
 win:
   target:
     - nsis
-  icon: build/icon.png
+  icon: build/icon.ico
 
 mac:
   target:
     - dmg
   # No code signing for alpha builds. Remove this line before shipping to end users.
   identity: null
-  icon: build/icon.png
+  icon: build/icon.icns

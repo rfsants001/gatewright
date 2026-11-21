@@ -24,9 +24,17 @@ function parse(host: Host, line: string): EngineEvent | null {
   const part = record(event.part);
   switch (host) {
     case "codex":
-      if (event.type === "turn.completed") return usage(record(event.usage), ["input_tokens", "output_tokens", "cached_input_tokens"], true);
+      if (event.type === "gatewright.ready") return { kind: "system", text: String(event.message) };
+      if (event.type === "turn.completed") {
+        const stats = record(event.usage), cached = typeof stats.cached_input_tokens === "number" ? Math.max(0, stats.cached_input_tokens) : 0;
+        const input = typeof stats.input_tokens === "number" ? Math.max(0, stats.input_tokens - cached) : 0;
+        return usage({ ...stats, input_tokens: input }, ["input_tokens", "output_tokens", "cached_input_tokens"], true, typeof event.model === "string" ? event.model : undefined);
+      }
       if (event.type === "item.completed" && item.type === "agent_message" && typeof item.text === "string") return { kind: "assistant", text: item.text };
-      if (event.type === "item.started" && item.type === "command_execution") return { kind: "tool_use", tool: "Shell" };
+      if (event.type === "item.started" && item.type === "command_execution") return { kind: "tool_use", tool: "Shell", ...(typeof item.command === "string" ? { detail: item.command } : {}) };
+      if (event.type === "item.completed" && item.type === "command_execution") return { kind: "tool_result", tool: "Shell", ...(typeof item.aggregated_output === "string" ? { text: item.aggregated_output } : {}) };
+      if (event.type === "item.completed" && item.type === "file_change") return { kind: "tool_result", tool: "apply_patch", detail: JSON.stringify(item.changes ?? []).slice(0, 4000) };
+      if ((event.type === "item.started" || event.type === "item.completed") && item.type === "mcp_tool_call") return { kind: event.type === "item.started" ? "tool_use" : "tool_result", tool: String(item.tool ?? "MCP"), detail: String(item.server ?? "") };
       break;
     case "gemini":
       if (event.type === "message" && event.role === "assistant" && typeof event.content === "string") return { kind: "assistant", text: event.content };
@@ -42,7 +50,7 @@ function parse(host: Host, line: string): EngineEvent | null {
       }
       break;
   }
-  if (event.type === "error" || event.type === "turn.failed") return { kind: "error", text: "The host reported an execution error." };
+  if (event.type === "error" || event.type === "turn.failed") return { kind: "error", text: typeof event.message === "string" ? event.message : typeof record(event.error).message === "string" ? String(record(event.error).message) : "The host reported an execution error." };
   return null;
 }
 
@@ -50,7 +58,7 @@ function argsFor(host: Host, opts: EngineRunOptions): string[] {
   const prompt = opts.systemPrompt ? `${opts.systemPrompt}\n\n${opts.prompt}` : opts.prompt;
   const model = opts.model ? ["--model", opts.model] : [];
   switch (host) {
-    case "codex": return ["exec", "--json", "--sandbox", "read-only", ...model, "--", prompt];
+    case "codex": return ["exec", "--json", "--sandbox", "workspace-write", ...model, "--", prompt];
     case "gemini": return ["--output-format", "stream-json", ...model, `--prompt=${prompt}`];
     case "opencode": return ["run", "--format", "json", ...model, "--", prompt];
   }

@@ -11,6 +11,7 @@ import { type EngineAdapter, type RunContext } from "../core/engine/types.js";
 import { openRunJournal } from "../core/engine/run-journal.js";
 import { startRun, type RunHandle } from "../core/engine/runner.js";
 import { listRunHistory } from "../core/run/history.js";
+import { codexReadiness } from "../app/codex.js";
 import { aggregateUsage } from "../core/run/usage.js";
 import { FlowEngine, replayFlow, type FlowInput } from "../core/flow/flow.js";
 import { buildSddFlow } from "../core/flow/sdd-flow.js";
@@ -354,6 +355,11 @@ export async function serveDesktop(): Promise<void> {
         const { host } = hostRequest.parse(params);
         const plans = planTerminal(cwd, host);
         return { revision: planRevision(plans), changes: plans.map(({ path, action, summary, blocked }) => ({ path, action, summary, blocked })) };
+      }
+      case "terminal.test": {
+        const { host } = hostRequest.parse(params);
+        if (host === "codex") return codexReadiness(cwd);
+        return { ready: terminalConfigStatus(cwd, host) === "configured", message: "Confira também a autenticação no host." };
       }
       case "terminal.apply": {
         const { host, revision } = hostRequest.extend({ revision: z.string() }).parse(params);

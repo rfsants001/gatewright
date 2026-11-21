@@ -125,7 +125,8 @@ async function runAsyncCommand(argv: string[]): Promise<number | null> {
         raw = "";
       }
       const { runHookWithJev } = await import("../host/run-hook-jev.js");
-      const host = argv[1] === "gemini" ? (await import("../host/gemini.js")).geminiHookAdapter
+      const host = argv[1] === "codex" ? (await import("../host/codex.js")).codexHookAdapter
+        : argv[1] === "gemini" ? (await import("../host/gemini.js")).geminiHookAdapter
         : argv[1] === "opencode" ? (await import("../host/opencode.js")).opencodeHookAdapter
         : undefined;
       const out = await runHookWithJev(raw, host);
@@ -133,6 +134,8 @@ async function runAsyncCommand(argv: string[]): Promise<number | null> {
       return out.exitCode;
     }
     // Interactive, mutating flows → the Ink app, opened at the right screen.
+    case "codex-run":
+      return (await import("../app/codex.js")).runCodex();
     case "complete":
       return (await import("../app/providers.js")).runCompletion();
     case "desktop":

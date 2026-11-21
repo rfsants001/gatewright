@@ -28,7 +28,7 @@
 
 ## Desktop and terminal
 
-Gatewright Desktop is an Electron workspace for Linux, macOS, and Windows. Run `npm run desktop:dev` to build and open it. Use Claude Code, Codex, Gemini CLI, or OpenCode through their own binaries. For text completions, set up Ollama or a compatible API or proxy in a project provider profile.
+Gatewright Desktop is an Electron workspace for Linux, macOS, and Windows. Run `npm run desktop:dev` to build and open it. Use Claude Code, Codex, Gemini CLI, or OpenCode through their own binaries. For text completions, set up Ollama or a compatible API or proxy in a project provider profile. Codex tasks support workspace edits, tests, MCP, Flow and diff review after native hook trust is verified; see [setup and acceptance](docs/desktop-product-evolution/CODEX-PARITY.md).
 
 The terminal remains a supported surface. Connect each project's MCP and supported hooks from the desktop, then restart the host. See the [desktop guide and compatibility matrix](docs/DESKTOP.md).
 

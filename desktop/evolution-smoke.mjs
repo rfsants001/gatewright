@@ -3,9 +3,10 @@ import { createServer } from "node:http";
 import { execFileSync } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { delimiter, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createDesktopDriver } from "./test-driver.mjs";
+import { writeCodexFixture } from "./codex-fixture.mjs";
 import { startOperation, finishOperation } from "../dist/core/integrations/operations.js";
 import { appendEngineEvent, openRunJournal } from "../dist/core/engine/run-journal.js";
 
@@ -14,6 +15,7 @@ const root = await mkdtemp(join(tmpdir(), "gatewright-evolution-")),
 const screenshotDir = process.argv[2] ? resolve(process.argv[2]) : null;
 const cli = fileURLToPath(new URL("../dist/cli/gate.js", import.meta.url));
 const driver = createDesktopDriver({ root, project, cli });
+const originalPath = process.env.PATH;
 let app, completion;
 const server = createServer(async (request, response) => {
   let body = "";
@@ -334,6 +336,42 @@ try {
   app = await driver.launch();
   assert.equal((await rpc("memory.list"))[0].version, 2);
   assert.equal((await rpc("run.detail", { runId })).context.memorySnapshot.items[0].version, 1);
+  await driver.close();
+  const fixtureBin = await writeCodexFixture(root);
+  process.env.PATH = `${fixtureBin}${delimiter}${originalPath ?? ""}`;
+  app = await driver.launch();
+  const plan = await rpc("terminal.preview", { host: "codex" });
+  await rpc("terminal.apply", { host: "codex", revision: plan.revision });
+  assert.equal((await rpc("terminal.test", { host: "codex" })).ready, false);
+  await writeFile(join(project, ".gatewright", "fixture-trusted"), "reviewed in controlled fixture");
+  assert.equal((await rpc("terminal.test", { host: "codex" })).ready, true);
+  await app.click("Tarefas", ".app-nav button");
+  await input(".form-grid select", "codex");
+  await input(".form-grid input", "codex-fixture-model");
+  await input(".form-panel > label textarea", "Implementar e verificar a mudança do Codex.");
+  await app.click("Executar tarefa");
+  await app.waitFor("document.querySelector('.execution-log').textContent.includes('Concluída')");
+  assert.equal((await readFile(join(project, "codex-implementation.txt"), "utf8")).startsWith("Codex fixture implementation"), true);
+  const request = JSON.parse(await readFile(join(project, ".gatewright", "codex-request.json"), "utf8"));
+  assert.equal(request.checkedGate, true);
+  assert.equal(request.args[request.args.indexOf("--sandbox") + 1], "workspace-write");
+  await app.click("Abrir diff");
+  await app.waitFor("document.querySelector('dialog[open]')?.textContent.includes('codex-implementation.txt')");
+  await app.click("Aprovar revisão");
+  await app.waitFor("document.querySelector('dialog[open]') === null");
+  const codexUsage = await rpc("usage.get", { days: 7 });
+  assert(codexUsage.byRun.some((run) => run.model === "codex-fixture-model" && run.totalTokensIn === 60 && run.totalCacheRead === 40));
+  await input(".form-panel > label textarea", "FLOW_CODEX_FIXTURE");
+  await app.click("Iniciar fluxo SDD");
+  await app.waitFor("document.querySelector('dialog[open]')?.textContent.includes('Aprovar etapa do Codex?')");
+  await app.click("Encerrar fluxo");
+  await app.waitFor("document.querySelector('dialog[open]') === null");
+  await input(".form-panel > label textarea", "CANCEL_CODEX_FIXTURE");
+  await app.click("Executar tarefa");
+  await app.waitFor("document.querySelector('.transcript').textContent.includes('fixture waiting')");
+  await app.click("Cancelar execução");
+  await app.waitFor("document.querySelector('.execution-log').textContent.includes('Cancelada')");
+  console.log("Electron Codex: confiança verificada, escrita + MCP, testes, diff aprovado, cache contado uma vez, Flow e cancelamento verificados com CLI controlada.");
   console.log(
     "Electron: memória criada e selecionada → agente + contexto recebidos no provedor → snapshot imutável → custos por atribuição → mapa e diff → recuperação de recurso → teclado, scroll e reinício verificados.",
   );
@@ -341,6 +379,7 @@ try {
   if (driver.output) process.stderr.write(driver.output);
   throw error;
 } finally {
+  if (originalPath === undefined) delete process.env.PATH; else process.env.PATH = originalPath;
   await driver.close();
   await new Promise((done) => server.close(done));
   await rm(root, { force: true, recursive: true, maxRetries: 8, retryDelay: 150 });

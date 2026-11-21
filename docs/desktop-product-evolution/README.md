@@ -1,5 +1,7 @@
 # Gatewright — pacote de design e implementação por fases
 
+> Continuação de 21/11: P0–P7 e P2-004b estão concluídas. Codex com escrita governada, empacotamento e ícones atuais foram acrescentados depois. Leia [o adendo Codex](CODEX-PARITY.md) e o checkpoint antes de retomar; o texto de planejamento abaixo preserva a referência das fases originais.
+
 Preparado em 20/11/2026 sobre a base b2dfd32. Este pacote contém a evolução visual aprovada em conversa e as referências para o Claude criar o SDD e implementar a lógica. A implementação atual está no aplicativo Electron; consulte o checkpoint antes de alterar contratos.
 
 ## Entrega integrada em 21/11/2026

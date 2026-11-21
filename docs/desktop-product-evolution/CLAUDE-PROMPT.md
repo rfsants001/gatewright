@@ -1,5 +1,7 @@
 # Prompt de implementação para Claude Code
 
+> Continuação de 21/11: P0–P7 e P2-004b estão concluídas. Codex com escrita governada, empacotamento e ícones atuais foram acrescentados depois. Leia [o adendo Codex](CODEX-PARITY.md) e o checkpoint antes de retomar; o texto de planejamento abaixo preserva a referência das fases originais.
+
 Você vai continuar o Gatewright como responsável pela implementação da lógica e da integração das telas. O usuário aprovou a evolução visual e pediu que o Codex desenhasse as páginas e preparasse PRD e TRD. Seu trabalho começa criando um SDD a partir deste pacote, depois executando a implementação por fases com checkpoints persistidos.
 
 ## Entrega integrada em 21/11/2026

@@ -1,5 +1,7 @@
 # SDD · Evolução do desktop Gatewright — Spec
 
+> Continuação de 21/11: P0–P7 e P2-004b estão concluídas. Codex com escrita governada, empacotamento e ícones atuais foram acrescentados depois. Leia [o adendo Codex](../CODEX-PARITY.md) e o checkpoint antes de retomar; o texto de planejamento abaixo preserva a referência das fases originais.
+
 > Fonte de produto: `../PRD.md`. Fonte técnica: `../TRD.md`. Telas: `../UI-SPEC.md` + `../screens/`. Fases: `../PHASES.md`.
 > Base inspecionada: `328a646` (main) sobre R2 (`10a059b`/`77b789d`/`328a646`). Inventário do código real feito em P0 — ver `design.md` §0 para os contratos atuais.
 > Este documento fixa requisitos rastreáveis e a matriz REQ → contrato → tela → teste → evidência. Os aceites de produto do PRD são autoritativos; aqui eles ganham contrato e tarefa.

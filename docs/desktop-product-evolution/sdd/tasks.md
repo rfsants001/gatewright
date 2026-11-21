@@ -1,5 +1,7 @@
 # SDD · Evolução do desktop Gatewright — Tasks
 
+> Continuação de 21/11: P0–P7 e P2-004b estão concluídas. Codex com escrita governada, empacotamento e ícones atuais foram acrescentados depois. Leia [o adendo Codex](../CODEX-PARITY.md) e o checkpoint antes de retomar; o texto de planejamento abaixo preserva a referência das fases originais.
+
 > Ordem P0→P7 com dependências de `../PHASES.md`. Cada tarefa é atômica (1 commit, Conventional, **sem Co-authored-by**). "Done when" é o critério objetivo; aceite de produto é validado pela entrada normal do desktop (ver `spec.md` §5/§6). Marcar `[x]` só com evidência. Atualizar `../CHECKPOINT.md` a cada subtarefa.
 >
 > Legenda de dependência: cada fase depende de P0; dependências extras anotadas por tarefa.
@@ -104,3 +106,16 @@ P0 → P1 → {P2 → (P3, P5), P6}; P4 depende de P1+P3; P7 depende de todas. P
 - Ajuda/estados: dialog nativo, foco contido, Escape/retorno, descarte de resposta após desmontar/trocar projeto e scroll em 1440×960, 1120×860 e 780×580. Screenshots e limites do ensaio em `../screens/validation-2026-11-21/README.md`.
 - Regressão final: `npm run check` passou em 961 testes / 127 arquivos. Os três smokes do Electron e a instalação, geração, verificação e remoção reais do Graphify passaram no Linux.
 - A matriz autenticada de hosts e serviços de terceiros é validação de ambiente. Sua ausência não é representada como teste aprovado nem como suporte universal.
+
+## Continuação Codex e ícones — 21/11/2026
+
+Contratos e evidências completos em [CODEX-PARITY.md](../CODEX-PARITY.md).
+
+- [x] CX-001 — política workspace-write, MCP obrigatório e verificação nativa de hooks antes de executar.
+- [x] CX-002 — adapter dos hooks nativos, eventos úteis, contexto do agente/memória e contabilização de cache/modelo.
+- [x] CX-003 — smoke Electron com CLI controlada: edição/teste, diff aprovado, Flow e cancelamento.
+- [x] CX-004 — runtime empacotado no MCP/hook; logo da janela/atalho e assets PNG/ICO/ICNS.
+- [x] CX-005 — suíte 974/130, smokes Linux, AppImage/deb e handshake do MCP empacotado.
+- [ ] CX-A01 — aceite autenticado de edição/teste pelo Codex no piloto Linux. O ensaio nativo local foi impedido pelo bubblewrap; não contornar o sandbox.
+- [ ] CX-A02 — aceite dos instaladores/ícones e fluxos completos no Windows/macOS; assinatura/atualização em entrega própria.
+- [ ] CX-A03 — runtime persistente para configurações externas geradas pelo AppImage após desmontagem. Pacote permanente/checkout estável é o caminho atual.

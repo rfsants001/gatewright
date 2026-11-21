@@ -408,6 +408,13 @@ function IntegrationsPage({ cwd, cwdRef: cwdRefProp, data, operations, opsRef, s
     return { ...snap, steps: merged };
   })();
 
+  async function testCodex() {
+    setHealth((value) => ({ ...value, codexNative: { pending: true } }));
+    const result = await bridgeRequest("terminal.test", { cwd, host: "codex" });
+    if (cwdRefProp.current !== cwd) return;
+    setHealth((value) => ({ ...value, codexNative: result.ok ? result.data : { ready: false, message: result.error } }));
+  }
+
   // Test one integration by name
   async function testOne(name) {
     setHealth((h) => ({ ...h, [name]: { pending: true } }));
@@ -692,8 +699,8 @@ function IntegrationsPage({ cwd, cwdRef: cwdRefProp, data, operations, opsRef, s
           <td>{host.installed ? <Status tone="success">{host.version || "Detectada"}</Status> : "Não detectada"}</td>
           <td><Status tone={host.configuration === "configured" ? "success" : host.configuration === "review" ? "error" : "neutral"}>
             {configLabel[host.configuration] || host.configuration}
-          </Status></td>
-          <td><button type="button" aria-label={`Revisar configuração do ${host.name}`} onClick={() => connect(host)}>Revisar</button></td>
+          </Status>{host.id === "codex" && health.codexNative && <p role="status" className="host-readiness">{health.codexNative.pending ? "Conferindo confiança dos hooks…" : health.codexNative.message}</p>}</td>
+          <td><div className="actions"><button type="button" aria-label={`Revisar configuração do ${host.name}`} onClick={() => connect(host)}>Revisar</button>{host.id === "codex" && <button disabled={!host.installed || health.codexNative?.pending} onClick={testCodex}>Verificar hooks</button>}</div></td>
         </tr>)}</tbody>
       </table></div>
     </section>

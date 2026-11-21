@@ -13,7 +13,7 @@ npm run desktop:dev -- /caminho/do/projeto
 
 O caminho do projeto é opcional. Coloque-o entre aspas se contiver espaços, como em `npm run desktop:dev -- "C:/Meus Projetos/app"`. Depois do build, `npm run desktop` abre a janela diretamente. No Linux, o Electron usa namespaces de usuário ou o helper de sandbox configurado pelo sistema.
 
-No Linux, rode `npm run desktop:install` para criar a entrada no menu. O atalho usa o checkout e o Node existentes. Se mover o checkout ou trocar o caminho do Node, reinstale o atalho e reaplique as conexões dos hosts. Com `gate` instalado no PATH, use `gate desktop` para abrir a janela e `gate dashboard` para usar a interface de terminal.
+No Linux, rode `npm run desktop:install` para criar a entrada no menu. O atalho usa o checkout e o Node existentes e instala a logo atual no tema de ícones do usuário. Rode o comando novamente para atualizar um atalho antigo; feche e reabra a janela para atualizar o ícone em execução. Se mover o checkout ou trocar o caminho do Node, reinstale o atalho e reaplique as conexões dos hosts. Com `gate` instalado no PATH, use `gate desktop` para abrir a janela e `gate dashboard` para usar a interface de terminal.
 
 ## Instalar / compilar da fonte
 
@@ -24,7 +24,7 @@ npm ci
 npm run dist:linux   # produz AppImage e .deb em release/
 ```
 
-Os artefatos ficam em `release/` (ignorado pelo git). O script `dist:linux` gera AppImage (sem instalação, basta tornar executável) e pacote `.deb` (Debian/Ubuntu/Nobara com `dpkg`). O formato `.rpm` é gerado em CI (Ubuntu, RPM 4) via `dist:linux:all`; localmente em Fedora/Nobara com RPM 6 o `rpmbuild` falha por incompatibilidade com fpm 1.9.x — use o AppImage nesse caso.
+Os artefatos ficam em `release/` (ignorado pelo git). O script `dist:linux` gera AppImage (sem instalação, basta tornar executável) e pacote `.deb` (Debian/Ubuntu). O formato `.rpm` é gerado em CI (Ubuntu, RPM 4) via `dist:linux:all`; localmente em Fedora/Nobara com RPM 6 o `rpmbuild` falha por incompatibilidade com fpm 1.9.x — use o AppImage nesse caso.
 
 Para Windows e macOS, os artefatos são gerados pelo workflow de CI a cada tag `v*` e ficam disponíveis como artefatos da action no GitHub (aba _Actions → Release → build on <os>_). Não há assinatura de código nos builds alpha; o macOS pode exibir aviso de Gatekeeper.
 
@@ -48,13 +48,24 @@ npm run pack   # cria release/linux-unpacked/ sem gerar instaladores
 | Origem | Execução do desktop | Terminal |
 | --- | --- | --- |
 | Claude Code | Adapter do binário. Autenticação nativa ou credenciais de API conforme a configuração do usuário e do fornecedor. | MCP e hooks do registro padrão em eventos cobertos. |
-| Codex | Adapter do binário, com sandbox somente leitura para o piloto. | MCP e configuração inline de hooks. O Codex pode exigir confiança no repo e nos hooks. |
+| Codex | CLI nativa em `workspace-write`: edição, comandos/testes, agente/memórias, Flow, revisão de diff e cancelamento. | MCP obrigatório e hooks verificados antes de executar. Revise a configuração e a confiança nativa uma vez; consulte o roteiro abaixo. |
 | Gemini CLI | Adapter de JSONL. | MCP e tradução dos hooks de ferramenta e fim de turno. |
 | OpenCode | Adapter de JSONL. | Registro MCP em `opencode.json` **mais** um plugin gerenciado (`.opencode/plugin/gatewright.js`) que encaminha eventos de ferramenta ao `gate hook opencode`. OpenCode não expõe hooks por comando; o plugin bloqueia via `throw`. Capacidade entregue (API v1 `@opencode-ai/plugin` 1.19.x); **verificar o bloqueio dentro do host continua em aberto**. |
 | Ollama | Endpoint local compatível com OpenAI. Informe um modelo já instalado. | Um host como OpenCode pode usar o modelo e carregar o MCP. |
 | API ou proxy externo | Endpoint compatível com OpenAI, com chave referenciada por ambiente quando necessária. | Configurado no host externo. A execução direta do Gatewright é textual. |
 
 Use login e assinaturas pelas opções oficiais dos hosts. O Gatewright não lê nem repassa tokens OAuth da assinatura. [Claude Code](https://code.claude.com/docs/en/legal-and-compliance) · [Codex MCP](https://developers.openai.com/codex/mcp) · [Gemini MCP](https://geminicli.com/docs/tools/mcp-server/) · [OpenCode MCP](https://opencode.ai/docs/mcp-servers/) · [Ollama](https://docs.ollama.com/api/openai-compatibility)
+
+## Preparar o Codex
+
+1. Instale a CLI Codex e faça login pelo fluxo oficial dela.
+2. No projeto, abra **Integrações → conexão do terminal → Codex**, revise a prévia e aplique.
+3. Abra `codex` nessa mesma pasta pelo terminal. Revise a confiança do projeto e os quatro comandos Gatewright em `/hooks`.
+4. De volta ao aplicativo, clique em **Verificar hooks**. Depois selecione Codex em Tarefas ou no Flow SDD.
+
+O app consulta a confiança nativa antes de cada execução. Uma configuração aplicada ainda pode precisar da revisão no Codex; hooks modificados interrompem o início. A execução não aprova automaticamente comandos fora do sandbox. A rede dos comandos fica desabilitada e as ferramentas MCP que alteram configuração conservam sua aprovação nativa. Ferramentas de consulta Gatewright são liberadas para execução sem interação.
+
+O uso Codex separa entrada sem cache, leitura de cache e saída, sem contar a entrada em cache duas vezes. O modelo selecionado é preservado mesmo quando a CLI omite seu nome no evento de uso. Sem preço disponível, o custo continua desconhecido. Contratos, versão testada e limites em [CODEX-PARITY.md](desktop-product-evolution/CODEX-PARITY.md).
 
 ## Decisões de interface
 
@@ -67,7 +78,7 @@ Use login e assinaturas pelas opções oficiais dos hosts. O Gatewright não lê
 
 ## Arquitetura da janela
 
-O processo principal do Electron abre a janela e liga o renderer React ao subprocesso Node por IPC. O preload expõe apenas seleção de pasta, ações da interface e eventos do runtime. O renderer roda isolado, em sandbox, com Node desabilitado e conteúdo local. O Node externo continua responsável pelas invocações de MCP e hooks. A configuração existente e os journals continuam utilizáveis. [Segurança do Electron](https://www.electronjs.org/docs/latest/tutorial/security/)
+O processo principal do Electron abre a janela e liga o renderer React ao subprocesso Node por IPC. O preload expõe apenas seleção de pasta, ações da interface e eventos do runtime. O renderer roda isolado, em sandbox, com Node desabilitado e conteúdo local. No checkout, o Node externo executa MCP e hooks. Nos pacotes, o Electron fornece esse runtime com `ELECTRON_RUN_AS_NODE=1`, inclusive na configuração dos hosts. Pacotes permanentes mantêm os caminhos disponíveis com a janela fechada; a montagem temporária do AppImage pode invalidar esses caminhos ao encerrar. Para terminais externos persistentes, use instalação permanente ou checkout estável. A configuração existente e os journals continuam utilizáveis. [Segurança do Electron](https://www.electronjs.org/docs/latest/tutorial/security/)
 
 ## Escopo entregue e trabalho restante
 
@@ -75,11 +86,11 @@ P0–P7 e P2-004b da evolução do desktop foram implementadas. Memória, Mapa, 
 
 A visão completa do produto ainda tem frentes distintas:
 
-- **Execução com ferramentas em API/proxy:** o adapter direto atual faz completação textual compatível com OpenAI. Falta o ciclo de chamadas de ferramentas/MCP para editar e executar trabalho por esse caminho. O adapter Codex do desktop continua com `--sandbox read-only` no piloto.
+- **Execução com ferramentas em API/proxy:** o adapter direto atual faz completação textual compatível com OpenAI. Falta o ciclo de chamadas de ferramentas/MCP para editar e executar trabalho por esse caminho. O Codex usa a CLI nativa e já tem política de escrita no workspace; esse caminho é separado do adapter HTTP.
 - **Telemetria de sessões externas:** o painel agrega journals de execução; sessões iniciadas diretamente no terminal precisam de uma fonte de telemetria. Ter MCP/hooks configurados não equivale a receber automaticamente todo o consumo do host.
 - **Cobertura de preços:** a tabela embutida estima famílias Claude. Outros modelos ficam sem custo estimado se não houver preço/custo disponível; a conversão BRL é local e fixa. Configuração extensível e atualização de preços/câmbio são trabalho de produto.
 - **Aceite autenticado:** rodar tarefas reais em Claude/Codex/Gemini/OpenCode, conferir MCP/harness com a janela fechada, comprovar o bloqueio dentro do OpenCode e ensaiar Docker/MCPs/proxies reais. Os smokes novos usam um provedor local controlado.
-- **Distribuição desktop:** instaladores nativos com runtime empacotado, assinatura e atualização ainda precisam de uma entrega própria. A inicialização por Node/npm é multiplataforma; `desktop:install` cria o atalho Linux ligado ao checkout e ao Node existentes.
+- **Distribuição desktop:** pacotes e workflow por tag foram entregues pelo Claude. AppImage e `.deb` foram reconstruídos e o MCP empacotado foi exercitado no Linux. Windows/macOS têm configuração de build e ícones próprios, mas os instaladores nativos ainda exigem aceite nesses sistemas. Assinatura e atualização automática permanecem pendentes. O AppImage tem a limitação de caminhos temporários descrita acima.
 
 A inicialização passou no CI em Linux/macOS/Windows. Os fluxos novos completos foram ensaiados no Linux; ainda falta repetir essa matriz funcional nos outros sistemas. O registro de execução está em [CHECKPOINT.md](desktop-product-evolution/CHECKPOINT.md).
 
@@ -95,7 +106,7 @@ npm run test:desktop:pending
 npm run test:desktop:evolution
 ```
 
-Os smokes usam projetos e perfis temporários em sessão gráfica. O último exercita memória → agente → provedor HTTP local → snapshot → custo → mapa/diff → recuperação → reinício e scroll. Não usa uma assinatura externa. Evidências, versões e limites em [validação de 21/11](desktop-product-evolution/screens/validation-2026-11-21/README.md).
+Os smokes usam projetos e perfis temporários em sessão gráfica. O último exercita memória → agente → provedor HTTP local → snapshot → custo → mapa/diff → recuperação → reinício e scroll. Também usa uma CLI Codex controlada com MCP Gatewright real para conferir confiança, escrita, testes, diff aprovado, Flow, cancelamento e cache. Não usa uma assinatura externa. Evidências, versões e limites em [validação de 21/11](desktop-product-evolution/screens/validation-2026-11-21/README.md).
 
 Graphify instalado pelo app usa `uv venv --allow-existing` e versão fixada. A geração de código executa `python -m graphify extract . --code-only --no-cluster --out .`, produzindo graphify-out/graph.json. A UI lê `nodes` + `edges`/`links`; preserva o último mapa válido se a nova leitura falhar. Exibe até 4.000 nós/12.000 relações de um artefato de até 20 MB; a lista permite acessar resultados fora dos 160 desenhados por vez. Arquivo maior que 512 KB ou binário precisa do editor.
 

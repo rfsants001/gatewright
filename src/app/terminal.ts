@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { applyPlan, planHooks, planMcp, type WritePlan } from "../core/init/config-writers.js";
 import { managedMcpServers, mcpEntry } from "../core/integrations/managed-mcp.js";
-import { gateHookCommand, gateScript, gateServeInvocation } from "../core/init/gate-bin.js";
+import { gateHookCommand, gateRuntimeEnvironment, gateScript, gateServeInvocation } from "../core/init/gate-bin.js";
 
 export const terminalHosts = ["claude-code", "codex", "gemini", "opencode"] as const;
 export type TerminalHost = typeof terminalHosts[number];
@@ -48,6 +48,7 @@ function opencodePluginSource(): string {
 import { spawnSync } from "node:child_process";
 
 const GATE = ${gate};
+const RUNTIME_ENV = ${JSON.stringify(gateRuntimeEnvironment())};
 
 function decide(hook_event_name, tool_name, payload) {
   let decision;
@@ -55,6 +56,7 @@ function decide(hook_event_name, tool_name, payload) {
     const res = spawnSync(GATE[0], GATE.slice(1), {
       input: JSON.stringify({ hook_event_name, tool_name, cwd: process.cwd(), ...payload }),
       encoding: "utf8",
+      env: { ...process.env, ...RUNTIME_ENV },
     });
     const out = (res.stdout || "").trim();
     decision = out ? JSON.parse(out) : null;
@@ -89,7 +91,7 @@ export function planTerminal(cwd: string, host: TerminalHost): WritePlan[] {
     const source = existsSync(path) ? readFileSync(path, "utf8") : "";
     const start = "# BEGIN GATEWRIGHT MCP";
     const end = "# END GATEWRIGHT MCP";
-    const hook = JSON.stringify(gateHookCommand());
+    const hook = JSON.stringify(gateHookCommand("codex"));
     const hookTables = ["PreToolUse", "PostToolUse", "Stop", "SubagentStop"].map((event) =>
       `[[hooks.${event}]]\n[[hooks.${event}.hooks]]\ntype = "command"\ncommand = ${hook}\n`).join("\n");
     const serverTables = servers.map(([name, server]) => {
@@ -97,7 +99,8 @@ export function planTerminal(cwd: string, host: TerminalHost): WritePlan[] {
         : `command = ${JSON.stringify(server.command)}\nargs = ${JSON.stringify(server.args)}`;
       return `[mcp_servers.${name}]\n${attributes}\n\n`;
     }).join("");
-    const managed = `${start}\n[mcp_servers.gatewright]\ncommand = ${JSON.stringify(invocation.command)}\nargs = ${JSON.stringify(invocation.args)}\n\n${serverTables}${hookTables}${end}\n`;
+    const runtimeEnv = invocation.env ? `env = { ELECTRON_RUN_AS_NODE = "1" }\n` : "";
+    const managed = `${start}\n[mcp_servers.gatewright]\ncommand = ${JSON.stringify(invocation.command)}\nargs = ${JSON.stringify(invocation.args)}\nrequired = true\n${runtimeEnv}\n${serverTables}${hookTables}${end}\n`;
     const block = /# BEGIN GATEWRIGHT MCP\n[\s\S]*?\n# END GATEWRIGHT MCP\n?/;
     const unmanaged = source.replace(block, "");
     if (/^\s*\[+\s*mcp_servers\s*\.\s*["']?gatewright\b/m.test(unmanaged) ||
@@ -118,7 +121,7 @@ export function planTerminal(cwd: string, host: TerminalHost): WritePlan[] {
     const extra = Object.fromEntries(servers.map(([name, server]) => [name, server.type === "http"
       ? { type: "remote", url: server.url, enabled: true }
       : { type: "local", command: [server.command, ...server.args], enabled: true }]));
-    const mcp = mergeEntry(mergeManagedEntries(config.mcp, extra), { gatewright: { type: "local", command: [invocation.command, ...invocation.args], enabled: true } });
+    const mcp = mergeEntry(mergeManagedEntries(config.mcp, extra), { gatewright: { type: "local", command: [invocation.command, ...invocation.args], enabled: true, ...(invocation.env ? { environment: invocation.env } : {}) } });
     return [
       writePlan(path, JSON.stringify({ ...config, mcp }, null, 2) + "\n", "Registrar o MCP no OpenCode."),
       writePlan(join(cwd, ".opencode", "plugin", "gatewright.js"), opencodePluginSource(),

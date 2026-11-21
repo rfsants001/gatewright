@@ -49,6 +49,13 @@ function makeCwd(runs: Array<{ slug: string; events: Array<{ kind: EngineEvent["
 }
 
 describe("aggregateUsage", () => {
+  it("uses the run's selected model when the CLI usage event omits it", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "usage-codex-model-"));
+    const journal = openRunJournal(cwd, "codex-run").journal;
+    journal.append({ type: "RUN_CONTEXT", at: new Date().toISOString(), payload: { model: "codex-selected-model" } });
+    appendEngineEvent(journal, { kind: "usage", usage: { tokensIn: 60, tokensOut: 20, cacheRead: 40, cumulative: true } });
+    expect(aggregateUsage(cwd)).toMatchObject({ totalTokensIn: 60, totalCacheRead: 40, byModel: [{ model: "codex-selected-model" }], byRun: [{ model: "codex-selected-model", totalCostBrl: undefined }] });
+  });
   it("uses Claude's cumulative result once and retains the model and reported cost", () => {
     const cwd = mkdtempSync(join(tmpdir(), "gw-usage-cumulative-"));
     const journal = openRunJournal(cwd, "example").journal;

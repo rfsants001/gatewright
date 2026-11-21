@@ -10,14 +10,21 @@ export function gateScript(): string {
   return fileURLToPath(new URL("../../cli/gate.js", import.meta.url));
 }
 
+/** Packaged Electron is also our Node runtime, including when called by an external host. */
+export function gateRuntimeEnvironment(): Record<string, string> {
+  return process.env["ELECTRON_RUN_AS_NODE"] === "1" ? { ELECTRON_RUN_AS_NODE: "1" } : {};
+}
+
 /** Shell command string for a lifecycle hook (PreToolUse, etc.). */
 export function gateHookCommand(host?: string): string {
-  return `${JSON.stringify(process.execPath)} ${JSON.stringify(gateScript())} hook${host ? ` ${host}` : ""}`;
+  const prefix = process.env["ELECTRON_RUN_AS_NODE"] === "1" ? process.platform === "win32" ? 'set "ELECTRON_RUN_AS_NODE=1" && ' : "ELECTRON_RUN_AS_NODE=1 " : "";
+  return `${prefix}${JSON.stringify(process.execPath)} ${JSON.stringify(gateScript())} hook${host ? ` ${host}` : ""}`;
 }
 
 /** command/args form for an MCP server entry (.mcp.json). */
-export function gateServeInvocation(cwd?: string): { command: string; args: string[] } {
-  return { command: process.execPath, args: [gateScript(), "serve", ...(cwd ? [cwd] : [])] };
+export function gateServeInvocation(cwd?: string): { command: string; args: string[]; env?: Record<string, string> } {
+  const env = gateRuntimeEnvironment();
+  return { command: process.execPath, args: [gateScript(), "serve", ...(cwd ? [cwd] : [])], ...(Object.keys(env).length ? { env } : {}) };
 }
 
 /** Whether a hook command string is one of ours (bare `gate hook` or absolute form). */
