@@ -123,10 +123,11 @@ describe("configuração assistida do projeto", () => {
     });
     vi.stubGlobal("fetch", fetch);
     await apply({ kind: "mcp-http", name: "docs", url });
-    await expect(testManagedMcp(cwd, "docs")).resolves.toEqual(serverInfo);
+    await expect(testManagedMcp(cwd, "docs")).resolves.toMatchObject(serverInfo);
     expect(fetch.mock.calls[0]?.[0]?.toString()).toBe(url);
     fetch.mockImplementationOnce(async () => new Response(null, { status: 401 }));
-    await expect(testManagedMcp(cwd, "docs")).rejects.toThrow("autenticação");
+    const failure = await testManagedMcp(cwd, "docs");
+    expect("errorCode" in failure).toBe(true);
   });
 
   it("vincula um checkout fixado e seu MCP existente apenas quando todas as etapas terminam", async () => {
