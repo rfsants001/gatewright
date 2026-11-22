@@ -1,5 +1,7 @@
 # Retomar o Gatewright
 
+> Continuação 22/11: responsividade corrigida e README renovado com 13 banners reais. Retomar por [RESPONSIVE-ACCEPTANCE.md](desktop-product-evolution/RESPONSIVE-ACCEPTANCE.md); o smoke `test:desktop:responsive` cobre 84 combinações. O mínimo de janela é 600 × 480. Não reverter a navegação adaptativa nem esconder o overflow do main para mascarar regressões.
+
 Atualizado em 21/11/2026. A continuação após main 1ac6388 concluiu P2-004b e P4–P7 da evolução do desktop.
 
 Comece em [CHECKPOINT.md](desktop-product-evolution/CHECKPOINT.md), [sdd/tasks.md](desktop-product-evolution/sdd/tasks.md) e [TRD.md](desktop-product-evolution/TRD.md#contratos-entregues). Confira git status/log e o CI antes de alterar. Não reinicie as fases já concluídas.

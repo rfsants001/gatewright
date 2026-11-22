@@ -47,6 +47,9 @@ async function input(selector, value) {
 async function screenshot(name) {
   if (!screenshotDir) return;
   await mkdir(screenshotDir, { recursive: true });
+  await app.evaluate("document.fonts.ready");
+  await app.evaluate("document.activeElement?.blur(); new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))");
+  await app.call("Input.dispatchMouseEvent", { type: "mouseMoved", x: 0, y: 0 });
   const shot = await app.call("Page.captureScreenshot", { format: "png" });
   await writeFile(join(screenshotDir, `${name}.png`), Buffer.from(shot.data, "base64"));
 }
@@ -322,6 +325,10 @@ try {
     "document.querySelector('.operation-details').textContent.includes('Remover recursos pertencentes')",
   );
   await app.click("Fechar detalhes");
+  if (screenshotDir) {
+    await app.evaluate("document.querySelector('[aria-label=\"Atualizar projeto\"]').click()");
+    await app.waitFor("document.querySelector('main').textContent.includes('Recursos removidos')");
+  }
   await screenshot("integrations");
   await app.click("Agentes", ".app-nav button");
   await app.waitFor("document.querySelector('main').textContent.includes('Revisor de API')");
@@ -345,6 +352,16 @@ try {
   assert.equal((await rpc("terminal.test", { host: "codex" })).ready, false);
   await writeFile(join(project, ".gatewright", "fixture-trusted"), "reviewed in controlled fixture");
   assert.equal((await rpc("terminal.test", { host: "codex" })).ready, true);
+  if (screenshotDir) {
+    await app.call("Emulation.setDeviceMetricsOverride", { width: 1440, height: 960, deviceScaleFactor: 1, mobile: false });
+    await app.click("Integrações", ".app-nav button");
+    await app.evaluate("document.querySelector('[aria-label=\"Atualizar projeto\"]').click()");
+    await app.waitFor("Array.from(document.querySelectorAll('tr')).some(row => row.textContent.includes('codex-cli fixture') && row.textContent.includes('Aplicada'))");
+    await app.click("Verificar hooks");
+    await app.waitFor("document.querySelector('.host-readiness')?.textContent.includes('confiáveis')");
+    await app.evaluate("document.querySelector('.host-readiness').closest('section').scrollIntoView({block:'start'})");
+    await screenshot("codex-connections");
+  }
   await app.click("Tarefas", ".app-nav button");
   await input(".form-grid select", "codex");
   await input(".form-grid input", "codex-fixture-model");
@@ -355,8 +372,15 @@ try {
   const request = JSON.parse(await readFile(join(project, ".gatewright", "codex-request.json"), "utf8"));
   assert.equal(request.checkedGate, true);
   assert.equal(request.args[request.args.indexOf("--sandbox") + 1], "workspace-write");
+  await screenshot("codex-tasks");
+  if (screenshotDir) {
+    await app.call("Emulation.setDeviceMetricsOverride", { width: 780, height: 860, deviceScaleFactor: 1, mobile: false });
+    await screenshot("compact-tasks");
+    await app.call("Emulation.setDeviceMetricsOverride", { width: 1440, height: 960, deviceScaleFactor: 1, mobile: false });
+  }
   await app.click("Abrir diff");
   await app.waitFor("document.querySelector('dialog[open]')?.textContent.includes('codex-implementation.txt')");
+  await screenshot("codex-review");
   await app.click("Aprovar revisão");
   await app.waitFor("document.querySelector('dialog[open]') === null");
   const codexUsage = await rpc("usage.get", { days: 7 });
@@ -364,6 +388,7 @@ try {
   await input(".form-panel > label textarea", "FLOW_CODEX_FIXTURE");
   await app.click("Iniciar fluxo SDD");
   await app.waitFor("document.querySelector('dialog[open]')?.textContent.includes('Aprovar etapa do Codex?')");
+  await screenshot("codex-flow");
   await app.click("Encerrar fluxo");
   await app.waitFor("document.querySelector('dialog[open]') === null");
   await input(".form-panel > label textarea", "CANCEL_CODEX_FIXTURE");

@@ -38,7 +38,7 @@ export function TaskHistory({ cwd, request, version, openTask }) {
         </p>
       )}
       {rows.length ? (
-        <div className="table-wrap">
+        <div className="table-wrap" tabIndex={0} role="region" aria-label="Histórico de tarefas">
           <table>
             <thead>
               <tr>

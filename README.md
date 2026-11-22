@@ -34,7 +34,8 @@ The terminal remains a supported surface. Connect each project's MCP and support
 
 ### Desktop screenshots
 
-These banners use current screenshots from the Electron acceptance tests with a disposable project. The provider response, memories, agent and graph are declared test data. A local HTTP provider exercises the real process, protocol and context path; no external subscription is billed.
+Captured from the current Electron app on **22 November 2026**. Each screen has its own banner; the UI runs against disposable project data. Provider responses, costs, memories, agents and the graph are declared fixtures. Codex examples use a controlled CLI connected to the real Gatewright MCP, with no external subscription billed. [Capture sources and reproduction](docs/screenshots/README.md).
+
 
 #### Project
 
@@ -64,7 +65,19 @@ Read or generate a local Graphify code map, search symbols and inspect relations
 
 Choose a terminal tool or provider and, optionally, a saved agent. Run a task directly or start a guided SDD flow with a supported terminal host. Select memory versions, follow the log and open the diff when the task finishes. Task history preserves the original instructions, context and output even when no cost was recorded.
 
-![Current Tasks screen showing an API reviewer, selected memory, a completed local-provider run and persistent history](docs/screenshots/gatewright-tasks.webp)
+![Current Tasks screen showing a completed Codex run, tool output, MCP readiness and persistent task history](docs/screenshots/gatewright-tasks.webp)
+
+#### Diff review
+
+Open the diff after a task and inspect additions, deletions and affected files before recording your decision. Approval is bound to the current diff, HEAD and journal revision; changed work requires a fresh review.
+
+![Current diff review dialog with Codex changes and explicit approval actions](docs/screenshots/gatewright-review.webp)
+
+#### Guided SDD flow
+
+Move from planning to implementation with explicit human decisions. The Flow presents questions and review evidence in the app, preserves the initial context and recovers interrupted work without starting it automatically.
+
+![Current guided Flow dialog waiting for a human decision on a Codex step](docs/screenshots/gatewright-flow.webp)
 
 #### Costs
 
@@ -80,6 +93,12 @@ Connected terminal clients can inspect and recover operations through `integrati
 
 ![Integrations screen showing provider setup, AI proposals, terminal configuration, and MCP connection checks](docs/screenshots/gatewright-integrations.webp)
 
+#### Terminal connections
+
+Review and apply the project connection for Claude Code, Codex, Gemini CLI or OpenCode. For Codex, **Verificar hooks** checks native hook trust before a task can start. Installing configuration and trusting it are separate steps: review the project and hooks in the native CLI first. [Codex setup and validation limits](docs/desktop-product-evolution/CODEX-PARITY.md).
+
+![Current terminal diagnostics with the Codex hook-verification action and readiness message](docs/screenshots/gatewright-connections.webp)
+
 #### Agents
 
 Give an agent a name and objective, then select skills in the order it should follow them. Preview the combined instructions, save the profile, and select it in Tasks or access it through an MCP prompt.
@@ -91,6 +110,12 @@ Give an agent a name and objective, then select skills in the order it should fo
 Write a reusable playbook in Markdown and describe when to use it. Gatewright saves it as a project-local `SKILL.md` that you can use in the agent composer or expose as an MCP prompt. The catalog supports search, category/source filters, full instructions and dependent-agent links.
 
 ![Current searchable Skills catalog with origin and agent dependencies](docs/screenshots/gatewright-skills.webp)
+
+#### Compact windows
+
+The desktop adapts its navigation, panels, forms and dialogs to compact windows. Tables and the code map keep their own scrolling area. The minimum window size is 600 × 480; the layout is also checked at a 480 px effective viewport for display scaling.
+
+![Compact desktop window with wrapped navigation and task panels stacked vertically](docs/screenshots/gatewright-responsive.webp)
 
 
 ## The problem
@@ -252,6 +277,15 @@ npm run desktop:dev
 ```
 
 To open a specific project, run `npm run desktop:dev -- "path/to/project"`. If you already built the project, use `npm run desktop` to launch it directly.
+
+To build installable Linux packages with the bundled runtime:
+
+```sh
+npm run dist:linux       # AppImage and .deb in release/
+npm run dist:linux:all   # also RPM; see the platform notes in docs/DESKTOP.md
+```
+
+The app icon uses the current Gatewright mark on Linux, Windows and macOS. On Linux, `npm run desktop:install` installs or updates a menu shortcut tied to this checkout and its Node runtime. Windows and macOS packaging targets run in the tag-based release workflow. See [installation and package limitations](docs/DESKTOP.md#instalar--compilar-da-fonte).
 
 To use the terminal dashboard, run these commands from the checkout.
 
@@ -530,6 +564,7 @@ npm run build         # build the CLI and desktop renderer
 npm test              # build and run Vitest
 npm run test:watch    # build once and keep Vitest open
 npm run test:desktop  # build and open Electron with a temporary project
+npm run test:desktop:responsive  # compact layouts, local scrolling and dialogs
 ```
 
 Run `npm run test:desktop` in a graphical session. On headless Linux, the CI runs it under Xvfb.
@@ -537,7 +572,7 @@ Run `npm run test:desktop` in a graphical session. On headless Linux, the CI run
 TypeScript, ESM, Vitest. The main test suite is hermetic — no external services (Jev is tested with a
 deterministic stub and a mocked fetch; git-dependent features use a throwaway repo).
 
-Workflow: spec-driven development (specs under `.specs/`, local to the repo) + GitHub Flow —
+Workflow: spec-driven development (SDDs under `docs/desktop-product-evolution/sdd/`; historical `.specs/` stays local) + GitHub Flow —
 one feature per branch off `main`, one PR, human review is the merge gate. Gatewright **dogfoods
 itself**: it governs its own development through the same gates it ships.
 
@@ -555,6 +590,7 @@ npm run check
 npm run test:desktop
 npm run test:desktop:pending
 npm run test:desktop:evolution
+npm run test:desktop:responsive
 ```
 
-The desktop smokes require a graphical session (CI uses Xvfb on Linux) and disposable projects. The evolution smoke verifies context delivery to a controlled local provider, immutable history, cost attribution, map/file/diff navigation, owned-resource recovery, keyboard focus, vertical scroll and restart. Graphify 0.9.114 installation, generation and cleanup were also exercised locally. See [the acceptance record](docs/desktop-product-evolution/screens/validation-2026-11-21/README.md) for evidence and environment limits. Authenticated third-party hosts/proxies still need validation in their own environment; startup CI covers Linux, macOS and Windows.
+The desktop smokes require a graphical session (CI uses Xvfb on Linux) and disposable projects. The evolution smoke verifies context delivery to a controlled local provider, immutable history, cost attribution, map/file/diff navigation, owned-resource recovery, keyboard focus, vertical scroll and restart. Its controlled Codex path covers native-trust readiness, workspace changes, MCP, diff review, Flow, cancellation and cache accounting. The responsive smoke checks all nine views and three editors/details across seven window sizes, including long project names and unbroken content. Graphify 0.9.114 installation, generation and cleanup were also exercised locally. See [the acceptance record](docs/desktop-product-evolution/screens/validation-2026-11-21/README.md) for evidence and environment limits. Authenticated third-party hosts/proxies still need validation in their own environment; startup CI covers Linux, macOS and Windows.

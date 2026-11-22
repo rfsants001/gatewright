@@ -146,7 +146,7 @@ function Project({ cwd, data, loading, recents, busy, open, choose, connect, nav
           {data.hosts.length > 0 && <span className="tag">{detected} de {data.hosts.length} detectados</span>}
         </header>
         {loading && !data.hosts.length && <p className="table-empty" role="status">Procurando ferramentas do terminal…</p>}
-        {!!data.hosts.length && <div className="table-wrap"><table className="host-table">
+        {!!data.hosts.length && <div className="table-wrap" tabIndex={0} role="region" aria-label="Configurações e projetos"><table className="host-table">
           <thead><tr><th scope="col">Ferramenta</th><th scope="col">Instalação</th><th scope="col">Recursos suportados</th><th scope="col"><span className="sr-only">Ações</span></th></tr></thead>
           <tbody>{data.hosts.map((host) => <tr key={host.id}>
             <th scope="row">
@@ -287,7 +287,7 @@ function Settings({ data, saveProvider, propose, testIntegration, connect }) {
     </div>
     <section className="section surface">
       <header className="panel-heading"><div><h2>Diagnóstico da conexão</h2><p>Confira a instalação do host e os arquivos deste projeto. O teste MCP abre uma conexão local com o Gatewright.</p></div></header>
-      <div className="table-wrap"><table>
+      <div className="table-wrap" tabIndex={0} role="region" aria-label="Configurações e projetos"><table>
         <thead><tr><th scope="col">Ferramenta</th><th scope="col">Instalação</th><th scope="col">Configuração</th><th scope="col">Ação</th></tr></thead>
         <tbody>{data.hosts.map((host) => <tr key={host.id}>
           <th scope="row">{host.name}</th>
@@ -665,7 +665,7 @@ function IntegrationsPage({ cwd, cwdRef: cwdRefProp, data, operations, opsRef, s
     {proposal && renderInstallColumn()}
 
     {operationNotice && <p role="status" className="notice">{operationNotice}</p>}
-    {!!operations.length && <section className="surface section"><header className="panel-heading"><div><h2>Histórico de instalações</h2><p>Reabra etapas e confira recursos antes de repetir uma receita.</p></div></header><div className="table-wrap"><table><thead><tr><th>Operação</th><th>Estado</th><th>Atualizada</th><th>Ação</th></tr></thead><tbody>{operations.map((op) => <tr key={op.id}><th>{op.recipeKind}<small className="path-value"> · {op.id.slice(0, 8)}</small></th><td>{({ succeeded: "Concluída", partial: "Verificar recursos", failed: "Encerrada com falha", reverted: "Recursos removidos", running: "Em andamento", pending: "Pendente" })[op.status]}</td><td>{new Date(op.updatedAt).toLocaleString("pt-BR")}</td><td><button onClick={() => onOperation(op)}>Ver operação</button></td></tr>)}</tbody></table></div></section>}
+    {!!operations.length && <section className="surface section"><header className="panel-heading"><div><h2>Histórico de instalações</h2><p>Reabra etapas e confira recursos antes de repetir uma receita.</p></div></header><div className="table-wrap" tabIndex={0} role="region" aria-label="Configurações e projetos"><table><thead><tr><th>Operação</th><th>Estado</th><th>Atualizada</th><th>Ação</th></tr></thead><tbody>{operations.map((op) => <tr key={op.id}><th>{op.recipeKind}<small className="path-value"> · {op.id.slice(0, 8)}</small></th><td>{({ succeeded: "Concluída", partial: "Verificar recursos", failed: "Encerrada com falha", reverted: "Recursos removidos", running: "Em andamento", pending: "Pendente" })[op.status]}</td><td>{new Date(op.updatedAt).toLocaleString("pt-BR")}</td><td><button onClick={() => onOperation(op)}>Ver operação</button></td></tr>)}</tbody></table></div></section>}
     {/* Propose form + provider form */}
     <div className="settings-grid" style={{ marginTop: proposal ? 13 : 0 }}>
       {/* Provider form (unchanged) */}
@@ -687,7 +687,7 @@ function IntegrationsPage({ cwd, cwdRef: cwdRefProp, data, operations, opsRef, s
       <header className="panel-heading">
         <div><h2>Diagnóstico da conexão</h2><p>Confira a instalação do host e os arquivos deste projeto.</p></div>
       </header>
-      <div className="table-wrap"><table>
+      <div className="table-wrap" tabIndex={0} role="region" aria-label="Configurações e projetos"><table>
         <thead><tr>
           <th scope="col">Ferramenta</th>
           <th scope="col">Instalação</th>

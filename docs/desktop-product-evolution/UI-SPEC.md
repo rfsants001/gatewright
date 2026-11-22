@@ -1,5 +1,7 @@
 # Gatewright — especificação das telas propostas
 
+> Layout vigente em 22/11: navegação em linha própria abaixo de 1180 px e três colunas abaixo de 620 px; painéis de Memória/Mapa empilhados abaixo de 920 px, formulários adaptados ao container e métricas em duas colunas na janela compacta. Mínimo nativo: 600 × 480. Contrato e 84 verificações em [RESPONSIVE-ACCEPTANCE.md](RESPONSIVE-ACCEPTANCE.md). As capturas atuais do README estão em docs/screenshots.
+
 ## Entrega integrada em 21/11/2026
 
 P0–P7 e P2-004b implementadas no aplicativo. A validação atual está em [CHECKPOINT.md](CHECKPOINT.md) e [no registro do Electron](screens/validation-2026-11-21/README.md). O material em `ui/` continua sendo uma referência isolada com fixtures; as telas de produção estão em `desktop/renderer/`.

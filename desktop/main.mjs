@@ -133,8 +133,8 @@ function createWindow() {
     title: "Gatewright",
     width: 1240,
     height: 820,
-    minWidth: 760,
-    minHeight: 570,
+    minWidth: 600,
+    minHeight: 480,
     backgroundColor: "#101014",
     show: false,
     webPreferences: {

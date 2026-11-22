@@ -265,7 +265,7 @@ export function SkillsPage({ cwd, cwdRef, catalog, save, onNavigateAgent }) {
     <div className="lib-split">
       <section className="surface">
         <header className="panel-heading"><h2>Skills disponíveis</h2></header>
-        <div className="table-wrap" aria-busy={loading ? "true" : "false"}>
+        <div className="table-wrap" tabIndex={0} role="region" aria-label="Biblioteca de skills" aria-busy={loading ? "true" : "false"}>
           {skills.length > 0
             ? <table>
               <thead><tr>

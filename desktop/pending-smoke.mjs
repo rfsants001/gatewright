@@ -41,6 +41,7 @@ try {
   finishOperation(project, operationId, "failed");
 
   let app = await launch();
+  if (screenshotDir) await app.call("Emulation.setDeviceMetricsOverride", { width: 1440, height: 960, deviceScaleFactor: 1, mobile: false });
   await app.click("Pendências", ".project-sections button");
   await app.waitFor("document.querySelectorAll('.pending-list li').length === 2");
   if (screenshotDir) {

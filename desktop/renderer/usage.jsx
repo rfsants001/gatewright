@@ -155,7 +155,7 @@ export function Usage({ usage: initialUsage, heading, cwd, request, openTask }) 
     </section>
     <section className="section table-panel surface">
       <header className="panel-heading"><div><h2>Execuções recentes</h2><p>{filter ? `Filtro: ${filter.label} · clique no grupo para limpar` : `Execuções com medição nos últimos ${period} dias`}</p></div></header>
-      {runs.length ? <div className="table-wrap"><table>
+      {runs.length ? <div className="table-wrap" tabIndex={0} role="region" aria-label="Consumo por execução"><table>
         <thead><tr><th scope="col">Execução</th><th scope="col">Registrada em</th><th scope="col">Modelo</th><th scope="col">Entrada</th><th scope="col">Saída</th><th scope="col">Cache</th><th scope="col">Custo</th></tr></thead>
         <tbody>{runs.filter((run) => !filter || filter.runIds.includes(run.runSlug)).map((run) => <tr key={run.runSlug}>
           <th scope="row"><button className="link-button" onClick={() => inspect(run.runSlug)} title={run.runSlug}>{run.runSlug.length > 18 ? `${run.runSlug.slice(0, 16)}…` : run.runSlug}</button></th>

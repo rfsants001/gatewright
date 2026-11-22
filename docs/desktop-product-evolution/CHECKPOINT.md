@@ -1,5 +1,7 @@
 # Checkpoint da implementação
 
+> Continuação 22/11: responsividade e galeria atualizadas. Leia [RESPONSIVE-ACCEPTANCE.md](RESPONSIVE-ACCEPTANCE.md): 84 verificações de layout, nove telas e três painéis em sete tamanhos, mínimo nativo de 600 × 480 e 13 banners reais no README. O CI Linux inclui o novo smoke.
+
 Atualizado em 21/11/2026 pelo Codex. P2-004b e P4–P7 foram concluídas em `a6ab1bf`. O Claude acrescentou empacotamento (`1f7792c`) e dogfooding (`537470f`) sobre `1fdf24c`; ambos foram preservados. A continuação entrega Codex com escrita governada e ícones nativos da marca. Conferir git status/log e [CODEX-PARITY.md](CODEX-PARITY.md) antes de editar.
 
 ## Estado atual

@@ -1,5 +1,7 @@
 # SDD · Evolução do desktop Gatewright — Spec
 
+> Aceite complementar 22/11: as nove telas e três painéis devem manter navegação, formulários e ações dentro do viewport, permitir alcançar o fim vertical e preservar a rolagem local dos dados, inclusive com conteúdo longo. Matriz e evidência: [RESPONSIVE-ACCEPTANCE.md](../RESPONSIVE-ACCEPTANCE.md).
+
 > Continuação de 21/11: P0–P7 e P2-004b estão concluídas. Codex com escrita governada, empacotamento e ícones atuais foram acrescentados depois. Leia [o adendo Codex](../CODEX-PARITY.md) e o checkpoint antes de retomar; o texto de planejamento abaixo preserva a referência das fases originais.
 
 > Fonte de produto: `../PRD.md`. Fonte técnica: `../TRD.md`. Telas: `../UI-SPEC.md` + `../screens/`. Fases: `../PHASES.md`.

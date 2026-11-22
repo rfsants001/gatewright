@@ -119,3 +119,14 @@ Contratos e evidências completos em [CODEX-PARITY.md](../CODEX-PARITY.md).
 - [ ] CX-A01 — aceite autenticado de edição/teste pelo Codex no piloto Linux. O ensaio nativo local foi impedido pelo bubblewrap; não contornar o sandbox.
 - [ ] CX-A02 — aceite dos instaladores/ícones e fluxos completos no Windows/macOS; assinatura/atualização em entrega própria.
 - [ ] CX-A03 — runtime persistente para configurações externas geradas pelo AppImage após desmontagem. Pacote permanente/checkout estável é o caminho atual.
+
+
+## Responsividade e README — 22/11/2026
+
+- [x] RS-001 — reproduzir corte do cabeçalho e overflow de textos longos no agente.
+- [x] RS-002 — adaptar navegação, formulários, grades, métricas, textos e diálogos; mínimo 600 × 480.
+- [x] RS-003 — smoke Electron: nove telas + três painéis × sete tamanhos; 84 verificações e rolagem local.
+- [x] RS-004 — galeria do README com 13 banners reais e geração reproduzível.
+- [x] RS-005 — conectar smoke responsivo ao script npm e ao CI Linux; atualizar contratos e retomada.
+
+Evidências em [RESPONSIVE-ACCEPTANCE.md](../RESPONSIVE-ACCEPTANCE.md). O renderer do aplicativo é a fonte das capturas; não alterar dados no bitmap.

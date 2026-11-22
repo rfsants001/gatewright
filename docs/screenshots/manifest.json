@@ -1,0 +1,110 @@
+{
+  "capturedOn": "2026-11-22",
+  "data": "Disposable fixtures; no authenticated provider billing",
+  "screens": [
+    {
+      "banner": "gatewright-project.webp",
+      "capture": "evolution/project.png",
+      "captureSha256": "c9d299e64b2d755ce8f9ddeda3c5fbe2f1c71ecb396e354bfb79dc7726818695",
+      "bannerSha256": "67c70e85d44c531865928fc80bcf68f2c2a65687d3d55f2cc3e10fb83243de25",
+      "width": 1504,
+      "height": 1134
+    },
+    {
+      "banner": "gatewright-pending.webp",
+      "capture": "pending/pending-overview.png",
+      "captureSha256": "1a87fa9315908ae7ab5ea35b701ccc0f3617abfaea1aac8360afa1a4b5b6b8e4",
+      "bannerSha256": "9fde08253cd466ae4fe2efa64a01407f74eb9fd6b817ba9b33155645f0c29472",
+      "width": 1504,
+      "height": 1134
+    },
+    {
+      "banner": "gatewright-memory.webp",
+      "capture": "evolution/memory.png",
+      "captureSha256": "33669068938586d9cab753ddd25446c52fb9ebac5b54f4a953e68e16e41d632b",
+      "bannerSha256": "658768479965895340807bfddee736e755154c8a2d841babb63dfb90ec84e92d",
+      "width": 1504,
+      "height": 1134
+    },
+    {
+      "banner": "gatewright-map.webp",
+      "capture": "evolution/map.png",
+      "captureSha256": "e525890a0f4a28e2d4bf1f7d472ebe266f16a2b624fc7edfc06aba616a10b75a",
+      "bannerSha256": "bb81715fa42e42b873cd9a2ec0d87fa8e6dab4c77446399dc29137e29d1931e7",
+      "width": 1504,
+      "height": 1134
+    },
+    {
+      "banner": "gatewright-tasks.webp",
+      "capture": "evolution/codex-tasks.png",
+      "captureSha256": "7918639aea17f3b7adb4ca6eaf5be9339f3047482997d60715938750b744f6ca",
+      "bannerSha256": "adbf5a494d27d5e3cb1ee3082f8837f43484e28e106b2396053b36ffd1181c75",
+      "width": 1504,
+      "height": 1134
+    },
+    {
+      "banner": "gatewright-review.webp",
+      "capture": "evolution/codex-review.png",
+      "captureSha256": "7141849cd28aa03df55c2ccd1cc5f9123b5d282f5deb864b49b62513e67bcc2c",
+      "bannerSha256": "03c7bfcae0a23af7bbdf9e5fc93794efc69a1831e49546e91f583ea90efdb4ca",
+      "width": 1504,
+      "height": 1134
+    },
+    {
+      "banner": "gatewright-flow.webp",
+      "capture": "evolution/codex-flow.png",
+      "captureSha256": "6820be25433e8cac8f4a0babe2d3e1fc2b06357bc01de6c414603407238c01e1",
+      "bannerSha256": "681ffe9c2b3cc20519fc102d8303d0f017ae4463e03490156f255eea26d9cad8",
+      "width": 1504,
+      "height": 1134
+    },
+    {
+      "banner": "gatewright-costs.webp",
+      "capture": "evolution/costs.png",
+      "captureSha256": "6c141605ed58dc821629e61c8c910e5e3779b565221ee16325f27fca3c5235b4",
+      "bannerSha256": "29ecbf8366b18dba0e553c9955290ca643bfa5ef93f8c14a06b439a4edb66dce",
+      "width": 1504,
+      "height": 1134
+    },
+    {
+      "banner": "gatewright-integrations.webp",
+      "capture": "evolution/integrations.png",
+      "captureSha256": "1fc819e8cc3c4aeae2227a8f1257580c04d5c25222c4894dfd6c2856ec94c713",
+      "bannerSha256": "c0a61fe02eb301ed62d923406841e7b9f88af6d0ea876d19a766f11286d64f31",
+      "width": 1504,
+      "height": 1134
+    },
+    {
+      "banner": "gatewright-connections.webp",
+      "capture": "evolution/codex-connections.png",
+      "captureSha256": "f9bd93a5263de8ca5d41f99311196af74ef5f6c65005d8ebf320108c4adf7d1b",
+      "bannerSha256": "d7c48a2659d240747e61a4d2253590f487b0dc87abe9397e1285cb3f9e9b1311",
+      "width": 1504,
+      "height": 1134
+    },
+    {
+      "banner": "gatewright-agents.webp",
+      "capture": "evolution/agents.png",
+      "captureSha256": "62f55d225a2767066c39f1e737b43266827e8589c4767447e9fbc6048a4be9bd",
+      "bannerSha256": "b95b4b7539496c5776c916d720f9c1f9b8a12bb6489575f8ab3368bbcbd2e545",
+      "width": 1504,
+      "height": 1134
+    },
+    {
+      "banner": "gatewright-skills.webp",
+      "capture": "evolution/skills.png",
+      "captureSha256": "be2582cfdb102130a55a3889597ed226753076e782a0ff392e7361e57021db87",
+      "bannerSha256": "7fda5d2e6e9abeee145f192eaeee313d31c8574124f241d771cec96269b30592",
+      "width": 1504,
+      "height": 1134
+    },
+    {
+      "banner": "gatewright-responsive.webp",
+      "capture": "evolution/compact-tasks.png",
+      "captureSha256": "335ad7708272bee1a7e208fd477209213ea9cd418a0d9999732b2fea0d2d76b7",
+      "bannerSha256": "0deb87d65d192c05a17e4dea05094cbce6f1dbe73b45978e8b706f5e5c3599b0",
+      "width": 844,
+      "height": 1034
+    }
+  ]
+}

@@ -50,6 +50,7 @@ jobs:
         run: |
           xvfb-run -a npm run test:desktop:pending
           xvfb-run -a npm run test:desktop:evolution
+          xvfb-run -a npm run test:desktop:responsive
       - name: Open a project on macOS or Windows
         if: runner.os != 'Linux'
         run: npm run test:desktop

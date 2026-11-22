@@ -67,6 +67,12 @@ O app consulta a confiança nativa antes de cada execução. Uma configuração 
 
 O uso Codex separa entrada sem cache, leitura de cache e saída, sem contar a entrada em cache duas vezes. O modelo selecionado é preservado mesmo quando a CLI omite seu nome no evento de uso. Sem preço disponível, o custo continua desconhecido. Contratos, versão testada e limites em [CODEX-PARITY.md](desktop-product-evolution/CODEX-PARITY.md).
 
+## Janelas compactas
+
+A janela aceita mínimo de **600 × 480**. A navegação passa para uma linha própria em larguras menores, e os painéis se empilham conforme a área disponível. Formulários respondem à largura do painel. Memória/Mapa, métricas, textos longos e diálogos conservam seus controles acessíveis. Tabelas e mapa têm rolagem local; o conteúdo da página conserva rolagem vertical.
+
+`npm run test:desktop:responsive` verifica nove telas e três editores/detalhes em sete tamanhos, inclusive viewport efetivo de 480 px. Evidência e limites em [RESPONSIVE-ACCEPTANCE.md](desktop-product-evolution/RESPONSIVE-ACCEPTANCE.md). Capturas atuais e receita dos banners em [screenshots/README.md](screenshots/README.md).
+
 ## Decisões de interface
 
 - A navegação superior mantém Projeto, Tarefas, Custos, Integrações, Agentes e Skills. Projeto reúne Resumo, Pendências, Memória e Mapa.
@@ -104,6 +110,7 @@ Use `npm run test:desktop:pending` em sessão gráfica. O comando compila o apli
 npm run test:desktop
 npm run test:desktop:pending
 npm run test:desktop:evolution
+npm run test:desktop:responsive
 ```
 
 Os smokes usam projetos e perfis temporários em sessão gráfica. O último exercita memória → agente → provedor HTTP local → snapshot → custo → mapa/diff → recuperação → reinício e scroll. Também usa uma CLI Codex controlada com MCP Gatewright real para conferir confiança, escrita, testes, diff aprovado, Flow, cancelamento e cache. Não usa uma assinatura externa. Evidências, versões e limites em [validação de 21/11](desktop-product-evolution/screens/validation-2026-11-21/README.md).
