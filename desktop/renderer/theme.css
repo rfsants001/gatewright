@@ -190,10 +190,14 @@ tbody th { font-weight: 530; overflow-wrap: anywhere; }
 .table-action { min-height: 26px; padding: 3px 6px; border-color: transparent; background: transparent; font-size: 11px; gap: 2px; }
 .table-action:hover { background: var(--selected); color: var(--accent); border-color: transparent; }
 .recent { width: 100%; justify-content: flex-start; text-align: left; padding: 8px 12px; background: transparent; border: 0; border-radius: 0; color: var(--muted); }
-.recent + .recent { border-top: 1px solid var(--line); }
 .recent strong { color: var(--text); }
 .recent span { display: grid; flex: 1; min-width: 0; }
 .recent small { color: var(--soft); overflow: hidden; text-overflow: ellipsis; }
+.recent-row { display: flex; align-items: center; }
+.recent-row + .recent-row { border-top: 1px solid var(--line); }
+.recent-row .recent { width: auto; flex: 1; min-width: 0; }
+.recent-remove { padding: 8px 12px; margin-right: 4px; background: transparent; border: 0; border-radius: 0; color: var(--soft); }
+.recent-remove:hover { color: var(--error); background: var(--selected); }
 .empty { padding: 25px; }
 .empty h1 { font-size: clamp(21px, 2.4vw, 27px); }
 .empty p { margin-top: 5px; }

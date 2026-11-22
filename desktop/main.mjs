@@ -10,7 +10,7 @@ const renderer = fileURLToPath(new URL("./renderer/index.html", import.meta.url)
 const rendererUrl = pathToFileURL(renderer).href;
 const appIcon = fileURLToPath(new URL("./icon.png", import.meta.url));
 const methods = new Set([
-  "projects", "open", "snapshot", "terminal.preview", "terminal.apply", "terminal.test", "provider.save",
+  "projects", "projects.remove", "open", "snapshot", "terminal.preview", "terminal.apply", "terminal.test", "provider.save",
   "skill.save", "agent.preview", "agent.save", "agent.update", "agent.delete",
   "skills.list", "skills.detail", "integration.test", "integration.operation.get", "integration.operation.inspect", "integration.operation.recover",
   "customize.propose", "customize.apply", "run", "cancel", "review", "review.decide",
