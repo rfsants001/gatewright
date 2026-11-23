@@ -29,6 +29,8 @@ function startBridge(): { proc: ChildProcess; rpc: (method: string, params: Reco
   }
   const proc = spawn(process.execPath, [GATE_CLI, "bridge"], {
     stdio: ["pipe", "pipe", "pipe"],
+    // Isolate the registry so e2e never writes to the real ~/.gatewright/projects.json.
+    env: { ...process.env, GATEWRIGHT_PROJECTS: join(registryDir, "projects.json") },
   });
 
   // Accumulate stdout lines until we match by id.
@@ -109,10 +111,12 @@ function mutateDiff(cwd: string): void {
 // ── test state ────────────────────────────────────────────────────────────────
 
 let tmpDir = "";
+let registryDir = "";
 let bridge: ReturnType<typeof startBridge>;
 
 beforeEach(() => {
   tmpDir = initGitRepo();
+  registryDir = mkdtempSync(join(tmpdir(), "bridge-e2e-reg-"));
   bridge = startBridge();
 });
 
@@ -120,6 +124,7 @@ afterEach(async () => {
   bridge.proc.stdin!.end();
   await new Promise<void>((resolve) => bridge.proc.on("close", resolve));
   if (tmpDir) rmSync(tmpDir, { recursive: true, force: true });
+  if (registryDir) rmSync(registryDir, { recursive: true, force: true });
 });
 
 // A valid UUID-ish run id that satisfies bridge's regex check.

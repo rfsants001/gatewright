@@ -2,8 +2,8 @@
 // through the bridge JSONL protocol.
 //
 // Harness is identical to bridge.e2e.test.ts — compiled subprocess, temp git repo,
-// GATEWRIGHT_PROJECTS not set (open() registers the project in the subprocess's
-// in-process registry, so no cross-process file is needed).
+// and GATEWRIGHT_PROJECTS pointed at a throwaway temp file so open() never writes
+// to the developer's real ~/.gatewright/projects.json.
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { type ChildProcess, spawn } from "node:child_process";
@@ -27,6 +27,8 @@ function startBridge(): {
   }
   const proc = spawn(process.execPath, [GATE_CLI, "bridge"], {
     stdio: ["pipe", "pipe", "pipe"],
+    // Isolate the registry so e2e never writes to the real ~/.gatewright/projects.json.
+    env: { ...process.env, GATEWRIGHT_PROJECTS: join(registryDir, "projects.json") },
   });
 
   const pending = new Map<number, (line: { result?: unknown; error?: string }) => void>();
@@ -103,10 +105,12 @@ const BASE_AGENT = {
 // ── test state ────────────────────────────────────────────────────────────────
 
 let tmpDir = "";
+let registryDir = "";
 let bridge: ReturnType<typeof startBridge>;
 
 beforeEach(() => {
   tmpDir = initGitRepo();
+  registryDir = mkdtempSync(join(tmpdir(), "bridge-skills-reg-"));
   bridge = startBridge();
 });
 
@@ -114,6 +118,7 @@ afterEach(async () => {
   bridge.proc.stdin!.end();
   await new Promise<void>((resolve) => bridge.proc.on("close", resolve));
   if (tmpDir) rmSync(tmpDir, { recursive: true, force: true });
+  if (registryDir) rmSync(registryDir, { recursive: true, force: true });
 });
 
 // ── agent.update ──────────────────────────────────────────────────────────────

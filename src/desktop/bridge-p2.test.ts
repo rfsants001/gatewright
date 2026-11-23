@@ -30,6 +30,8 @@ function startBridge(): {
   }
   const proc = spawn(process.execPath, [GATE_CLI, "bridge"], {
     stdio: ["pipe", "pipe", "pipe"],
+    // Isolate the registry so e2e never writes to the real ~/.gatewright/projects.json.
+    env: { ...process.env, GATEWRIGHT_PROJECTS: join(registryDir, "projects.json") },
   });
 
   const pending = new Map<number, (r: RpcReply) => void>();
@@ -109,10 +111,12 @@ function seedMcpHttpConfig(cwd: string, name: string, url: string): void {
 // ── test state ────────────────────────────────────────────────────────────────
 
 let tmpDir = "";
+let registryDir = "";
 let bridge: ReturnType<typeof startBridge>;
 
 beforeEach(() => {
   tmpDir = initGitRepo();
+  registryDir = mkdtempSync(join(tmpdir(), "bridge-p2-reg-"));
   bridge = startBridge();
 });
 
@@ -120,6 +124,7 @@ afterEach(async () => {
   bridge.proc.stdin!.end();
   await new Promise<void>((resolve) => bridge.proc.on("close", resolve));
   if (tmpDir) rmSync(tmpDir, { recursive: true, force: true });
+  if (registryDir) rmSync(registryDir, { recursive: true, force: true });
 });
 
 // ── P2-002: revision lock ─────────────────────────────────────────────────────
