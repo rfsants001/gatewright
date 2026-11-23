@@ -174,6 +174,12 @@ export async function serveDesktop(): Promise<void> {
 
   async function call(method: string, params: unknown): Promise<unknown> {
     if (method === "projects") return projects.list();
+    if (method === "projects.remove") {
+      // Forget a project from the global registry only — never touches the
+      // project folder or its .gatewright config on disk.
+      projects.remove(z.object({ path: z.string() }).parse(params).path);
+      return projects.list();
+    }
     if (method === "cancel") {
       active.get(z.object({ runId: z.string() }).parse(params).runId)?.cancel();
       return null;

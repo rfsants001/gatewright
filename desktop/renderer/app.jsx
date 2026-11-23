@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import {
   ArrowRight, ChartNoAxesColumnIncreasing, ChevronRight, CircleAlert, CircleCheck, CircleDot,
   CircleHelp, ClipboardList, Clock3, FileText, FolderGit2, FolderOpen, GitCompareArrows,
-  Layers, Network, Play, Plus, Plug, RefreshCw, Shield, Square, Terminal, TriangleAlert, X,
+  Layers, Network, Play, Plus, Plug, RefreshCw, Shield, Square, Terminal, Trash2, TriangleAlert, X,
 } from "lucide-react";
 import { AgentsPage, SkillsPage } from "./library.jsx";
 import { OperationDetails, PendingPage } from "./pending.jsx";
@@ -126,7 +126,7 @@ function ResumedRunPanel({ title, onResume, onStop }) {
   </dialog>;
 }
 
-function Project({ cwd, data, loading, recents, busy, open, choose, connect, navigate }) {
+function Project({ cwd, data, loading, recents, busy, open, choose, connect, navigate, removeProject }) {
   const otherProjects = recents.filter((item) => item.path !== cwd);
   const detected = data.hosts.filter((host) => host.installed).length;
   return <>
@@ -167,9 +167,14 @@ function Project({ cwd, data, loading, recents, busy, open, choose, connect, nav
     </div>}
     {!!otherProjects.length && <section className="section surface table-panel">
       <header className="panel-heading"><h2>Projetos recentes</h2></header>
-      <div className="rows">{otherProjects.map(({ path, name }) => <button key={path} className="recent" onClick={() => open(path)} disabled={busy}>
-        <Clock3 size={15} aria-hidden="true" /><span><strong>{name}</strong><small>{path}</small></span><ChevronRight size={15} aria-hidden="true" />
-      </button>)}</div>
+      <div className="rows">{otherProjects.map(({ path, name }) => <div key={path} className="recent-row">
+        <button className="recent" onClick={() => open(path)} disabled={busy}>
+          <Clock3 size={15} aria-hidden="true" /><span><strong>{name}</strong><small>{path}</small></span><ChevronRight size={15} aria-hidden="true" />
+        </button>
+        <button className="recent-remove" aria-label={`Remover ${name} da lista`} title="Remover da lista" disabled={busy} onClick={() => removeProject(path, name)}>
+          <Trash2 size={15} aria-hidden="true" />
+        </button>
+      </div>)}</div>
     </section>}
   </>;
 }
@@ -858,6 +863,23 @@ function App() {
     if (result.ok) setRecents(result.data);
   }
 
+  function removeProject(path, name) {
+    setModal({
+      title: "Remover projeto da lista",
+      summary: name,
+      body: <p>Remover <strong>{name}</strong> da lista de projetos recentes? Isto só apaga o registro no Gatewright — os arquivos do projeto e a configuração em <code>.gatewright/</code> continuam no disco.</p>,
+      label: "Remover da lista",
+      confirm: async () => {
+        const result = await request("projects.remove", { path });
+        if (result.ok) {
+          setRecents(result.data);
+          notify(`${name} removido da lista.`, "neutral");
+        }
+        setModal(null);
+      },
+    });
+  }
+
   async function refresh(project = cwdRef.current) {
     if (!project) return;
     const version = ++refreshId.current;
@@ -1215,7 +1237,7 @@ function App() {
         ? <MemoryPage key={cwd} cwd={cwd} request={bridgeRequest} agents={data.agents} />
         : projectSection === "pending" && cwd
         ? <PendingPage key={cwd} cwd={cwd} version={pendingVersion} request={bridgeRequest} onOpen={openPending} />
-        : <Project {...{ cwd, data, loading, recents, busy, open, choose, connect, navigate: setPage }} />
+        : <Project {...{ cwd, data, loading, recents, busy, open, choose, connect, navigate: setPage, removeProject }} />
         : !cwd ? <Empty title="Abra um projeto" action={<button className="primary" onClick={choose}>Abrir pasta…</button>}>
           Escolha a pasta do repositório para continuar.
         </Empty> : page === "execution" ? <><Execution {...{
