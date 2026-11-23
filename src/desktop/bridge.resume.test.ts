@@ -77,6 +77,8 @@ function startBridge(): BridgeHandle {
 
   const proc = spawn(process.execPath, [GATE_CLI, "bridge"], {
     stdio: ["pipe", "pipe", "pipe"],
+    // Isolate the registry so e2e never writes to the real ~/.gatewright/projects.json.
+    env: { ...process.env, GATEWRIGHT_PROJECTS: join(registryDir, "projects.json") },
   });
 
   // ── rpc bookkeeping ──
@@ -210,10 +212,12 @@ function seedRunJournal(cwd: string, runId: string): void {
 // ── test state ────────────────────────────────────────────────────────────────
 
 let tmpDir = "";
+let registryDir = "";
 let bridge: BridgeHandle;
 
 beforeEach(() => {
   tmpDir = initGitRepo();
+  registryDir = mkdtempSync(join(tmpdir(), "bridge-resume-reg-"));
   bridge = startBridge();
 });
 
@@ -221,6 +225,7 @@ afterEach(async () => {
   bridge.proc.stdin!.end();
   await new Promise<void>((resolve) => bridge.proc.on("close", resolve));
   if (tmpDir) rmSync(tmpDir, { recursive: true, force: true });
+  if (registryDir) rmSync(registryDir, { recursive: true, force: true });
 });
 
 // ── tests ─────────────────────────────────────────────────────────────────────
