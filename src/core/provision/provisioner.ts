@@ -5,11 +5,13 @@
 import { execFile } from "node:child_process";
 import { ConfigStore, type PackageRecord } from "../config/config-store.js";
 import { FileArtifactStore } from "../artifact-store/artifact-store.js";
+import { commandPath } from "../env/probes.js";
 import type { Executor, ProvisionResult, ProvisionTool, StepOutcome } from "./types.js";
 
 export const defaultExecutor: Executor = (step) =>
   new Promise((resolve) => {
-    execFile(step.command, step.args, { cwd: step.cwd, timeout: 300_000, maxBuffer: 10 * 1024 * 1024 }, (err, stdout, stderr) => {
+    // Enrich PATH so install steps (npm/npx/docker/git) resolve under the GUI's minimal PATH.
+    execFile(step.command, step.args, { cwd: step.cwd, timeout: 300_000, maxBuffer: 10 * 1024 * 1024, env: { ...process.env, PATH: commandPath() } }, (err, stdout, stderr) => {
       const output = `${stdout ?? ""}${stderr ?? ""}`.trim();
       resolve({ ok: !err, output: output || (err ? err.message : ""), stdout: stdout.trim() });
     });

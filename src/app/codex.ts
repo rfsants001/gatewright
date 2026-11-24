@@ -6,6 +6,7 @@ import { codexExecutable } from "../core/engine/codex-executable.js";
 import { codexCommand } from "../core/engine/codex-command.js";
 import { gateHookCommand } from "../core/init/gate-bin.js";
 import { terminalConfigStatus } from "./terminal.js";
+import { commandPath } from "../core/env/probes.js";
 
 const hook = z.object({
   eventName: z.string(),
@@ -40,6 +41,8 @@ export function codexEnvironment(): NodeJS.ProcessEnv {
     "GATEWRIGHT_CODEX_RUN",
   ])
     delete env[key];
+  // Enrich PATH so `codex` resolves under the GUI's minimal PATH (fnm/nvm/npm-global).
+  env["PATH"] = commandPath();
   return env;
 }
 

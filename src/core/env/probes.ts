@@ -16,26 +16,30 @@ export type CommandProbe = (bin: string, args?: string[]) => string | null;
 // even when they are. We resolve the user's real login-shell PATH once and merge
 // it in, so detection in the GUI matches what the terminal (TUI) already sees.
 const PATH_MARK = "__GW_PATH_7f3a__";
-let enrichedPathCache: string | undefined;
+let loginShellPathCache: string | undefined;
 
-/** The PATH a fresh login+interactive shell exports (runs rc files that set up fnm/nvm/…). */
+/** The PATH a fresh login+interactive shell exports (runs rc files that set up fnm/nvm/…). Memoized — it spawns a shell. */
 function loginShellPath(): string {
+  if (loginShellPathCache !== undefined) return loginShellPathCache;
   const shell = process.env["SHELL"];
-  if (!shell || process.platform === "win32") return "";
+  if (!shell || process.platform === "win32") return (loginShellPathCache = "");
   try {
     const raw = execFileSync(shell, ["-lic", `printf '${PATH_MARK}%s${PATH_MARK}' "$PATH"`], {
       encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: 4000,
     });
     // Markers isolate the PATH from any banner/rc noise the shell prints on stdout.
-    return new RegExp(`${PATH_MARK}([\\s\\S]*?)${PATH_MARK}`).exec(raw)?.[1] ?? "";
+    return (loginShellPathCache = new RegExp(`${PATH_MARK}([\\s\\S]*?)${PATH_MARK}`).exec(raw)?.[1] ?? "");
   } catch {
-    return "";
+    return (loginShellPathCache = "");
   }
 }
 
-/** process PATH ∪ login-shell PATH ∪ common install dirs, de-duplicated, order-preserving. Memoized. */
+/**
+ * process PATH ∪ login-shell PATH ∪ common install dirs, de-duplicated, order-preserving.
+ * The current process.env.PATH is read fresh and kept first (so an explicit PATH still wins);
+ * only the expensive login-shell lookup is memoized.
+ */
 function enrichedPath(): string {
-  if (enrichedPathCache !== undefined) return enrichedPathCache;
   const home = homedir();
   const fallbacks = [
     join(home, ".local", "bin"), "/usr/local/bin", join(home, ".bun", "bin"),
@@ -43,11 +47,10 @@ function enrichedPath(): string {
     join(home, ".cargo", "bin"), "/opt/homebrew/bin",
   ];
   const seen = new Set<string>();
-  enrichedPathCache = [process.env["PATH"] ?? "", loginShellPath(), ...fallbacks]
+  return [process.env["PATH"] ?? "", loginShellPath(), ...fallbacks]
     .join(delimiter).split(delimiter)
     .filter((p) => p && !seen.has(p) && (seen.add(p), true))
     .join(delimiter);
-  return enrichedPathCache;
 }
 
 /** Default command probe: returns trimmed stdout, or null when the binary is absent. */

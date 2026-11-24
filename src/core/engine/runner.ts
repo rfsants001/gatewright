@@ -12,6 +12,7 @@ import { canTransition, type ControlState } from "../control/control-state.js";
 import type { RunBindingStore } from "../run-binding/run-binding-store.js";
 import type { EngineAdapter, EngineCommand, EngineEvent, EngineRunOptions } from "./types.js";
 import { appendEngineEvent, openRunJournal, sanitizeSlug, type RunJournal } from "./run-journal.js";
+import { commandPath } from "../env/probes.js";
 
 /** Minimal stream shape we depend on (node Readable satisfies it). */
 export interface ReadableLike {
@@ -32,7 +33,10 @@ export type SpawnFn = (cmd: EngineCommand, cwd: string) => ChildLike;
 export const defaultSpawn: SpawnFn = (cmd, cwd) =>
   // stdin is closed (ignore) so the engine doesn't wait on an open pipe it'll never
   // get — otherwise `claude -p` warns "no stdin data received in 3s".
-  nodeSpawn(cmd.bin, cmd.args, { cwd, env: { ...process.env, ...cmd.env }, stdio: ["ignore", "pipe", "pipe"] });
+  // PATH is enriched so the host CLI (claude/gemini/opencode) resolves even when
+  // the GUI inherited a minimal PATH without fnm/nvm/npm-global shims. Otherwise
+  // the run fails with `spawn <cli> ENOENT`.
+  nodeSpawn(cmd.bin, cmd.args, { cwd, env: { ...process.env, PATH: commandPath(), ...cmd.env }, stdio: ["ignore", "pipe", "pipe"] });
 
 export interface RunResult {
   exitCode: number | null;
