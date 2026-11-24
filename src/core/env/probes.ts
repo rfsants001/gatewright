@@ -62,6 +62,11 @@ export const defaultCommandProbe: CommandProbe = (bin, args = []) => {
   }
 };
 
+/** PATH the GUI must use to spawn host CLIs — same enrichment that makes detection work. */
+export function commandPath(): string {
+  return enrichedPath();
+}
+
 export interface ProbeContext {
   home: string;
   cwd: string;

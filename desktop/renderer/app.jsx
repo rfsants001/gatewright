@@ -227,6 +227,8 @@ function Settings({ data, saveProvider, propose, testIntegration, connect }) {
   const [generating, setGenerating] = useState(false);
   const [diagnostics, setDiagnostics] = useState({});
   const configLabel = { configured: "Aplicada", pending: "Pendente", review: "Requer revisão" };
+  // Installed subscription CLIs that can generate proposals, offered as "host:<id>".
+  const cliHosts = data.hosts.filter((host) => host.installed && ["claude-code", "codex"].includes(host.id));
 
   async function test(name) {
     setDiagnostics((current) => ({ ...current, [name]: { pending: true } }));
@@ -279,6 +281,7 @@ function Settings({ data, saveProvider, propose, testIntegration, connect }) {
         }}>
           <div className="form-grid"><label>Provedor<select name="provider" value={providerId || data.providers[0]?.id || ""} onChange={(event) => setProvider(event.target.value)}>
             {data.providers.map(({ id }) => <option key={id} value={id}>{id === "ollama" ? "Ollama" : id}</option>)}
+            {cliHosts.map((host) => <option key={host.id} value={`host:${host.id}`}>{host.name} (assinatura)</option>)}
           </select></label><label>Modelo<input name="model" placeholder="Informe o ID ao usar Ollama" /></label></div>
           <label>Mudança<textarea name="prompt" rows="3" maxLength={4000} required placeholder="Ex.: conecte o MCP em https://exemplo.com/mcp." /></label>
           <p>Você pode indicar um pacote MCP do npm, uma imagem Docker, um repositório Git, Graphify ou Jev.</p>
