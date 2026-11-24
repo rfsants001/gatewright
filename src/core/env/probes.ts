@@ -3,16 +3,60 @@
 
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { delimiter, join } from "node:path";
+import { homedir } from "node:os";
 import type { Check } from "./types.js";
 import { isGateHookCommand } from "../init/gate-bin.js";
 
 export type CommandProbe = (bin: string, args?: string[]) => string | null;
 
+// GUI apps (Electron launched from a desktop menu/dock) inherit a minimal PATH
+// that omits version-manager shims (fnm, nvm, volta, asdf), npm/bun global bins
+// and ~/.local/bin — so `claude`, `codex`, `gemini`, etc. look "not installed"
+// even when they are. We resolve the user's real login-shell PATH once and merge
+// it in, so detection in the GUI matches what the terminal (TUI) already sees.
+const PATH_MARK = "__GW_PATH_7f3a__";
+let enrichedPathCache: string | undefined;
+
+/** The PATH a fresh login+interactive shell exports (runs rc files that set up fnm/nvm/…). */
+function loginShellPath(): string {
+  const shell = process.env["SHELL"];
+  if (!shell || process.platform === "win32") return "";
+  try {
+    const raw = execFileSync(shell, ["-lic", `printf '${PATH_MARK}%s${PATH_MARK}' "$PATH"`], {
+      encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: 4000,
+    });
+    // Markers isolate the PATH from any banner/rc noise the shell prints on stdout.
+    return new RegExp(`${PATH_MARK}([\\s\\S]*?)${PATH_MARK}`).exec(raw)?.[1] ?? "";
+  } catch {
+    return "";
+  }
+}
+
+/** process PATH ∪ login-shell PATH ∪ common install dirs, de-duplicated, order-preserving. Memoized. */
+function enrichedPath(): string {
+  if (enrichedPathCache !== undefined) return enrichedPathCache;
+  const home = homedir();
+  const fallbacks = [
+    join(home, ".local", "bin"), "/usr/local/bin", join(home, ".bun", "bin"),
+    join(home, ".npm-global", "bin"), join(home, ".volta", "bin"),
+    join(home, ".cargo", "bin"), "/opt/homebrew/bin",
+  ];
+  const seen = new Set<string>();
+  enrichedPathCache = [process.env["PATH"] ?? "", loginShellPath(), ...fallbacks]
+    .join(delimiter).split(delimiter)
+    .filter((p) => p && !seen.has(p) && (seen.add(p), true))
+    .join(delimiter);
+  return enrichedPathCache;
+}
+
 /** Default command probe: returns trimmed stdout, or null when the binary is absent. */
 export const defaultCommandProbe: CommandProbe = (bin, args = []) => {
   try {
-    return execFileSync(bin, args, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: 4000 }).trim();
+    return execFileSync(bin, args, {
+      encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: 4000,
+      env: { ...process.env, PATH: enrichedPath() },
+    }).trim();
   } catch {
     return null;
   }
