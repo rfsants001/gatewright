@@ -26,7 +26,18 @@ describe("completeViaCli — claude-code", () => {
     const out = await completeViaCli("claude-code", "connect X", signal, "SYS", run);
     expect(out.text).toBe('{"kind":"provider"}');
     expect(out.usage).toMatchObject({ tokensIn: 120, tokensOut: 8, cacheRead: 40, model: "claude-code", cumulative: true });
-    expect(seen).toEqual(["claude", "-p", "connect X", "--output-format", "json", "--append-system-prompt", "SYS"]);
+    expect(seen).toEqual(["claude", "-p", "connect X", "--output-format", "json",
+      "--strict-mcp-config", "--disallowedTools", "Bash,WebFetch,WebSearch,Read,Edit,Write,Glob,Grep,Task,NotebookEdit,TodoWrite",
+      "--append-system-prompt", "SYS"]);
+  });
+
+  it("runs text-only: no MCP and the world-touching built-in tools are disallowed", async () => {
+    let seen: string[] = [];
+    const run: CliRunner = async (_bin, args) => { seen = args; return JSON.stringify({ subtype: "success", result: "ok" }); };
+    await completeViaCli("claude-code", "hi", signal, undefined, run);
+    expect(seen).toContain("--strict-mcp-config");
+    const denied = seen[seen.indexOf("--disallowedTools") + 1]!;
+    for (const tool of ["Bash", "WebFetch", "WebSearch", "Read", "Edit", "Write"]) expect(denied).toContain(tool);
   });
 
   it("omits --append-system-prompt when no system prompt is given", async () => {

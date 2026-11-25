@@ -3,7 +3,8 @@
 // not only an HTTP provider (Ollama / OpenAI-compatible proxy).
 //
 // These CLIs are agent runners, but here we invoke them headless, text-only and
-// WITHOUT edit permission (Claude: no MCP/tools passed; Codex: --sandbox
+// WITHOUT edit permission (Claude: --strict-mcp-config so no project/user MCP
+// loads + every built-in world-touching tool disallowed; Codex: --sandbox
 // read-only), so a proposal request can never touch the project. The resulting
 // Change is still gated by the usual human-approved propose/apply flow.
 
@@ -22,6 +23,11 @@ export type CliCompletionId = (typeof CLI_COMPLETION_IDS)[number];
 export function isCliCompletionId(id: string): id is CliCompletionId {
   return (CLI_COMPLETION_IDS as readonly string[]).includes(id);
 }
+
+// Built-in Claude Code tools that could read, write, fetch, search, run or spawn.
+// Denied so the completion stays pure text and never hits a permission prompt —
+// if a detail is missing (e.g. a pinned version) the model asks for it in text.
+const CLAUDE_DISALLOWED_TOOLS = "Bash,WebFetch,WebSearch,Read,Edit,Write,Glob,Grep,Task,NotebookEdit,TodoWrite";
 
 export interface CliResult {
   text: string;
@@ -60,7 +66,9 @@ function claudeUsage(raw: unknown): EngineEvent["usage"] | undefined {
 }
 
 async function claudeComplete(prompt: string, systemPrompt: string | undefined, signal: AbortSignal, run: CliRunner): Promise<CliResult> {
-  const args = ["-p", prompt, "--output-format", "json", ...(systemPrompt ? ["--append-system-prompt", systemPrompt] : [])];
+  const args = ["-p", prompt, "--output-format", "json",
+    "--strict-mcp-config", "--disallowedTools", CLAUDE_DISALLOWED_TOOLS,
+    ...(systemPrompt ? ["--append-system-prompt", systemPrompt] : [])];
   const stdout = await run("claude", args, signal);
   let parsed: { result?: unknown; is_error?: boolean; subtype?: string; usage?: unknown };
   try { parsed = JSON.parse(stdout) as typeof parsed; }
