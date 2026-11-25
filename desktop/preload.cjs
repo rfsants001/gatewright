@@ -2,7 +2,7 @@ const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("gatewright", {
   request: (method, params) => ipcRenderer.invoke("gate:request", method, params),
-  chooseFolder: () => ipcRenderer.invoke("gate:folder"),
+  chooseFolder: (options) => ipcRenderer.invoke("gate:folder", options),
   initialProject: () => ipcRenderer.invoke("gate:initial-project"),
   onEvent(callback) {
     const listener = (_event, data) => callback(data);

@@ -120,9 +120,10 @@ ipcMain.handle("gate:request", async (event, method, params) => {
   if (method === "projectMap.openFile" && params?.reveal === true && reply?.result?.file) shell.showItemInFolder(reply.result.file);
   return reply;
 });
-ipcMain.handle("gate:folder", async (event) => {
+ipcMain.handle("gate:folder", async (event, options) => {
   if (!trustedSender(event)) return null;
-  const result = await dialog.showOpenDialog(window, { title: "Abrir pasta de projeto", properties: ["openDirectory"] });
+  const title = typeof options?.title === "string" ? options.title : "Abrir pasta de projeto";
+  const result = await dialog.showOpenDialog(window, { title, properties: ["openDirectory"] });
   return result.canceled ? null : result.filePaths[0] ?? null;
 });
 ipcMain.handle("gate:initial-project", (event) => trustedSender(event) && initialProject ? resolve(initialProject) : null);
