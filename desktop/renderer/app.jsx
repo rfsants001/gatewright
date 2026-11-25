@@ -453,6 +453,24 @@ function IntegrationsPage({ cwd, cwdRef: cwdRefProp, data, operations, opsRef, s
   const [generating, setGenerating] = useState(false);
   const [proposeError, setProposeError] = useState("");
   const [providerId, setProviderId] = useState("");
+  const [buildError, setBuildError] = useState("");
+
+  // Structured path: build a deterministic recipe straight from form fields (no LLM),
+  // then hand it to the same review/apply flow as proposeForPage.
+  async function buildForPage(recipe) {
+    setBuildError("");
+    setProposal(null);
+    setGenerating(true);
+    const result = await bridgeRequest("customize.build", { cwd, recipe });
+    setGenerating(false);
+    if (!result.ok || cwdRefProp.current !== cwd) {
+      if (result.error) setBuildError(result.error);
+      return;
+    }
+    const { revision, change, plan } = result.data;
+    if (!revision) { setBuildError("Não foi possível montar a proposta."); return; }
+    setProposal({ revision, change, plan, applyError: "", applying: false });
+  }
 
   async function proposeForPage(input) {
     setProposeError("");
@@ -689,6 +707,14 @@ function IntegrationsPage({ cwd, cwdRef: cwdRefProp, data, operations, opsRef, s
         proposeError={proposeError}
         onSubmit={proposeForPage}
       />
+
+      {/* Structured controls — build deterministic recipes without an LLM */}
+      <AddIntegrationCard
+        onBuild={buildForPage}
+        busy={generating}
+        error={buildError}
+        graphifyVersion={(data.integrations?.packages || []).find((p) => p.id === "graphify")?.version || ""}
+      />
     </div>
 
     {/* Host connection diagnostic table */}
@@ -812,6 +838,51 @@ function ProposeForm({ providers, hosts, providerId, setProviderId, generating, 
         </button>
       </div>
     </form>
+  </section>;
+}
+
+// Structured controls for the deterministic recipes (link-project, JEV, Graphify).
+// Each builds a recipe from typed fields and sends it through the same review/apply
+// flow — no LLM, no guessing a pinned version.
+function AddIntegrationCard({ onBuild, busy, error, graphifyVersion }) {
+  return <section className="surface">
+    <header className="panel-heading"><div><h2>Adicionar integração</h2><p>Monte uma integração por formulário, sem passar por IA. Revise antes de aplicar.</p></div></header>
+    <div className="form-panel">
+      <div className="structured-row">
+        <div><strong>Vincular projeto</strong><p>Compartilhe skills e contexto de outra pasta local.</p></div>
+        <div className="actions"><button type="button" disabled={busy} onClick={async () => {
+          const path = await gate.chooseFolder({ title: "Vincular pasta de projeto" });
+          if (path) onBuild({ kind: "link-project", path });
+        }}>Escolher pasta…</button></div>
+      </div>
+
+      <form className="structured-row" onSubmit={(event) => {
+        event.preventDefault();
+        const form = new FormData(event.currentTarget);
+        onBuild({ kind: "jev", endpoint: form.get("endpoint").trim(), model: form.get("model").trim() });
+      }}>
+        <strong>Configurar JEV</strong>
+        <div className="form-grid">
+          <label>Endpoint<input name="endpoint" type="url" placeholder="http://127.0.0.1:11434/" required /></label>
+          <label>Modelo<input name="model" placeholder="qwen2.5" required /></label>
+        </div>
+        <div className="actions"><button disabled={busy}>Propor JEV</button></div>
+      </form>
+
+      <form className="structured-row" onSubmit={(event) => {
+        event.preventDefault();
+        const form = new FormData(event.currentTarget);
+        onBuild({ kind: "graphify", version: form.get("version").trim() });
+      }}>
+        <strong>Graphify</strong>
+        <div className="form-grid">
+          <label>Versão<input name="version" placeholder="1.2.3" defaultValue={graphifyVersion} pattern="\d+\.\d+\.\d+" required /></label>
+        </div>
+        <div className="actions"><button disabled={busy}>Propor Graphify</button></div>
+      </form>
+
+      {error && <p className="form-error" role="alert">{error}</p>}
+    </div>
   </section>;
 }
 
