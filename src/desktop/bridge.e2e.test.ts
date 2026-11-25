@@ -10,7 +10,7 @@
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { type ChildProcess, spawn } from "node:child_process";
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { execFileSync } from "node:child_process";
@@ -279,6 +279,63 @@ describe("bridge — snapshot shape", () => {
     if (opencode) {
       expect(opencode.hooks).toBe(true);
     }
+  });
+});
+
+describe("bridge — customize.build: structured recipes without an LLM", () => {
+  it("builds and applies link-project (config gains the linked path)", async () => {
+    expect((await bridge.rpc("open", { cwd: tmpDir })).error).toBeUndefined();
+
+    const linkTarget = realpathSync(mkdtempSync(join(tmpdir(), "bridge-e2e-link-")));
+    try {
+      const build = await bridge.rpc("customize.build", { cwd: tmpDir, recipe: { kind: "link-project", path: linkTarget } });
+      expect(build.error).toBeUndefined();
+      const { revision, change } = build.result as { revision: string; change: { kind: string; path: string } };
+      expect(change).toMatchObject({ kind: "link-project", path: linkTarget });
+      expect(typeof revision).toBe("string");
+
+      expect((await bridge.rpc("customize.apply", { cwd: tmpDir, revision })).error).toBeUndefined();
+
+      const snap = (await bridge.rpc("snapshot", { cwd: tmpDir })).result as { linkedProjects: string[] };
+      expect(snap.linkedProjects).toContain(linkTarget);
+    } finally {
+      rmSync(linkTarget, { recursive: true, force: true });
+    }
+  });
+
+  it("builds and applies jev (project integration turns on)", async () => {
+    expect((await bridge.rpc("open", { cwd: tmpDir })).error).toBeUndefined();
+
+    const build = await bridge.rpc("customize.build", { cwd: tmpDir, recipe: { kind: "jev", endpoint: "http://127.0.0.1:11434/", model: "qwen" } });
+    expect(build.error).toBeUndefined();
+    const { revision, change } = build.result as { revision: string; change: { kind: string; model: string } };
+    expect(change).toMatchObject({ kind: "jev", model: "qwen" });
+
+    expect((await bridge.rpc("customize.apply", { cwd: tmpDir, revision })).error).toBeUndefined();
+
+    const snap = (await bridge.rpc("snapshot", { cwd: tmpDir })).result as { integrations: { jev: boolean } };
+    expect(snap.integrations.jev).toBe(true);
+  });
+
+  it("builds graphify with a pinned version and a stable revision (install not exercised here)", async () => {
+    expect((await bridge.rpc("open", { cwd: tmpDir })).error).toBeUndefined();
+
+    const recipe = { kind: "graphify", version: "1.2.3" };
+    const first = await bridge.rpc("customize.build", { cwd: tmpDir, recipe });
+    expect(first.error).toBeUndefined();
+    const r1 = first.result as { revision: string; change: unknown; plan: unknown };
+    expect(r1.change).toEqual({ kind: "graphify", version: "1.2.3" });
+    expect(r1.plan).toBeDefined();
+
+    // Same cwd + recipe ⇒ same revision (the proposals map / apply round-trip relies on this).
+    const second = await bridge.rpc("customize.build", { cwd: tmpDir, recipe });
+    expect((second.result as { revision: string }).revision).toBe(r1.revision);
+  });
+
+  it("rejects a kind outside the structured subset", async () => {
+    expect((await bridge.rpc("open", { cwd: tmpDir })).error).toBeUndefined();
+    const reply = await bridge.rpc("customize.build", { cwd: tmpDir, recipe: { kind: "mcp-http", name: "x", url: "https://example.com/mcp" } });
+    expect(reply.error).toBeDefined();
   });
 });
 
