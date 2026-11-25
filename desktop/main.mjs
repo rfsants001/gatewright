@@ -13,7 +13,7 @@ const methods = new Set([
   "projects", "projects.remove", "open", "snapshot", "terminal.preview", "terminal.apply", "terminal.test", "provider.save",
   "skill.save", "agent.preview", "agent.save", "agent.update", "agent.delete",
   "skills.list", "skills.detail", "integration.test", "integration.operation.get", "integration.operation.inspect", "integration.operation.recover",
-  "customize.propose", "customize.apply", "run", "cancel", "review", "review.decide",
+  "customize.propose", "customize.build", "customize.apply", "run", "cancel", "review", "review.decide",
   "flow.start", "flow.answer", "flow.stop", "flow.resume",
   "usage.get", "projectMap.get", "projectMap.refresh", "projectMap.openFile", "pending.list", "pending.open", "memory.list", "memory.upsert", "memory.delete", "memory.resolve", "run.detail", "run.list",
 ]);
