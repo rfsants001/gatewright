@@ -22,20 +22,27 @@ export const skillChangeSchema = z.object({
   instructions: z.string().trim().min(1).max(16_000),
 }).strict();
 
+// Deterministic recipes whose fields can be collected by a form instead of an LLM.
+// Shared between changeSchema (LLM path) and recipeSchema (structured path) so the
+// two never drift — notably the jev endpoint refinement.
+const linkProjectRecipe = z.object({ kind: z.literal("link-project"), path: z.string().min(1).max(1024) }).strict();
+const graphifyRecipe = z.object({ kind: z.literal("graphify"), version: z.string().regex(/^\d+\.\d+\.\d+$/) }).strict();
+const jevRecipe = z.object({ kind: z.literal("jev"), endpoint: z.url().refine((value) => {
+  const url = new URL(value);
+  return url.protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname)
+    && !url.username && !url.password && !url.search && !url.hash && url.pathname === "/";
+}), model: z.string().trim().min(1).max(150) }).strict();
+
 export const changeSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("provider"), provider: providerSchema }).strict(),
-  z.object({ kind: z.literal("link-project"), path: z.string().min(1).max(1024) }).strict(),
+  linkProjectRecipe,
   skillChangeSchema,
   z.object({ kind: z.literal("mcp-http"), name: integrationName, url: mcpEndpoint }).strict(),
   npmMcpRecipe,
   containerRecipe,
   z.object({ kind: z.literal("git-project"), name: integrationName, url: httpsEndpoint, commit: z.string().regex(/^[a-f0-9]{40}$/), mcpUrl: httpsEndpoint.optional() }).strict(),
-  z.object({ kind: z.literal("graphify"), version: z.string().regex(/^\d+\.\d+\.\d+$/) }).strict(),
-  z.object({ kind: z.literal("jev"), endpoint: z.url().refine((value) => {
-    const url = new URL(value);
-    return url.protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname)
-      && !url.username && !url.password && !url.search && !url.hash && url.pathname === "/";
-  }), model: z.string().trim().min(1).max(150) }).strict(),
+  graphifyRecipe,
+  jevRecipe,
   z.object({ kind: z.literal("opencode-plugin"), package: z.string().regex(/^(?:@[a-z0-9._-]+\/)?[a-z0-9][a-z0-9._-]*@\d+\.\d+\.\d+(?:-[a-z0-9.-]+)?$/) }).strict(),
   z.object({ kind: z.literal("mcp-plugin"), name: id, url: z.url().refine((value) => {
     const url = new URL(value);
@@ -49,6 +56,11 @@ export const changeSchema = z.discriminatedUnion("kind", [
   }), model: z.string().trim().min(1).max(150).optional() }).strict(),
 ]);
 export type Change = z.infer<typeof changeSchema>;
+
+// Structured-input path: the deterministic recipes a GUI form can build directly,
+// bypassing the LLM. A subset of changeSchema, so a built recipe is already a valid Change.
+export const recipeSchema = z.discriminatedUnion("kind", [linkProjectRecipe, graphifyRecipe, jevRecipe]);
+export type IntegrationRecipe = z.infer<typeof recipeSchema>;
 
 export function customizationPrompt(): string {
   const skill = parseSkill(readFileSync(join(bundledGateSkillsRoot(), "_system", "configure-integration", "SKILL.md"), "utf8"));
