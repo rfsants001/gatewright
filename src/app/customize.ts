@@ -70,8 +70,31 @@ Return a single JSON object and no Markdown. You only propose one Gatewright cha
 Use exactly the supplied URL or path. Use only environment variable names for credentials. Do not claim changes have been applied. If the request lacks required information, ask for it in plain text.`;
 }
 
+/**
+ * Extract the first balanced JSON object from a model's reply. CLI agents
+ * (Claude Code, Codex) tend to wrap the object in ```json fences and add prose
+ * before/after it, so stripping edge fences isn't enough — we scan for a
+ * brace-balanced object (string-literal aware).
+ */
+function extractJsonObject(text: string): string {
+  const start = text.indexOf("{");
+  if (start === -1) return text.trim();
+  let depth = 0, inStr = false, esc = false;
+  for (let i = start; i < text.length; i += 1) {
+    const c = text[i];
+    if (inStr) {
+      if (esc) esc = false;
+      else if (c === "\\") esc = true;
+      else if (c === '"') inStr = false;
+    } else if (c === '"') inStr = true;
+    else if (c === "{") depth += 1;
+    else if (c === "}" && --depth === 0) return text.slice(start, i + 1);
+  }
+  return text.slice(start);
+}
+
 export function parseChange(output: string): Change {
-  return changeSchema.parse(JSON.parse(output.trim().replace(/^```(?:json)?\s*|\s*```$/g, "")));
+  return changeSchema.parse(JSON.parse(extractJsonObject(output)));
 }
 
 function affectedFile(cwd: string, change: Change): string {

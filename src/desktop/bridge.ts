@@ -31,9 +31,10 @@ import { ConfigStore } from "../core/config/config-store.js";
 import { FileArtifactStore } from "../core/artifact-store/artifact-store.js";
 import { applyTerminal, planRevision, planTerminal, terminalConfigStatus, terminalHosts } from "../app/terminal.js";
 import { testGatewrightMcp, testManagedMcp } from "../app/integration-diagnostics.js";
-import { providerAdapter, providers, providerSchema, saveProvider } from "../app/providers.js";
+import { providerAdapter, providers, providerSchema, saveProvider, type Provider } from "../app/providers.js";
+import { completeViaCli, isCliCompletionId } from "../app/cli-completion.js";
 import { applyChange, changeRevision, describeChange, skillChangeSchema, type Change } from "../app/customize.js";
-import { applyIntegration, proposeIntegration } from "../core/integrations/configure.js";
+import { applyIntegration, proposeIntegration, type CompleteFn } from "../core/integrations/configure.js";
 import { listOperations, operationSnapshot } from "../core/integrations/operations.js";
 import { listPending } from "../core/pending/projection.js";
 import { integrationRevision, readHealth, recordHealthAttempt } from "../core/integrations/health.js";
@@ -441,10 +442,22 @@ export async function serveDesktop(): Promise<void> {
           providerId: z.string(), model: z.string().optional(), prompt: z.string().trim().min(1).max(4000),
           reference: z.string().trim().max(12_000).optional(),
         }).parse(params);
-        const provider = providers(cwd).find((entry) => entry.id === providerId);
-        if (!provider) throw new Error("Selecione um provedor configurado.");
+        // Two sources: a configured HTTP provider, or an installed subscription
+        // CLI (claude-code/codex) addressed as "host:<id>".
+        const hostId = providerId.startsWith("host:") ? providerId.slice("host:".length) : null;
+        let provider: Provider;
+        let complete: CompleteFn | undefined;
+        if (hostId) {
+          if (!isCliCompletionId(hostId)) throw new Error("Esta IA não pode gerar propostas.");
+          provider = { id: "cli", endpoint: "https://cli.local/v1", model: hostId };
+          complete = (_p, input, signal, systemPrompt) => completeViaCli(hostId, input, signal, systemPrompt);
+        } else {
+          const found = providers(cwd).find((entry) => entry.id === providerId);
+          if (!found) throw new Error("Selecione um provedor configurado.");
+          provider = found;
+        }
         const proposed = await proposeIntegration({ cwd, provider, spec: { kind: "mcp", endpoint: "local", intent: prompt }, prompt,
-          ...(model ? { model } : {}), ...(reference ? { reference } : {}) });
+          ...(hostId ? {} : model ? { model } : {}), ...(complete ? { complete } : {}), ...(reference ? { reference } : {}) });
         if ("message" in proposed) return proposed;
         const { change, revision } = proposed;
         if (proposals.size >= 20) proposals.clear();

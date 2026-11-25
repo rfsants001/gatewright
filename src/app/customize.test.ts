@@ -44,6 +44,11 @@ describe("configuração assistida do projeto", () => {
     expect(() => parseChange(JSON.stringify({ kind: "git-project", name: "docs", url: "https://example.com/repo.git", commit, command: "anything" }))).toThrow();
   });
 
+  it("extrai o JSON mesmo com fences markdown e prosa ao redor (saída de CLI agêntica)", () => {
+    const reply = 'Claro! Segue a proposta:\n```json\n{"kind":"mcp-http","name":"exemplo","url":"https://example.com/mcp"}\n```\nÉ um MCP HTTP. Quer que eu ajuste o slug?';
+    expect(parseChange(reply)).toEqual({ kind: "mcp-http", name: "exemplo", url: "https://example.com/mcp" });
+  });
+
   it("registra um MCP ao lado do Gatewright nos quatro planos sem substituir configurações existentes", async () => {
     const url = "https://example.com/mcp";
     writeFileSync(join(cwd, ".mcp.json"), JSON.stringify({ mcpServers: { existing: { command: "existing" } } }));
