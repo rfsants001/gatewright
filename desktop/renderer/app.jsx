@@ -682,6 +682,7 @@ function IntegrationsPage({ cwd, cwdRef: cwdRefProp, data, operations, opsRef, s
       {/* Propose form — uses proposeForPage instead of App's propose */}
       <ProposeForm
         providers={data.providers}
+        hosts={data.hosts}
         providerId={providerId}
         setProviderId={setProviderId}
         generating={generating}
@@ -781,7 +782,9 @@ function ProviderForm({ saveProvider }) {
   </section>;
 }
 
-function ProposeForm({ providers, providerId, setProviderId, generating, proposeError, onSubmit }) {
+function ProposeForm({ providers, hosts, providerId, setProviderId, generating, proposeError, onSubmit }) {
+  // Installed subscription CLIs that can generate proposals, offered as "host:<id>".
+  const cliHosts = (hosts || []).filter((host) => host.installed && ["claude-code", "codex"].includes(host.id));
   return <section className="surface">
     <header className="panel-heading"><div><h2>Instalar ou conectar com IA</h2><p>Descreva o que você quer integrar. Revise a origem e o que será aplicado.</p></div></header>
     <form className="form-panel" onSubmit={async (event) => {
@@ -790,8 +793,9 @@ function ProposeForm({ providers, providerId, setProviderId, generating, propose
       await onSubmit({ providerId: form.get("provider"), model: form.get("model").trim(), prompt: form.get("prompt").trim(), reference: form.get("reference").trim() });
     }}>
       <div className="form-grid">
-        <label>Provedor<select name="provider" value={providerId || providers[0]?.id || ""} onChange={(e) => setProviderId(e.target.value)}>
+        <label>IA<select name="provider" value={providerId || providers[0]?.id || ""} onChange={(e) => setProviderId(e.target.value)}>
           {providers.map(({ id }) => <option key={id} value={id}>{id === "ollama" ? "Ollama" : id}</option>)}
+          {cliHosts.map((host) => <option key={host.id} value={`host:${host.id}`}>{host.name} (assinatura)</option>)}
         </select></label>
         <label>Modelo<input name="model" placeholder="Informe o ID ao usar Ollama" /></label>
       </div>
