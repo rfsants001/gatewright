@@ -12,7 +12,7 @@ import { resolveAdvisor } from "../core/jev/advisor.js";
 import type { ProvisionStep } from "../core/provision/types.js";
 import { composeAgent, projectAgents, projectSkills, saveAgent } from "../core/skills/agents.js";
 import { createMcpServer } from "../mcp/server.js";
-import { applyChange, changeRevision, checkProposalSources, customizationPrompt, parseChange, type Change } from "./customize.js";
+import { applyChange, changeRevision, checkProposalSources, customizationPrompt, parseChange, recipeSchema, type Change } from "./customize.js";
 import { applyTerminal, planRevision, planTerminal, terminalConfigStatus } from "./terminal.js";
 import { testManagedMcp } from "./integration-diagnostics.js";
 
@@ -247,5 +247,24 @@ describe("configuração assistida do projeto", () => {
       await client.close();
       await server.close();
     }
+  });
+});
+
+describe("recipeSchema — entrada estruturada", () => {
+  it("aceita os três kinds determinísticos", () => {
+    expect(recipeSchema.parse({ kind: "link-project", path: "/abs/path" })).toMatchObject({ kind: "link-project", path: "/abs/path" });
+    expect(recipeSchema.parse({ kind: "graphify", version: "1.2.3" })).toMatchObject({ kind: "graphify", version: "1.2.3" });
+    expect(recipeSchema.parse({ kind: "jev", endpoint: "http://127.0.0.1:11434/", model: "qwen" })).toMatchObject({ kind: "jev", model: "qwen" });
+  });
+
+  it("rejeita kind fora do subconjunto estruturado", () => {
+    expect(recipeSchema.safeParse({ kind: "provider", provider: { id: "x", endpoint: "https://e.com/v1", model: "m" } }).success).toBe(false);
+    expect(recipeSchema.safeParse({ kind: "mcp-http", name: "x", url: "https://e.com/mcp" }).success).toBe(false);
+  });
+
+  it("rejeita campos inválidos por kind", () => {
+    expect(recipeSchema.safeParse({ kind: "graphify", version: "1.2" }).success).toBe(false);
+    expect(recipeSchema.safeParse({ kind: "jev", endpoint: "https://remote.example.com/", model: "m" }).success).toBe(false);
+    expect(recipeSchema.safeParse({ kind: "link-project", path: "" }).success).toBe(false);
   });
 });

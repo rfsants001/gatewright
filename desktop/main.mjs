@@ -13,7 +13,7 @@ const methods = new Set([
   "projects", "projects.remove", "open", "snapshot", "terminal.preview", "terminal.apply", "terminal.test", "provider.save",
   "skill.save", "agent.preview", "agent.save", "agent.update", "agent.delete",
   "skills.list", "skills.detail", "integration.test", "integration.operation.get", "integration.operation.inspect", "integration.operation.recover",
-  "customize.propose", "customize.apply", "run", "cancel", "review", "review.decide",
+  "customize.propose", "customize.build", "customize.apply", "run", "cancel", "review", "review.decide",
   "flow.start", "flow.answer", "flow.stop", "flow.resume",
   "usage.get", "projectMap.get", "projectMap.refresh", "projectMap.openFile", "pending.list", "pending.open", "memory.list", "memory.upsert", "memory.delete", "memory.resolve", "run.detail", "run.list",
 ]);
@@ -120,9 +120,10 @@ ipcMain.handle("gate:request", async (event, method, params) => {
   if (method === "projectMap.openFile" && params?.reveal === true && reply?.result?.file) shell.showItemInFolder(reply.result.file);
   return reply;
 });
-ipcMain.handle("gate:folder", async (event) => {
+ipcMain.handle("gate:folder", async (event, options) => {
   if (!trustedSender(event)) return null;
-  const result = await dialog.showOpenDialog(window, { title: "Abrir pasta de projeto", properties: ["openDirectory"] });
+  const title = typeof options?.title === "string" ? options.title : "Abrir pasta de projeto";
+  const result = await dialog.showOpenDialog(window, { title, properties: ["openDirectory"] });
   return result.canceled ? null : result.filePaths[0] ?? null;
 });
 ipcMain.handle("gate:initial-project", (event) => trustedSender(event) && initialProject ? resolve(initialProject) : null);

@@ -33,7 +33,7 @@ import { applyTerminal, planRevision, planTerminal, terminalConfigStatus, termin
 import { testGatewrightMcp, testManagedMcp } from "../app/integration-diagnostics.js";
 import { providerAdapter, providers, providerSchema, saveProvider, type Provider } from "../app/providers.js";
 import { completeViaCli, isCliCompletionId } from "../app/cli-completion.js";
-import { applyChange, changeRevision, describeChange, skillChangeSchema, type Change } from "../app/customize.js";
+import { applyChange, changeRevision, describeChange, recipeSchema, skillChangeSchema, type Change } from "../app/customize.js";
 import { applyIntegration, proposeIntegration, type CompleteFn } from "../core/integrations/configure.js";
 import { listOperations, operationSnapshot } from "../core/integrations/operations.js";
 import { listPending } from "../core/pending/projection.js";
@@ -460,6 +460,16 @@ export async function serveDesktop(): Promise<void> {
           ...(hostId ? {} : model ? { model } : {}), ...(complete ? { complete } : {}), ...(reference ? { reference } : {}) });
         if ("message" in proposed) return proposed;
         const { change, revision } = proposed;
+        if (proposals.size >= 20) proposals.clear();
+        proposals.set(revision, { cwd, change });
+        return { revision, change, plan: describeChange(cwd, change) };
+      }
+      case "customize.build": {
+        // Structured path: build a deterministic recipe straight from typed fields,
+        // no LLM. Shares the proposals map + review/apply flow with customize.propose.
+        const { recipe } = projectPath.extend({ recipe: recipeSchema }).parse(params);
+        const change: Change = recipe;
+        const revision = changeRevision(cwd, change);
         if (proposals.size >= 20) proposals.clear();
         proposals.set(revision, { cwd, change });
         return { revision, change, plan: describeChange(cwd, change) };
